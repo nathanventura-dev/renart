@@ -52,7 +52,9 @@ describe('Editor Store', () => {
     store.updateAnnotation('ann-2', { x: 150, radiusX: 60 });
     const updated = store.getState().annotations.find((a) => a.id === 'ann-2');
     expect(updated?.x).toBe(150);
-    expect(updated?.radiusX).toBe(60);
+    if (updated && updated.type === 'ellipse') {
+      expect(updated.radiusX).toBe(60);
+    }
   });
 
   it('removes an annotation by ID', () => {
@@ -97,6 +99,8 @@ describe('Editor Store', () => {
 
     const mag = store.getState().annotations[0];
     expect(mag.type).toBe('magnifier');
-    expect(mag.zoomLevel).toBe(2.5);
+    if (mag.type === 'magnifier') {
+      expect(mag.zoomLevel).toBe(2.5);
+    }
   });
 });

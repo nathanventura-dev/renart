@@ -1,3 +1,4 @@
+/// <reference types="vitest" />
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
@@ -9,7 +10,11 @@ export default defineConfig({
     port: 1420,
     strictPort: true,
     watch: {
-      ignored: ['**/src-tauri/**']
-    }
-  }
+      ignored: ['**/src-tauri/**', '**/.agents/**'],
+    },
+  },
+  test: {
+    include: ['tests/**/*.test.ts'],
+    exclude: ['**/node_modules/**', '**/.agents/**', '**/src-tauri/**'],
+  },
 });
