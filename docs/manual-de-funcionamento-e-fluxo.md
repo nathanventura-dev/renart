@@ -71,9 +71,10 @@ Se você desejar apontar, destacar ou enriquecer o print antes de salvar:
 - **Flecha Vetorial (Arrow):** Desenha setas com ponta automática. Ideal para indicar botões, erros ou áreas de interesse em tutoriais.
 - **Bloco de Texto (Type):** Insere caixas de texto com tamanho de fonte e cores customizáveis sobre a imagem (edição direta inline no canvas com duplo clique, sem janelas modais).
 - **Inserir Imagem / Figura (ImageIcon):** Permite anexar logos, selos, carimbos ou figuras externas sobre o print.
-- **Ferramenta de Lupa com Coroa Giratória (Zoom Lens):**
-  - **Ampliação Real:** A lente circular recorta e amplia em tempo real os pixels da imagem que estão exatamente sob sua área.
-  - **Coroa Giratória ("Coroa Giratória"):** Ao redor da lupa há um aro dentado giratório com um seletor inferior (`◀ 2.0x ▶`). Ao clicar, segurar na coroa/seletor e **arrastar para a esquerda**, o zoom diminui; ao **arrastar para a direita**, o zoom aumenta, girando visualmente a coroa.
+- **Ferramenta de Lupa com Coroa Minimalista Inferior (Zoom Lens):**
+  - **Ampliação Real e Movimentação Livre:** A lente circular recorta e amplia em tempo real os pixels da imagem que estão exatamente sob sua área, podendo ser arrastada livremente tanto logo após a criação quanto depois de realizar zoom in ou zoom out.
+  - **Coroa Giratória Minimalista na Parte Inferior:** Na borda inferior da lupa há uma discreta coroa minimalista com ranhuras sutis. Ao clicar, segurar nessa coroa inferior e **arrastar para a esquerda**, o zoom diminui; ao **arrastar para a direita**, o zoom aumenta.
+  - **Barra de Zoom Sob Demanda (Parte Inferior):** Enquanto você está clicando e movimentando a coroa para ajustar o zoom, uma barra minimalista de progresso e indicador numérico aparece na **parte de baixo** da lupa e desaparece automaticamente assim que você solta o mouse.
   - **Níveis de Zoom:** Varia do mínimo `1.0x` (tamanho normal idêntico à imagem original) até o máximo `3.0x` (3 vezes o tamanho), alternando de `0.5` em `0.5` (`1.0x`, `1.5x`, `2.0x`, `2.5x`, `3.0x`).
 
 ### 4.2. Reconhecimento Inteligente de Hover e Drag-and-Drop
@@ -81,10 +82,11 @@ Se você desejar apontar, destacar ou enriquecer o print antes de salvar:
   - **Mouse dentro da área de um bloco existente:** O editor reconhece automaticamente o bloco sob o cursor, muda o ponteiro para movimentação (`move` / Drag-and-Drop) e permite clicar e arrastar o bloco existente imediatamente.
   - **Mouse fora da área dos blocos adicionados:** O ponteiro permanece no modo de criação (`crosshair`) e clicar na área livre adiciona mais um bloco normalmente.
 
-### 4.3. Controles de Estilo e Histórico
+### 4.3. Controles de Estilo, Exclusão e Histórico
 - **Paleta de Cores:** Vermelho, Laranja, Verde, Azul, Roxo, Preto e Branco.
 - **Espessura do Traço:** 2px, 3px, 5px e 8px.
-- **Desfazer (Undo) e Refazer (Redo):** Atalhos `Ctrl+Z` (Desfazer) e `Ctrl+Shift+Z` / `Ctrl+Y` (Refazer) ou botões visuais na barra para reverter qualquer ação.
+- **Excluir Bloco Selecionado (`Delete`):** Ao selecionar qualquer bloco (retângulo, elipse, seta, texto, imagem ou lupa) e pressionar a tecla **`Delete`** (ou `Backspace` fora da edição de texto), o bloco selecionado é apagado imediatamente.
+- **Desfazer (Undo) e Refazer (Redo):** Atalhos `Ctrl+Z` (Desfazer, inclusive exclusões feitas com `Delete`) e `Ctrl+Shift+Z` / `Ctrl+Y` (Refazer) ou botões visuais na barra para reverter qualquer ação.
 - **Desselecionar (`ESC`) e Salvar (`Ctrl+S`):** Pressionar `ESC` desmarca qualquer bloco selecionado mantendo os blocos móveis até que o usuário salve a imagem com `Ctrl+S` ou pelo menu Salvar/Exportar.
 
 ---

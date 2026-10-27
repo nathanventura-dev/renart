@@ -166,6 +166,26 @@ export function createEditorStore(initialState?: Partial<EditorState>) {
       notify();
     },
 
+    removeSelectedAnnotation: (): boolean => {
+      if (!state.selectedId || state.isLocked) {
+        return false;
+      }
+      const targetId = state.selectedId;
+      const exists = state.annotations.some((a) => a.id === targetId);
+      if (!exists) {
+        return false;
+      }
+      undoStack.push([...state.annotations]);
+      redoStack.length = 0;
+      state = {
+        ...state,
+        annotations: state.annotations.filter((a) => a.id !== targetId),
+        selectedId: null,
+      };
+      notify();
+      return true;
+    },
+
     canUndo: () => undoStack.length > 0,
     canRedo: () => redoStack.length > 0,
 

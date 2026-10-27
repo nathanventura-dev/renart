@@ -63,4 +63,54 @@ describe('App Enhanced Features & User Fixes', () => {
       expect(textAnn.text).toBe('Texto Editado Diretamente');
     }
   });
+
+  it('deletes the currently selected block when removeSelectedAnnotation is invoked (Delete key) and supports undo', () => {
+    const editor = createEditorStore();
+    editor.addAnnotation({
+      id: 'rect-del-1',
+      type: 'rect',
+      x: 20,
+      y: 20,
+      width: 100,
+      height: 80,
+      stroke: '#ff3b30',
+    });
+    editor.addAnnotation({
+      id: 'mag-del-2',
+      type: 'magnifier',
+      x: 200,
+      y: 200,
+      radius: 65,
+      zoomLevel: 2.0,
+    });
+
+    // O último bloco adicionado ('mag-del-2') está selecionado
+    expect(editor.getState().selectedId).toBe('mag-del-2');
+    expect(editor.getState().annotations).toHaveLength(2);
+
+    // Pressionar Delete apaga o bloco selecionado
+    const removed = editor.removeSelectedAnnotation();
+    expect(removed).toBe(true);
+    expect(editor.getState().annotations).toHaveLength(1);
+    expect(editor.getState().annotations[0].id).toBe('rect-del-1');
+    expect(editor.getState().selectedId).toBeNull();
+
+    // Ctrl+Z (undo) restaura o bloco apagado
+    editor.undo();
+    expect(editor.getState().annotations).toHaveLength(2);
+  });
+
+  it('does not delete selected block when canvas is locked after saving', () => {
+    const editor = createEditorStore({
+      annotations: [
+        { id: 'rect-locked', type: 'rect', x: 10, y: 10, width: 50, height: 50, stroke: '#000' },
+      ],
+      selectedId: 'rect-locked',
+      isLocked: true,
+    });
+
+    const removed = editor.removeSelectedAnnotation();
+    expect(removed).toBe(false);
+    expect(editor.getState().annotations).toHaveLength(1);
+  });
 });

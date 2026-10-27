@@ -4,9 +4,11 @@ import Konva from 'konva';
 import { Annotation, ToolType, ImageAnnotation } from '../state/editorStore';
 import {
   calculateMagnifierImageTransform,
-  calculateCrownRotationAngle,
   calculateZoomFromCrownDrag,
   resolveCanvasPointerBehavior,
+  shouldShowZoomBar,
+  calculateZoomBarProgress,
+  shouldAttachTransformer,
 } from '../utils/magnifierAndHover';
 
 interface CanvasEditorProps {
@@ -96,11 +98,15 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
   const [editingText, setEditingText] = useState<InlineEditingText | null>(null);
   const [isHoveringBlock, setIsHoveringBlock] = useState(false);
   const [isHoveringCrown, setIsHoveringCrown] = useState(false);
-  const [draggingPositions, setDraggingPositions] = useState<Record<string, { x: number; y: number }>>({});
   const [crownDrag, setCrownDrag] = useState<CrownDragState | null>(null);
 
   const transformerRef = useRef<Konva.Transformer>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const crownDragRef = useRef<CrownDragState | null>(null);
+  const onUpdateAnnotationRef = useRef(onUpdateAnnotation);
+
+  crownDragRef.current = crownDrag;
+  onUpdateAnnotationRef.current = onUpdateAnnotation;
 
   useEffect(() => {
     if (!imageBase64) return;
@@ -109,21 +115,29 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
     img.onload = () => setBgImage(img);
   }, [imageBase64]);
 
-  // Gerencia o arraste horizontal da coroa giratória da lupa (esquerda diminui, direita aumenta de 0.5 em 0.5)
+  const isDraggingCrown = Boolean(crownDrag);
+
+  // Gerencia o arraste horizontal da coroa minimalista inferior da lupa (esquerda diminui, direita aumenta de 0.5 em 0.5)
   useEffect(() => {
-    if (!crownDrag) return;
+    if (!isDraggingCrown) return;
 
     const handleWindowMouseMove = (e: MouseEvent) => {
-      const deltaX = e.clientX - crownDrag.startX;
-      const nextZoom = calculateZoomFromCrownDrag(crownDrag.initialZoom, deltaX, 25);
-      setCrownDrag((prev) => (prev ? { ...prev, currentZoom: nextZoom } : null));
+      const current = crownDragRef.current;
+      if (!current) return;
+      const deltaX = e.clientX - current.startX;
+      const nextZoom = calculateZoomFromCrownDrag(current.initialZoom, deltaX, 25);
+      if (nextZoom !== current.currentZoom) {
+        setCrownDrag((prev) => (prev ? { ...prev, currentZoom: nextZoom } : null));
+      }
     };
 
     const handleWindowMouseUp = () => {
-      if (crownDrag.currentZoom !== crownDrag.initialZoom) {
-        onUpdateAnnotation(crownDrag.id, { zoomLevel: crownDrag.currentZoom });
+      const current = crownDragRef.current;
+      if (current && current.currentZoom !== current.initialZoom) {
+        onUpdateAnnotationRef.current(current.id, { zoomLevel: current.currentZoom });
       }
       setCrownDrag(null);
+      setIsHoveringCrown(false);
     };
 
     window.addEventListener('mousemove', handleWindowMouseMove);
@@ -132,7 +146,7 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
       window.removeEventListener('mousemove', handleWindowMouseMove);
       window.removeEventListener('mouseup', handleWindowMouseUp);
     };
-  }, [crownDrag, onUpdateAnnotation]);
+  }, [isDraggingCrown]);
 
   // Tecla ESC para desselecionar e fechar edição inline
   useEffect(() => {
@@ -148,10 +162,11 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [onSelectId, editingText]);
 
-  // Atualiza a seleção no Transformer do Konva
+  // Atualiza a seleção no Transformer do Konva (excluindo a lupa circular para manter movimentação livre)
   useEffect(() => {
     if (!transformerRef.current || !stageRef.current) return;
-    if (selectedId && !isLocked) {
+    const selectedAnn = annotations.find((a) => a.id === selectedId);
+    if (selectedId && !isLocked && selectedAnn && shouldAttachTransformer(selectedAnn.type)) {
       const selectedNode = stageRef.current.findOne(`#${selectedId}`);
       if (selectedNode) {
         transformerRef.current.nodes([selectedNode]);
@@ -240,6 +255,7 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
         radius: 65,
         zoomLevel: 2.0,
       });
+      setIsHoveringBlock(true);
       return;
     }
 
@@ -317,9 +333,6 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
 
   const canvasWidth = bgImage ? bgImage.width : 800;
   const canvasHeight = bgImage ? bgImage.height : 600;
-
-  // Índices dos dentes cosméticos da coroa giratória (24 marcações ao redor do anel)
-  const crownTeethAngles = Array.from({ length: 24 }, (_, i) => (i * 360) / 24);
 
   return (
     <div
@@ -476,14 +489,15 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
               }
 
               if (ann.type === 'magnifier') {
-                const livePos = draggingPositions[ann.id];
-                const currentX = livePos ? livePos.x : ann.x;
-                const currentY = livePos ? livePos.y : ann.y;
                 const activeZoom =
                   crownDrag && crownDrag.id === ann.id ? crownDrag.currentZoom : ann.zoomLevel;
 
-                const imgTransform = calculateMagnifierImageTransform(currentX, currentY, activeZoom);
-                const crownAngle = calculateCrownRotationAngle(activeZoom);
+                const imgTransform = calculateMagnifierImageTransform(ann.x, ann.y, activeZoom);
+                const showZoomBar = shouldShowZoomBar(crownDrag ? crownDrag.id : null, ann.id);
+                const zoomProgress = calculateZoomBarProgress(activeZoom);
+                const isSelected = selectedId === ann.id;
+                // Deslocamento sutil das ranhuras da coroa minimalista conforme o giro [-4px .. +4px]
+                const grooveShift = (activeZoom - 2.0) * 4;
 
                 return (
                   <Group
@@ -491,26 +505,33 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                     id={ann.id}
                     x={ann.x}
                     y={ann.y}
-                    draggable={canDrag}
+                    draggable={!isLocked}
                     onMouseEnter={handleBlockMouseEnter}
+                    onMouseMove={handleBlockMouseEnter}
                     onMouseLeave={handleBlockMouseLeave}
                     onClick={() => onSelectId(ann.id)}
-                    onDragStart={() => onSelectId(ann.id)}
+                    onDragStart={() => {
+                      if (selectedId !== ann.id) {
+                        onSelectId(ann.id);
+                      }
+                    }}
                     onDragMove={(e) => {
-                      setDraggingPositions((prev) => ({
-                        ...prev,
-                        [ann.id]: { x: e.target.x(), y: e.target.y() },
-                      }));
+                      const group = e.currentTarget as Konva.Group;
+                      const lensImg = group.findOne('.magnifier-lens-image');
+                      if (lensImg) {
+                        const nextTransform = calculateMagnifierImageTransform(
+                          group.x(),
+                          group.y(),
+                          activeZoom
+                        );
+                        lensImg.position({ x: nextTransform.x, y: nextTransform.y });
+                      }
                     }}
                     onDragEnd={(e) => {
-                      const finalX = e.target.x();
-                      const finalY = e.target.y();
-                      setDraggingPositions((prev) => {
-                        const copy = { ...prev };
-                        delete copy[ann.id];
-                        return copy;
+                      onUpdateAnnotation(ann.id, {
+                        x: e.currentTarget.x(),
+                        y: e.currentTarget.y(),
                       });
-                      onUpdateAnnotation(ann.id, { x: finalX, y: finalY });
                     }}
                   >
                     {/* Lente Circular com Recorte e Ampliação Real da Imagem */}
@@ -519,9 +540,10 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                         ctx.arc(0, 0, ann.radius, 0, Math.PI * 2, false);
                       }}
                     >
-                      <Circle radius={ann.radius} fill="#ffffff" />
+                      <Circle radius={ann.radius} fill="#ffffff" listening={false} />
                       {bgImage && (
                         <KonvaImage
+                          name="magnifier-lens-image"
                           image={bgImage}
                           width={canvasWidth}
                           height={canvasHeight}
@@ -534,106 +556,48 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                       )}
                     </Group>
 
-                    {/* Área interna clicável da lente para arraste fácil da lupa */}
-                    <Circle
-                      radius={ann.radius - 4}
-                      fill="rgba(255, 255, 255, 0.001)"
-                    />
-
-                    {/* Anel da Coroa Giratória Cosmética (Bezel Serrilhado) */}
-                    <Group rotation={crownAngle}>
-                      {/* Base metálica escura da coroa */}
-                      <Circle
-                        name="magnifier-crown"
-                        radius={ann.radius + 3}
-                        stroke="#2c2c2e"
-                        strokeWidth={8}
-                        onMouseEnter={() => {
-                          setIsHoveringBlock(false);
-                          setIsHoveringCrown(true);
-                        }}
-                        onMouseLeave={() => setIsHoveringCrown(false)}
-                        onMouseDown={(e) => {
-                          e.cancelBubble = true;
-                          onSelectId(ann.id);
-                          setCrownDrag({
-                            id: ann.id,
-                            startX: e.evt.clientX,
-                            initialZoom: ann.zoomLevel,
-                            currentZoom: ann.zoomLevel,
-                          });
-                        }}
-                      />
-
-                      {/* Dentes / Serrilhado Cosmético da Coroa Giratória */}
-                      {crownTeethAngles.map((deg) => {
-                        const rad = (deg * Math.PI) / 180;
-                        const rInner = ann.radius;
-                        const rOuter = ann.radius + 7;
-                        return (
-                          <Line
-                            key={deg}
-                            points={[
-                              Math.cos(rad) * rInner,
-                              Math.sin(rad) * rInner,
-                              Math.cos(rad) * rOuter,
-                              Math.sin(rad) * rOuter,
-                            ]}
-                            stroke="#ff9f0a"
-                            strokeWidth={2}
-                            listening={false}
-                          />
-                        );
-                      })}
-
-                      {/* Pega / Pino Superior da Coroa Giratória */}
-                      <Rect
-                        name="magnifier-crown"
-                        x={-16}
-                        y={-(ann.radius + 14)}
-                        width={32}
-                        height={12}
-                        cornerRadius={4}
-                        fill="#ff9f0a"
-                        stroke="#2c2c2e"
-                        strokeWidth={1.5}
-                        onMouseEnter={() => {
-                          setIsHoveringBlock(false);
-                          setIsHoveringCrown(true);
-                        }}
-                        onMouseLeave={() => setIsHoveringCrown(false)}
-                        onMouseDown={(e) => {
-                          e.cancelBubble = true;
-                          onSelectId(ann.id);
-                          setCrownDrag({
-                            id: ann.id,
-                            startX: e.evt.clientX,
-                            initialZoom: ann.zoomLevel,
-                            currentZoom: ann.zoomLevel,
-                          });
-                        }}
-                      />
-                    </Group>
-
-                    {/* Aro Interno de Acabamento da Lente */}
+                    {/* Superfície da Lente Clicável para Arraste Livre */}
                     <Circle
                       radius={ann.radius}
-                      stroke="#ff9f0a"
-                      strokeWidth={2}
+                      fill="rgba(255, 255, 255, 0.001)"
+                      stroke="rgba(255, 255, 255, 0.85)"
+                      strokeWidth={2.5}
+                      onMouseEnter={() => {
+                        setIsHoveringCrown(false);
+                        handleBlockMouseEnter();
+                      }}
+                      onMouseMove={() => {
+                        if (isHoveringCrown) setIsHoveringCrown(false);
+                        handleBlockMouseEnter();
+                      }}
+                    />
+
+                    {/* Aro Minimalista Discreto da Lupa */}
+                    <Circle
+                      radius={ann.radius}
+                      stroke={isSelected ? '#0071e3' : '#64748b'}
+                      strokeWidth={isSelected ? 2 : 1.5}
                       listening={false}
                     />
 
-                    {/* Visor / Badge Fixo de Controle da Coroa (Arraste ◀ ▶ para ajustar 1.0x a 3.0x) */}
+                    {/* Detalhe Cosmético Minimalista na Parte de Baixo: Coroa Giratória Discreta */}
                     <Group
-                      y={ann.radius + 12}
+                      y={ann.radius}
                       onMouseEnter={() => {
-                        setIsHoveringBlock(false);
                         setIsHoveringCrown(true);
                       }}
-                      onMouseLeave={() => setIsHoveringCrown(false)}
+                      onMouseLeave={() => {
+                        setIsHoveringCrown(false);
+                      }}
                       onMouseDown={(e) => {
                         e.cancelBubble = true;
-                        onSelectId(ann.id);
+                        const parentGroup = e.currentTarget.getParent();
+                        if (parentGroup?.isDragging()) {
+                          parentGroup.stopDrag();
+                        }
+                        if (selectedId !== ann.id) {
+                          onSelectId(ann.id);
+                        }
                         setCrownDrag({
                           id: ann.id,
                           startX: e.evt.clientX,
@@ -642,29 +606,89 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                         });
                       }}
                     >
+                      {/* Área de toque confortável e invisível na parte de baixo */}
                       <Rect
                         name="magnifier-crown"
-                        x={-36}
-                        y={0}
-                        width={72}
-                        height={20}
-                        cornerRadius={10}
-                        fill="#1c1c1e"
-                        stroke="#ff9f0a"
-                        strokeWidth={1.5}
+                        x={-20}
+                        y={-7}
+                        width={40}
+                        height={14}
+                        fill="rgba(0, 0, 0, 0.001)"
                       />
-                      <Text
+
+                      {/* Cápsula minimalista da coroa giratória */}
+                      <Rect
                         name="magnifier-crown"
-                        x={-36}
-                        y={4}
-                        width={72}
-                        align="center"
-                        text={`◀ ${activeZoom.toFixed(1)}x ▶`}
-                        fontSize={11}
-                        fontStyle="bold"
-                        fill="#ff9f0a"
+                        x={-14}
+                        y={-3.5}
+                        width={28}
+                        height={7}
+                        cornerRadius={3.5}
+                        fill="#334155"
+                        stroke="#cbd5e1"
+                        strokeWidth={1}
                       />
+
+                      {/* Ranhuras minimalistas que acompanham o giro da coroa */}
+                      {[-5, 0, 5].map((tickOffset) => (
+                        <Line
+                          key={tickOffset}
+                          points={[
+                            tickOffset + grooveShift,
+                            -2,
+                            tickOffset + grooveShift,
+                            2,
+                          ]}
+                          stroke="#94a3b8"
+                          strokeWidth={1}
+                          listening={false}
+                        />
+                      ))}
                     </Group>
+
+                    {/* Barra Minimalista de Zoom na Parte de Baixo (Visível APENAS ao movimentar para fazer zoom) */}
+                    {showZoomBar && (
+                      <Group y={ann.radius + 8} listening={false}>
+                        <Rect
+                          x={-44}
+                          y={0}
+                          width={88}
+                          height={22}
+                          cornerRadius={11}
+                          fill="rgba(15, 23, 42, 0.88)"
+                          stroke="rgba(148, 163, 184, 0.4)"
+                          strokeWidth={1}
+                        />
+                        {/* Trilho de progresso minimalista */}
+                        <Rect
+                          x={-34}
+                          y={9}
+                          width={40}
+                          height={4}
+                          cornerRadius={2}
+                          fill="#334155"
+                        />
+                        <Rect
+                          x={-34}
+                          y={9}
+                          width={Math.max(4, 40 * zoomProgress)}
+                          height={4}
+                          cornerRadius={2}
+                          fill="#f8fafc"
+                        />
+                        {/* Indicador numérico enxuto */}
+                        <Text
+                          x={10}
+                          y={5}
+                          width={30}
+                          align="center"
+                          text={`${activeZoom.toFixed(1)}x`}
+                          fontSize={10}
+                          fontStyle="bold"
+                          fill="#f8fafc"
+                        />
+                      </Group>
+                    )}
                   </Group>
                 );
               }

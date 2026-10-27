@@ -84,17 +84,18 @@ Para garantir robustez, estabilidade e manutenibilidade sem regressões, os test
 - **Comando:** `cmd.exe /c npm test tests/integration.test.ts`
 
 ### 2.9. `tests/appFeatures.test.ts` (Funcionalidades Aprimoradas e Correções)
-- **Objetivo:** Validar a colagem de imagens (`Ctrl+V`), desseleção com `ESC`, edição direta de texto inline sem modais e trava de movimentação após salvar (`Ctrl+S`).
+- **Objetivo:** Validar a colagem de imagens (`Ctrl+V`), desseleção com `ESC`, exclusão do bloco selecionado com a tecla `Delete` (incluindo suporte a desfazer com `Ctrl+Z`), edição direta de texto inline sem modais e trava de movimentação/exclusão após salvar (`Ctrl+S`).
 - **Comando:** `cmd.exe /c npm test tests/appFeatures.test.ts`
 
-### 2.10. `tests/magnifierAndHover.test.ts` (Lupa com Zoom Real, Coroa Giratória e Hover Inteligente)
-- **Objetivo:** Validar a matemática de ampliação real da lupa, o ajuste de zoom via arraste horizontal da coroa giratória e a troca automática de cursor/ação ao passar o mouse dentro ou fora de blocos existentes.
+### 2.10. `tests/magnifierAndHover.test.ts` (Lupa com Zoom Real, Coroa Minimalista Inferior e Hover Inteligente)
+- **Objetivo:** Validar a matemática de ampliação real da lupa, o ajuste de zoom via arraste horizontal da coroa minimalista na parte inferior, a exibição temporária da barra de zoom apenas durante o movimento de ajuste, a exclusão da lupa do `Transformer` retangular para livre movimentação após o zoom e a troca automática de cursor/ação ao passar o mouse dentro ou fora de blocos existentes.
 - **Cenários Cobertos:**
   - Escala de zoom restrita aos passos de `0.5` (`1.0, 1.5, 2.0, 2.5, 3.0`), respeitando o mínimo de `1.0x` (tamanho original) e máximo de `3.0x`.
   - Arraste da coroa giratória para a direita aumentando o zoom e para a esquerda diminuindo o zoom em incrementos exatos de `0.5`.
   - Cálculo de deslocamento (`offsetX`, `offsetY`) e escala (`scaleX`, `scaleY`) da imagem recortada dentro da lente circular da lupa.
-  - Ângulo de rotação visual da coroa dentada proporcional ao nível de zoom ativo.
-  - Reconhecimento automático de hover sobre blocos existentes (`cursor: 'move'` e ação `drag-existing`) versus área livre do canvas (`cursor: 'crosshair'` e ação `create-new`) quando ferramentas de criação estão selecionadas.
+  - Exibição condicional da barra de zoom na parte inferior (`shouldShowZoomBar`) restrita exclusivamente ao momento em que o usuário está movimentando a coroa para alterar o zoom, e cálculo da barra de progresso (`calculateZoomBarProgress`).
+  - Exclusão da lupa (`shouldAttachTransformer('magnifier') === false`) do `Transformer` retangular para permitir livre movimentação antes e depois de aplicar zoom in/out.
+  - Reconhecimento automático de hover sobre blocos existentes (`cursor: 'move'` e ação `move-existing`) versus área livre do canvas (`cursor: 'crosshair'` e ação `create-new`) quando ferramentas de criação estão selecionadas.
 - **Comando:** `cmd.exe /c npm test tests/magnifierAndHover.test.ts`
 
 ---

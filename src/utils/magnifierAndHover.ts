@@ -71,6 +71,33 @@ export function calculateCrownRotationAngle(zoomLevel: number): number {
   return (zoom - 2.0) * 60;
 }
 
+/**
+ * Determina se a barra inferior de nível de zoom deve ser exibida.
+ * A barra só deve aparecer enquanto o usuário está ativamente movimentando/arrastando
+ * a coroa giratória para fazer zoom naquela lupa específica.
+ */
+export function shouldShowZoomBar(activeCrownDragId: string | null, magnifierId: string): boolean {
+  return Boolean(activeCrownDragId && activeCrownDragId === magnifierId);
+}
+
+/**
+ * Calcula o progresso normalizado [0.0 .. 1.0] da barra minimalista de zoom
+ * na parte inferior da lupa para o intervalo [1.0 .. 3.0].
+ */
+export function calculateZoomBarProgress(zoomLevel: number): number {
+  const zoom = snapToZoomStep(zoomLevel);
+  return Number(((zoom - MIN_ZOOM) / (MAX_ZOOM - MIN_ZOOM)).toFixed(2));
+}
+
+/**
+ * Define se o Transformer retangular do Konva deve ser acoplado ao tipo de bloco.
+ * A lupa ('magnifier') é excluída do Transformer retangular para que sua lente circular
+ * e imagem interna recortada possam ser movimentadas livremente mesmo após aplicar zoom.
+ */
+export function shouldAttachTransformer(annotationType: ToolType): boolean {
+  return annotationType !== 'magnifier';
+}
+
 export interface PointerBehavior {
   cursor: 'default' | 'crosshair' | 'move';
   clickAction: 'move-existing' | 'create-new' | 'deselect';

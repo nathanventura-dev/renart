@@ -79,6 +79,17 @@ export const App: React.FC = () => {
         return;
       }
 
+      // Delete ou Backspace: Apaga o bloco selecionado (se não estiver digitando em um input/textarea)
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+          return;
+        }
+        if (editorStore.removeSelectedAnnotation()) {
+          e.preventDefault();
+        }
+        return;
+      }
+
       // Ctrl + Z: Desfazer
       if (isCtrlOrCmd && e.key.toLowerCase() === 'z' && !e.shiftKey) {
         e.preventDefault();

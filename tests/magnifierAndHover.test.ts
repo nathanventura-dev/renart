@@ -7,6 +7,9 @@ import {
   calculateMagnifierImageTransform,
   calculateCrownRotationAngle,
   resolveCanvasPointerBehavior,
+  shouldShowZoomBar,
+  calculateZoomBarProgress,
+  shouldAttachTransformer,
 } from '../src/utils/magnifierAndHover';
 
 describe('Magnifier Zoom & Rotating Crown (Coroa Giratória)', () => {
@@ -70,6 +73,29 @@ describe('Magnifier Zoom & Rotating Crown (Coroa Giratória)', () => {
     expect(angleMin).toBe(-60);
     expect(angleMid).toBe(0);
     expect(angleMax).toBe(60);
+  });
+
+  it('shows minimalist bottom zoom bar ONLY while actively dragging crown to adjust zoom', () => {
+    expect(shouldShowZoomBar(null, 'mag-1')).toBe(false);
+    expect(shouldShowZoomBar('mag-2', 'mag-1')).toBe(false);
+    expect(shouldShowZoomBar('mag-1', 'mag-1')).toBe(true);
+  });
+
+  it('calculates normalized zoom bar progress [0..1] for minimalist bottom bar', () => {
+    expect(calculateZoomBarProgress(1.0)).toBe(0);
+    expect(calculateZoomBarProgress(1.5)).toBe(0.25);
+    expect(calculateZoomBarProgress(2.0)).toBe(0.5);
+    expect(calculateZoomBarProgress(2.5)).toBe(0.75);
+    expect(calculateZoomBarProgress(3.0)).toBe(1.0);
+  });
+
+  it('excludes magnifier from rectangular Transformer so lens remains freely draggable after zooming', () => {
+    expect(shouldAttachTransformer('magnifier')).toBe(false);
+    expect(shouldAttachTransformer('rect')).toBe(true);
+    expect(shouldAttachTransformer('ellipse')).toBe(true);
+    expect(shouldAttachTransformer('arrow')).toBe(true);
+    expect(shouldAttachTransformer('text')).toBe(true);
+    expect(shouldAttachTransformer('image')).toBe(true);
   });
 });
 
