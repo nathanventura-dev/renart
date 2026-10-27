@@ -1,0 +1,164 @@
+import React, { useState, useRef, useEffect } from 'react';
+import { CaptureMode, Point, RectBounds } from '../types/capture';
+import { calculateNormalizedRect, clampPointToScreen, simplifyFreeformPath } from '../utils/geometry';
+
+interface CaptureOverlayProps {
+  mode: CaptureMode;
+  onComplete: (bounds: RectBounds | { freeformPoints: Point[] } | 'fullscreen') => void;
+  onCancel: () => void;
+}
+
+export const CaptureOverlay: React.FC<CaptureOverlayProps> = ({ mode, onComplete, onCancel }) => {
+  const [isDragging, setIsDragging] = useState(false);
+  const [startPoint, setStartPoint] = useState<Point | null>(null);
+  const [currentRect, setCurrentRect] = useState<RectBounds | null>(null);
+  const [freeformPoints, setFreeformPoints] = useState<Point[]>([]);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onCancel();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onCancel]);
+
+  useEffect(() => {
+    if (mode === 'fullscreen') {
+      onComplete('fullscreen');
+    }
+  }, [mode, onComplete]);
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    const pt = clampPointToScreen({ x: e.clientX, y: e.clientY }, window.innerWidth, window.innerHeight);
+    setIsDragging(true);
+    setStartPoint(pt);
+
+    if (mode === 'freeform') {
+      setFreeformPoints([pt]);
+    }
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isDragging || !startPoint) return;
+
+    const pt = clampPointToScreen({ x: e.clientX, y: e.clientY }, window.innerWidth, window.innerHeight);
+
+    if (mode === 'region') {
+      const rect = calculateNormalizedRect(startPoint, pt);
+      setCurrentRect(rect);
+    } else if (mode === 'freeform') {
+      setFreeformPoints((prev) => [...prev, pt]);
+    }
+  };
+
+  const handleMouseUp = () => {
+    if (!isDragging) return;
+    setIsDragging(false);
+
+    if (mode === 'region' && currentRect && currentRect.width > 5 && currentRect.height > 5) {
+      onComplete(currentRect);
+    } else if (mode === 'freeform' && freeformPoints.length > 5) {
+      const simplified = simplifyFreeformPath(freeformPoints);
+      onComplete({ freeformPoints: simplified });
+    } else {
+      onCancel();
+    }
+  };
+
+  if (mode === 'fullscreen') {
+    return null;
+  }
+
+  return (
+    <div
+      ref={containerRef}
+      onMouseDown={handleMouseDown}
+      onMouseMove={handleMouseMove}
+      onMouseUp={handleMouseUp}
+      style={{
+        position: 'fixed',
+        inset: 0,
+        backgroundColor: 'rgba(0, 0, 0, 0.35)',
+        cursor: 'crosshair',
+        zIndex: 9999,
+        userSelect: 'none',
+      }}
+    >
+      {/* Retângulo de Seleção */}
+      {mode === 'region' && currentRect && (
+        <div
+          style={{
+            position: 'absolute',
+            left: `${currentRect.x}px`,
+            top: `${currentRect.y}px`,
+            width: `${currentRect.width}px`,
+            height: `${currentRect.height}px`,
+            border: '2px solid #0071e3',
+            boxShadow: '0 0 0 9999px rgba(0, 0, 0, 0.45)',
+            pointerEvents: 'none',
+          }}
+        >
+          <div
+            style={{
+              position: 'absolute',
+              top: '-24px',
+              left: 0,
+              backgroundColor: '#0071e3',
+              color: '#fff',
+              fontSize: '11px',
+              padding: '2px 6px',
+              borderRadius: '3px',
+              fontWeight: 600,
+            }}
+          >
+            {Math.round(currentRect.width)} × {Math.round(currentRect.height)}
+          </div>
+        </div>
+      )}
+
+      {/* Traçado Freeform */}
+      {mode === 'freeform' && freeformPoints.length > 1 && (
+        <svg
+          style={{
+            position: 'absolute',
+            inset: 0,
+            width: '100%',
+            height: '100%',
+            pointerEvents: 'none',
+          }}
+        >
+          <polyline
+            points={freeformPoints.map((p) => `${p.x},${p.y}`).join(' ')}
+            fill="none"
+            stroke="#0071e3"
+            strokeWidth="3"
+            strokeDasharray="4 4"
+          />
+        </svg>
+      )}
+
+      {/* Dica para o usuário */}
+      {!isDragging && (
+        <div
+          style={{
+            position: 'absolute',
+            top: '20px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            backgroundColor: 'rgba(0, 0, 0, 0.75)',
+            color: '#fff',
+            padding: '8px 16px',
+            borderRadius: '20px',
+            fontSize: '13px',
+            pointerEvents: 'none',
+          }}
+        >
+          {mode === 'region' ? 'Clique e arraste para selecionar a região' : 'Desenhe livremente a área de corte'} (ESC para cancelar)
+        </div>
+      )}
+    </div>
+  );
+};
