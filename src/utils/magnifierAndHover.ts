@@ -104,6 +104,17 @@ export interface PointerBehavior {
 }
 
 /**
+ * Identifica se o nó alvo do evento do Konva é um bloco de anotação real existente,
+ * garantindo que a imagem de fundo ('bg-image'), o próprio Stage vazio ou a coroa da lupa
+ * nunca sejam confundidos com um bloco ao alternar entre ferramentas.
+ */
+export function isTargetExistingAnnotation(targetName: string, isStageTarget: boolean): boolean {
+  if (isStageTarget) return false;
+  if (targetName === 'bg-image' || targetName === 'magnifier-crown') return false;
+  return true;
+}
+
+/**
  * Define o cursor e a ação do clique com base na ferramenta selecionada
  * e se o ponteiro está passando por dentro da área de um bloco já existente.
  */

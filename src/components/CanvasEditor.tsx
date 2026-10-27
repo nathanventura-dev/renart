@@ -9,6 +9,7 @@ import {
   shouldShowZoomBar,
   calculateZoomBarProgress,
   shouldAttachTransformer,
+  isTargetExistingAnnotation,
 } from '../utils/magnifierAndHover';
 
 interface CanvasEditorProps {
@@ -115,6 +116,15 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
     img.onload = () => setBgImage(img);
   }, [imageBase64]);
 
+  // Sempre que o usuário alternar entre ferramentas (Formas, Texto, Seta, Lupa) ou trocar de imagem,
+  // limpa o estado de hover para nunca travar a imagem inteira como se fosse um bloco.
+  useEffect(() => {
+    setIsHoveringBlock(false);
+    setIsHoveringCrown(false);
+    setIsDrawing(false);
+    setNewAnnotation(null);
+  }, [activeTool, imageBase64, annotations.length]);
+
   const isDraggingCrown = Boolean(crownDrag);
 
   // Gerencia o arraste horizontal da coroa minimalista inferior da lupa (esquerda diminui, direita aumenta de 0.5 em 0.5)
@@ -201,7 +211,8 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
       return;
     }
 
-    const clickedOnEmpty = e.target === e.target.getStage() || targetName === 'bg-image';
+    const isStageTarget = e.target === e.target.getStage();
+    const clickedOnEmpty = !isTargetExistingAnnotation(targetName, isStageTarget);
 
     // Se o usuário clicou dentro da área de um bloco já existente (ou âncora do Transformer),
     // permite apenas selecionar/movimentar o bloco existente sem criar um novo.
@@ -209,10 +220,14 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
       return;
     }
 
-    // Clicou fora de qualquer bloco existente: limpa seleção atual
+    // Clicou na imagem de fundo ou Stage vazio: garante que o hover de bloco seja falso e limpa seleção
+    if (isHoveringBlock) {
+      setIsHoveringBlock(false);
+    }
     onSelectId(null);
 
-    if (pointerBehavior.clickAction !== 'create-new') {
+    const emptyClickBehavior = resolveCanvasPointerBehavior(activeTool, false, isLocked);
+    if (emptyClickBehavior.clickAction !== 'create-new') {
       return;
     }
 
@@ -255,7 +270,6 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
         radius: 65,
         zoomLevel: 2.0,
       });
-      setIsHoveringBlock(true);
       return;
     }
 
@@ -297,6 +311,22 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
   };
 
   const handleMouseMove = (e: Konva.KonvaEventObject<MouseEvent>) => {
+    const targetName = e.target.name();
+    const isStageTarget = e.target === e.target.getStage();
+
+    if (!isDrawing) {
+      if (targetName === 'magnifier-crown') {
+        if (!isHoveringCrown) setIsHoveringCrown(true);
+        if (isHoveringBlock) setIsHoveringBlock(false);
+      } else {
+        if (isHoveringCrown) setIsHoveringCrown(false);
+        const hoveringExisting = !isLocked && isTargetExistingAnnotation(targetName, isStageTarget);
+        if (hoveringExisting !== isHoveringBlock) {
+          setIsHoveringBlock(hoveringExisting);
+        }
+      }
+    }
+
     if (!isDrawing || !newAnnotation) return;
     const stage = e.target.getStage();
     const pos = stage?.getPointerPosition();
@@ -364,6 +394,10 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
+          onMouseLeave={() => {
+            setIsHoveringBlock(false);
+            setIsHoveringCrown(false);
+          }}
         >
           {/* Camada Base: Imagem de Fundo Capturada */}
           <Layer>

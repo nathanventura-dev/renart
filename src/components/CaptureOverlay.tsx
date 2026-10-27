@@ -4,11 +4,17 @@ import { calculateNormalizedRect, clampPointToScreen, simplifyFreeformPath } fro
 
 interface CaptureOverlayProps {
   mode: CaptureMode;
+  backgroundDataUrl?: string | null;
   onComplete: (bounds: RectBounds | { freeformPoints: Point[] } | 'fullscreen') => void;
   onCancel: () => void;
 }
 
-export const CaptureOverlay: React.FC<CaptureOverlayProps> = ({ mode, onComplete, onCancel }) => {
+export const CaptureOverlay: React.FC<CaptureOverlayProps> = ({
+  mode,
+  backgroundDataUrl,
+  onComplete,
+  onCancel,
+}) => {
   const [isDragging, setIsDragging] = useState(false);
   const [startPoint, setStartPoint] = useState<Point | null>(null);
   const [currentRect, setCurrentRect] = useState<RectBounds | null>(null);
@@ -81,12 +87,28 @@ export const CaptureOverlay: React.FC<CaptureOverlayProps> = ({ mode, onComplete
       style={{
         position: 'fixed',
         inset: 0,
-        backgroundColor: 'rgba(0, 0, 0, 0.35)',
+        backgroundColor: backgroundDataUrl ? '#000' : 'rgba(0, 0, 0, 0.35)',
+        backgroundImage: backgroundDataUrl ? `url(${backgroundDataUrl})` : undefined,
+        backgroundSize: '100% 100%',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat',
         cursor: 'crosshair',
         zIndex: 9999,
         userSelect: 'none',
       }}
     >
+      {/* Escurecimento suave enquanto o usuário ainda não iniciou o arraste sobre o print congelado */}
+      {backgroundDataUrl && !currentRect && (
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.25)',
+            pointerEvents: 'none',
+          }}
+        />
+      )}
+
       {/* Retângulo de Seleção */}
       {mode === 'region' && currentRect && (
         <div

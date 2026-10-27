@@ -2,6 +2,7 @@
 import { describe, it, expect } from 'vitest';
 import { createEditorStore } from '../src/state/editorStore';
 import { createGalleryStore } from '../src/state/galleryStore';
+import { calculateCropCoordinates } from '../src/services/screenCaptureService';
 
 describe('App Enhanced Features & User Fixes', () => {
   it('handles paste of image dataUrl into gallery respecting 10 items limit', () => {
@@ -112,5 +113,78 @@ describe('App Enhanced Features & User Fixes', () => {
     const removed = editor.removeSelectedAnnotation();
     expect(removed).toBe(false);
     expect(editor.getState().annotations).toHaveLength(1);
+  });
+
+  it('isolates annotations, undo/redo history, and lock state per capture in the gallery', () => {
+    const editor = createEditorStore();
+
+    // Inicia na captura 1 e adiciona dois blocos
+    editor.switchCapture('cap-1');
+    editor.addAnnotation({
+      id: 'rect-cap1',
+      type: 'rect',
+      x: 10,
+      y: 10,
+      width: 80,
+      height: 60,
+      stroke: '#ff3b30',
+    });
+    editor.addAnnotation({
+      id: 'arrow-cap1',
+      type: 'arrow',
+      points: [0, 0, 50, 50],
+      stroke: '#007aff',
+    });
+
+    expect(editor.getState().annotations).toHaveLength(2);
+    expect(editor.canUndo()).toBe(true);
+
+    // Muda para a captura 2: deve estar limpa, sem os blocos da captura 1
+    editor.switchCapture('cap-2');
+    expect(editor.getState().annotations).toHaveLength(0);
+    expect(editor.getState().selectedId).toBeNull();
+    expect(editor.canUndo()).toBe(false);
+
+    // Adiciona um bloco de texto apenas na captura 2
+    editor.addAnnotation({
+      id: 'text-cap2',
+      type: 'text',
+      x: 40,
+      y: 40,
+      text: 'Exclusivo da Captura 2',
+      fontSize: 18,
+    });
+    expect(editor.getState().annotations).toHaveLength(1);
+    expect(editor.getState().annotations[0].id).toBe('text-cap2');
+
+    // Volta para a captura 1: deve preservar apenas os 2 blocos da captura 1
+    editor.switchCapture('cap-1');
+    expect(editor.getState().annotations).toHaveLength(2);
+    expect(editor.getState().annotations.map((a) => a.id)).toEqual(['rect-cap1', 'arrow-cap1']);
+
+    // Desfazer na captura 1 não afeta a captura 2
+    editor.undo();
+    expect(editor.getState().annotations).toHaveLength(1);
+
+    editor.switchCapture('cap-2');
+    expect(editor.getState().annotations).toHaveLength(1);
+    expect(editor.getState().annotations[0].id).toBe('text-cap2');
+  });
+
+  it('calculates exact real-screen pixel crop coordinates from overlay selection bounds', () => {
+    const crop = calculateCropCoordinates(
+      { x: 100, y: 50, width: 400, height: 300 },
+      1000,
+      500,
+      2000,
+      1000
+    );
+
+    expect(crop).toEqual({
+      sx: 200,
+      sy: 100,
+      sw: 800,
+      sh: 600,
+    });
   });
 });

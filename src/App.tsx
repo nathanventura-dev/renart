@@ -7,6 +7,7 @@ import { CaptureOverlay } from './components/CaptureOverlay';
 import { createEditorStore, ToolType, Annotation } from './state/editorStore';
 import { createGalleryStore } from './state/galleryStore';
 import { exportCanvas, copyCanvasToClipboard, ExportFormat } from './services/exportService';
+import { captureDesktopFrame, cropCapturedScreen } from './services/screenCaptureService';
 import { CaptureMode, RectBounds, Point } from './types/capture';
 
 // Instâncias globais dos stores para a sessão da janela
@@ -16,6 +17,7 @@ const galleryStore = createGalleryStore(10);
 export const App: React.FC = () => {
   const [isCapturing, setIsCapturing] = useState(false);
   const [captureMode, setCaptureMode] = useState<CaptureMode>('region');
+  const [preCapturedScreen, setPreCapturedScreen] = useState<string | null>(null);
   const stageRef = useRef<Konva.Stage | null>(null);
 
   // Sincronização dos estados com React
@@ -24,6 +26,13 @@ export const App: React.FC = () => {
 
   // Imagem ativa atual
   const activeCapture = galleryStore.getActiveCapture();
+
+  // Garante que cada imagem da galeria tenha seus próprios blocos, histórico Undo/Redo e trava isolados
+  useEffect(() => {
+    if (galleryState.activeId) {
+      editorStore.switchCapture(galleryState.activeId);
+    }
+  }, [galleryState.activeId]);
 
   // Cria uma imagem demonstrativa inicial se a galeria estiver vazia
   useEffect(() => {
@@ -45,18 +54,20 @@ export const App: React.FC = () => {
 
         ctx.fillStyle = '#627d98';
         ctx.font = '15px system-ui';
-        ctx.fillText('📸 Clique em "Nova Captura" para recortar uma área da sua tela.', 40, 110);
+        ctx.fillText('📸 Clique em "Nova Captura" para capturar e recortar uma área real da sua tela.', 40, 110);
         ctx.fillText('📋 Pressione Ctrl+V em qualquer lugar para colar imagens na galeria.', 40, 140);
-        ctx.fillText('✏️ Adicione formas, flechas e lupa. Use dois cliques no texto para editar.', 40, 170);
-        ctx.fillText('💾 Use Ctrl+S para salvar e travar a edição.', 40, 200);
+        ctx.fillText('✏️ Adicione formas, flechas e lupa. Cada imagem possui blocos independentes.', 40, 170);
+        ctx.fillText('💾 Use Delete para apagar um bloco selecionado e Ctrl+S para salvar.', 40, 200);
       }
 
+      const initialId = `cap-${Date.now()}`;
       galleryStore.addCapture({
-        id: `cap-${Date.now()}`,
+        id: initialId,
         title: 'Boas-vindas',
         dataUrl: canvas.toDataURL('image/png'),
         createdAt: Date.now(),
       });
+      editorStore.switchCapture(initialId);
     }
   }, []);
 
@@ -68,7 +79,7 @@ export const App: React.FC = () => {
     }
   }, [activeCapture?.title]);
 
-  // Listener global de atalhos de teclado (Ctrl+Z, Ctrl+Shift+Z, Ctrl+Y, Ctrl+S, ESC)
+  // Listener global de atalhos de teclado (Ctrl+Z, Ctrl+Shift+Z, Ctrl+Y, Ctrl+S, ESC, Delete)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const isCtrlOrCmd = e.ctrlKey || e.metaKey;
@@ -137,12 +148,14 @@ export const App: React.FC = () => {
               const pastedDataUrl = event.target?.result as string;
               if (pastedDataUrl) {
                 const currentCount = galleryStore.getState().captures.length;
+                const newId = `pasted-${Date.now()}`;
                 galleryStore.addCapture({
-                  id: `pasted-${Date.now()}`,
+                  id: newId,
                   title: `Colada #${currentCount + 1}`,
                   dataUrl: pastedDataUrl,
                   createdAt: Date.now(),
                 });
+                editorStore.switchCapture(newId);
               }
             };
             reader.readAsDataURL(file);
@@ -156,8 +169,15 @@ export const App: React.FC = () => {
     return () => window.removeEventListener('paste', handlePaste);
   }, []);
 
-  const handleStartCapture = (mode: CaptureMode = 'region') => {
+  const handleStartCapture = async (mode: CaptureMode = 'region') => {
     setCaptureMode(mode);
+    // Captura o quadro real da tela/monitor antes de exibir o overlay de recorte
+    const screenFrame = await captureDesktopFrame();
+    if (!screenFrame) {
+      // Caso o usuário tenha cancelado a permissão de captura de tela, não abre o overlay vazio
+      return;
+    }
+    setPreCapturedScreen(screenFrame);
     setIsCapturing(true);
   };
 
@@ -168,71 +188,59 @@ export const App: React.FC = () => {
 
     let dataUrl = '';
 
-    // 1. Tenta captura nativa se estiver rodando dentro do Tauri
-    try {
-      const isTauri = typeof window !== 'undefined' && ('__TAURI_INTERNALS__' in window || '__TAURI__' in window);
-      if (isTauri) {
-        const { invoke } = await import('@tauri-apps/api/core');
-        let args: any = { mode: captureMode };
-        if (result !== 'fullscreen' && 'x' in result) {
-          args = { mode: 'region', x: Math.round(result.x), y: Math.round(result.y), w: Math.round(result.width), h: Math.round(result.height) };
-        }
-        dataUrl = await invoke('tauri_capture_screen', args);
+    // 1. Se temos o quadro real capturado da tela, recorta exatamente a região selecionada pelo usuário
+    if (preCapturedScreen) {
+      try {
+        dataUrl = await cropCapturedScreen(
+          preCapturedScreen,
+          result,
+          window.innerWidth,
+          window.innerHeight
+        );
+      } catch (err) {
+        console.warn('Falha ao recortar o quadro capturado da tela:', err);
       }
-    } catch (err) {
-      console.warn('Tauri invoke não disponível, gerando captura visual do canvas:', err);
+      setPreCapturedScreen(null);
     }
 
-    // 2. Se não estiver no Tauri (ex: teste no navegador), gera a captura proporcional da área selecionada
+    // 2. Fallback direto via Tauri se invocado sem preCapturedScreen
     if (!dataUrl) {
-      const w = result !== 'fullscreen' && 'width' in result ? result.width : 850;
-      const h = result !== 'fullscreen' && 'height' in result ? result.height : 500;
-      const canvas = document.createElement('canvas');
-      canvas.width = Math.max(120, Math.round(w));
-      canvas.height = Math.max(80, Math.round(h));
-      const ctx = canvas.getContext('2d');
-      if (ctx) {
-        // Fundo simulado da tela capturada
-        const grad = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
-        grad.addColorStop(0, '#ffffff');
-        grad.addColorStop(1, '#f1f5f9');
-        ctx.fillStyle = grad;
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-        // Grade suave de fundo
-        ctx.strokeStyle = '#e2e8f0';
-        ctx.lineWidth = 1;
-        for (let x = 0; x < canvas.width; x += 40) {
-          ctx.beginPath();
-          ctx.moveTo(x, 0);
-          ctx.lineTo(x, canvas.height);
-          ctx.stroke();
+      try {
+        const isTauri =
+          typeof window !== 'undefined' && ('__TAURI_INTERNALS__' in window || '__TAURI__' in window);
+        if (isTauri) {
+          const { invoke } = await import('@tauri-apps/api/core');
+          let args: Record<string, unknown> = { mode: captureMode };
+          if (result !== 'fullscreen' && 'x' in result) {
+            args = {
+              mode: 'region',
+              x: Math.round(result.x),
+              y: Math.round(result.y),
+              w: Math.round(result.width),
+              h: Math.round(result.height),
+            };
+          }
+          dataUrl = await invoke<string>('tauri_capture_screen', args);
         }
-        for (let y = 0; y < canvas.height; y += 40) {
-          ctx.beginPath();
-          ctx.moveTo(0, y);
-          ctx.lineTo(canvas.width, y);
-          ctx.stroke();
-        }
-
-        ctx.fillStyle = '#0f172a';
-        ctx.font = 'bold 16px system-ui';
-        ctx.fillText(`Captura de Tela (${canvas.width} × ${canvas.height})`, 20, 35);
-        ctx.fillStyle = '#64748b';
-        ctx.font = '12px system-ui';
-        ctx.fillText(`Armazenada na galeria às ${new Date().toLocaleTimeString()}`, 20, 60);
+      } catch (err) {
+        console.warn('Tauri invoke indisponível:', err);
       }
-      dataUrl = canvas.toDataURL('image/png');
     }
 
-    // 3. Adiciona obrigatoriamente a nova captura à galeria de miniaturas!
+    if (!dataUrl) {
+      return;
+    }
+
+    // 3. Adiciona a nova captura real à galeria de miniaturas e cria uma sessão limpa de blocos!
     const currentCount = galleryStore.getState().captures.length;
+    const newCaptureId = `cap-${Date.now()}`;
     galleryStore.addCapture({
-      id: `cap-${Date.now()}`,
+      id: newCaptureId,
       title: `Captura #${currentCount + 1}`,
       dataUrl,
       createdAt: Date.now(),
     });
+    editorStore.switchCapture(newCaptureId);
   };
 
   const handleInsertImage = (file: File) => {
@@ -286,8 +294,18 @@ export const App: React.FC = () => {
           captures={galleryState.captures}
           activeId={galleryState.activeId}
           maxCaptures={galleryState.maxCaptures}
-          onSelect={(id: string) => galleryStore.setActive(id)}
-          onClose={(id: string) => galleryStore.removeCapture(id)}
+          onSelect={(id: string) => {
+            galleryStore.setActive(id);
+            editorStore.switchCapture(id);
+          }}
+          onClose={(id: string) => {
+            galleryStore.removeCapture(id);
+            editorStore.removeCaptureSession(id);
+            const nextActive = galleryStore.getState().activeId;
+            if (nextActive) {
+              editorStore.switchCapture(nextActive);
+            }
+          }}
         />
 
         {activeCapture ? (
@@ -322,12 +340,16 @@ export const App: React.FC = () => {
         )}
       </div>
 
-      {/* Overlay de Seleção de Captura */}
+      {/* Overlay de Seleção de Captura sobre o quadro real capturado */}
       {isCapturing && (
         <CaptureOverlay
           mode={captureMode}
+          backgroundDataUrl={preCapturedScreen}
           onComplete={handleCaptureComplete}
-          onCancel={() => setIsCapturing(false)}
+          onCancel={() => {
+            setIsCapturing(false);
+            setPreCapturedScreen(null);
+          }}
         />
       )}
     </div>

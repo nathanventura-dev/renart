@@ -10,6 +10,7 @@ import {
   shouldShowZoomBar,
   calculateZoomBarProgress,
   shouldAttachTransformer,
+  isTargetExistingAnnotation,
 } from '../src/utils/magnifierAndHover';
 
 describe('Magnifier Zoom & Rotating Crown (Coroa Giratória)', () => {
@@ -145,5 +146,26 @@ describe('Smart Hover & Drag-and-Drop Pointer Recognition', () => {
   it('prevents moving existing blocks when canvas is locked after saving', () => {
     const lockedHoverInside = resolveCanvasPointerBehavior('rect', true, true);
     expect(lockedHoverInside.cursor).toBe('default');
+  });
+
+  it('never treats background image or empty stage as an existing block when switching tools', () => {
+    // Fundo da imagem ('bg-image') ou o próprio Stage nunca são blocos
+    expect(isTargetExistingAnnotation('bg-image', false)).toBe(false);
+    expect(isTargetExistingAnnotation('', true)).toBe(false);
+    expect(isTargetExistingAnnotation('magnifier-crown', false)).toBe(false);
+
+    // Qualquer bloco real na camada de anotações é reconhecido como bloco existente
+    expect(isTargetExistingAnnotation('annotation-block', false)).toBe(true);
+
+    // Ao alternar entre tipos de blocos (rect, ellipse, arrow, text, magnifier) sobre a imagem de fundo,
+    // a ação deve ser sempre 'create-new' com cursor 'crosshair'
+    const tools = ['rect', 'ellipse', 'arrow', 'text', 'magnifier'] as const;
+    for (const tool of tools) {
+      const overBg = isTargetExistingAnnotation('bg-image', false);
+      expect(resolveCanvasPointerBehavior(tool, overBg, false)).toEqual({
+        cursor: 'crosshair',
+        clickAction: 'create-new',
+      });
+    }
   });
 });

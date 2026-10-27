@@ -91,11 +91,12 @@ Se você desejar apontar, destacar ou enriquecer o print antes de salvar:
 
 ---
 
-## 5. Galeria Lateral de Capturas Recentes
+## 5. Galeria Lateral de Capturas Recentes (Sessões Independentes)
 
 No painel esquerdo da aplicação, uma galeria visual organiza seus trabalhos recentes:
 
-- **Alternância Instantânea:** Clique em qualquer miniatura para trazê-la ao centro do canvas, mantendo todas as anotações feitas.
+- **Independência Total por Imagem:** Cada captura ou imagem colada na galeria possui sua própria lista de blocos (formas, setas, textos, lupas) e seu próprio histórico `Ctrl+Z` / `Ctrl+Shift+Z`. Adicionar ou editar blocos em uma captura nunca interfere nas demais imagens da galeria.
+- **Alternância Instantânea:** Clique em qualquer miniatura para trazê-la ao centro do canvas, restaurando automaticamente apenas as anotações daquela imagem específica.
 - **Colagem Direta (`Ctrl+V`):** Você também pode colar imagens da área de transferência diretamente na seção de miniaturas pressionando `Ctrl+V`.
 - **Contador com Limite Rígido (Máximo 10 Itens):**
   - A barra exibe o número de capturas abertas (ex: `3 / 10`).

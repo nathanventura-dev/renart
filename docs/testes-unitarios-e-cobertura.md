@@ -83,12 +83,12 @@ Para garantir robustez, estabilidade e manutenibilidade sem regressões, os test
 - **Objetivo:** Testar a passagem da imagem capturada para a galeria e abertura imediata no editor com as ferramentas ativas.
 - **Comando:** `cmd.exe /c npm test tests/integration.test.ts`
 
-### 2.9. `tests/appFeatures.test.ts` (Funcionalidades Aprimoradas e Correções)
-- **Objetivo:** Validar a colagem de imagens (`Ctrl+V`), desseleção com `ESC`, exclusão do bloco selecionado com a tecla `Delete` (incluindo suporte a desfazer com `Ctrl+Z`), edição direta de texto inline sem modais e trava de movimentação/exclusão após salvar (`Ctrl+S`).
+### 2.9. `tests/appFeatures.test.ts` (Funcionalidades Aprimoradas, Isolamento por Imagem e Captura Real)
+- **Objetivo:** Validar a colagem de imagens (`Ctrl+V`), desseleção com `ESC`, exclusão do bloco selecionado com a tecla `Delete` (incluindo suporte a desfazer com `Ctrl+Z`), edição direta de texto inline sem modais, trava de movimentação/exclusão após salvar (`Ctrl+S`), **isolamento independente de blocos e histórico Undo/Redo para cada print da galeria** (`switchCapture`) e **cálculo de recorte em pixels reais da captura de tela** (`calculateCropCoordinates`).
 - **Comando:** `cmd.exe /c npm test tests/appFeatures.test.ts`
 
 ### 2.10. `tests/magnifierAndHover.test.ts` (Lupa com Zoom Real, Coroa Minimalista Inferior e Hover Inteligente)
-- **Objetivo:** Validar a matemática de ampliação real da lupa, o ajuste de zoom via arraste horizontal da coroa minimalista na parte inferior, a exibição temporária da barra de zoom apenas durante o movimento de ajuste, a exclusão da lupa do `Transformer` retangular para livre movimentação após o zoom e a troca automática de cursor/ação ao passar o mouse dentro ou fora de blocos existentes.
+- **Objetivo:** Validar a matemática de ampliação real da lupa, o ajuste de zoom via arraste horizontal da coroa minimalista na parte inferior, a exibição temporária da barra de zoom apenas durante o movimento de ajuste, a exclusão da lupa do `Transformer` retangular para livre movimentação após o zoom e a troca automática de cursor/ação ao passar o mouse dentro ou fora de blocos existentes sem confundir a imagem de fundo (`isTargetExistingAnnotation`).
 - **Cenários Cobertos:**
   - Escala de zoom restrita aos passos de `0.5` (`1.0, 1.5, 2.0, 2.5, 3.0`), respeitando o mínimo de `1.0x` (tamanho original) e máximo de `3.0x`.
   - Arraste da coroa giratória para a direita aumentando o zoom e para a esquerda diminuindo o zoom em incrementos exatos de `0.5`.

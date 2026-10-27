@@ -76,6 +76,13 @@ export interface EditorState {
   isLocked: boolean;
 }
 
+interface CaptureEditorSession {
+  annotations: Annotation[];
+  undoStack: Annotation[][];
+  redoStack: Annotation[][];
+  isLocked: boolean;
+}
+
 export function createEditorStore(initialState?: Partial<EditorState>) {
   let state: EditorState = {
     annotations: [],
@@ -88,17 +95,73 @@ export function createEditorStore(initialState?: Partial<EditorState>) {
     ...initialState,
   };
 
+  let activeCaptureId: string = 'default';
+  const sessions = new Map<string, CaptureEditorSession>();
+
   const undoStack: Annotation[][] = [];
   const redoStack: Annotation[][] = [];
   const listeners: Set<() => void> = new Set();
 
   const notify = () => listeners.forEach((l) => l());
 
+  const saveCurrentSession = () => {
+    sessions.set(activeCaptureId, {
+      annotations: [...state.annotations],
+      undoStack: undoStack.map((snap) => [...snap]),
+      redoStack: redoStack.map((snap) => [...snap]),
+      isLocked: state.isLocked,
+    });
+  };
+
   return {
     getState: () => state,
     subscribe: (listener: () => void) => {
       listeners.add(listener);
       return () => listeners.delete(listener);
+    },
+
+    /**
+     * Alterna o contexto de edição para outra captura da galeria,
+     * mantendo os blocos, histórico Undo/Redo e bloqueio totalmente independentes por imagem.
+     */
+    switchCapture: (captureId: string) => {
+      if (!captureId || captureId === activeCaptureId) {
+        return;
+      }
+
+      // Salva o estado da imagem anterior
+      saveCurrentSession();
+
+      activeCaptureId = captureId;
+      const targetSession = sessions.get(captureId);
+
+      undoStack.length = 0;
+      redoStack.length = 0;
+
+      if (targetSession) {
+        targetSession.undoStack.forEach((snap) => undoStack.push([...snap]));
+        targetSession.redoStack.forEach((snap) => redoStack.push([...snap]));
+        state = {
+          ...state,
+          annotations: [...targetSession.annotations],
+          isLocked: targetSession.isLocked,
+          selectedId: null,
+        };
+      } else {
+        state = {
+          ...state,
+          annotations: [],
+          isLocked: false,
+          selectedId: null,
+        };
+        saveCurrentSession();
+      }
+
+      notify();
+    },
+
+    removeCaptureSession: (captureId: string) => {
+      sessions.delete(captureId);
     },
 
     setActiveTool: (tool: ToolType) => {
