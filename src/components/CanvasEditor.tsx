@@ -198,8 +198,6 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
           {/* Camada de Vetores e Anotações */}
           <Layer>
             {annotations.map((ann) => {
-              const isSelected = ann.id === selectedId;
-
               if (ann.type === 'rect') {
                 return (
                   <Rect

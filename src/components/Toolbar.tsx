@@ -11,7 +11,6 @@ import {
   Undo2,
   Redo2,
   Copy,
-  Download,
   Camera,
 } from 'lucide-react';
 
