@@ -83,6 +83,10 @@ Para garantir robustez, estabilidade e manutenibilidade sem regressões, os test
 - **Objetivo:** Testar a passagem da imagem capturada para a galeria e abertura imediata no editor com as ferramentas ativas.
 - **Comando:** `cmd.exe /c npm test tests/integration.test.ts`
 
+### 2.9. `tests/appFeatures.test.ts` (Funcionalidades Aprimoradas e Correções)
+- **Objetivo:** Validar a colagem de imagens (`Ctrl+V`), desseleção com `ESC`, edição direta de texto inline sem modais e trava de movimentação após salvar (`Ctrl+S`).
+- **Comando:** `cmd.exe /c npm test tests/appFeatures.test.ts`
+
 ---
 
 ## 3. Como Executar Todos os Testes
