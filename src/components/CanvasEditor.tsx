@@ -11,10 +11,20 @@ interface CanvasEditorProps {
   strokeColor: string;
   strokeWidth: number;
   fontSize: number;
+  isLocked?: boolean;
   onSelectId: (id: string | null) => void;
   onAddAnnotation: (annotation: Annotation) => void;
   onUpdateAnnotation: (id: string, updates: Partial<Annotation>) => void;
   stageRef: React.RefObject<Konva.Stage | null>;
+}
+
+interface InlineEditingText {
+  id: string;
+  x: number;
+  y: number;
+  text: string;
+  fontSize: number;
+  fill: string;
 }
 
 export const CanvasEditor: React.FC<CanvasEditorProps> = ({
@@ -25,6 +35,7 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
   strokeColor,
   strokeWidth,
   fontSize,
+  isLocked = false,
   onSelectId,
   onAddAnnotation,
   onUpdateAnnotation,
@@ -33,7 +44,9 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
   const [bgImage, setBgImage] = useState<HTMLImageElement | null>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [newAnnotation, setNewAnnotation] = useState<Annotation | null>(null);
+  const [editingText, setEditingText] = useState<InlineEditingText | null>(null);
   const transformerRef = useRef<Konva.Transformer>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!imageBase64) return;
@@ -41,6 +54,20 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
     img.src = imageBase64;
     img.onload = () => setBgImage(img);
   }, [imageBase64]);
+
+  // Tecla ESC para desselecionar e fechar edição inline
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onSelectId(null);
+        if (editingText) {
+          setEditingText(null);
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onSelectId, editingText]);
 
   // Atualiza a seleção no Transformer do Konva
   useEffect(() => {
@@ -58,11 +85,13 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
   }, [selectedId, annotations, stageRef]);
 
   const handleMouseDown = (e: Konva.KonvaEventObject<MouseEvent>) => {
+    // Se clicou no fundo vazio, desseleciona
+    const clickedOnEmpty = e.target === e.target.getStage() || e.target.name() === 'bg-image';
+    if (clickedOnEmpty) {
+      onSelectId(null);
+    }
+
     if (activeTool === 'select') {
-      const clickedOnEmpty = e.target === e.target.getStage() || e.target.name() === 'bg-image';
-      if (clickedOnEmpty) {
-        onSelectId(null);
-      }
       return;
     }
 
@@ -70,8 +99,34 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
     const pos = stage?.getPointerPosition();
     if (!pos) return;
 
-    setIsDrawing(true);
     const id = `ann-${Date.now()}`;
+
+    if (activeTool === 'text') {
+      // Cria o texto e abre imediatamente o editor inline no local exato do clique
+      const initialText = 'Digite seu texto aqui';
+      const textAnn: Annotation = {
+        id,
+        type: 'text',
+        x: pos.x,
+        y: pos.y,
+        text: initialText,
+        fontSize,
+        fill: strokeColor,
+      };
+      onAddAnnotation(textAnn);
+      onSelectId(id);
+      setEditingText({
+        id,
+        x: pos.x,
+        y: pos.y,
+        text: initialText,
+        fontSize,
+        fill: strokeColor,
+      });
+      return;
+    }
+
+    setIsDrawing(true);
 
     if (activeTool === 'rect') {
       setNewAnnotation({
@@ -99,6 +154,8 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
       setNewAnnotation({
         id,
         type: 'arrow',
+        x: 0,
+        y: 0,
         points: [pos.x, pos.y, pos.x, pos.y],
         stroke: strokeColor,
         strokeWidth,
@@ -112,20 +169,6 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
         radius: 60,
         zoomLevel: 2.0,
       });
-      setIsDrawing(false);
-    } else if (activeTool === 'text') {
-      const enteredText = window.prompt('Digite o texto para o bloco:', 'Anotação');
-      if (enteredText) {
-        onAddAnnotation({
-          id,
-          type: 'text',
-          x: pos.x,
-          y: pos.y,
-          text: enteredText,
-          fontSize,
-          fill: strokeColor,
-        });
-      }
       setIsDrawing(false);
     }
   };
@@ -171,6 +214,7 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
 
   return (
     <div
+      ref={containerRef}
       style={{
         flex: 1,
         overflow: 'auto',
@@ -179,9 +223,10 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
         justifyContent: 'center',
         backgroundColor: '#e5e5e7',
         padding: '24px',
+        position: 'relative',
       }}
     >
-      <div style={{ boxShadow: '0 4px 24px rgba(0,0,0,0.15)', borderRadius: '4px', overflow: 'hidden' }}>
+      <div style={{ position: 'relative', boxShadow: '0 4px 24px rgba(0,0,0,0.15)', borderRadius: '4px', overflow: 'hidden' }}>
         <Stage
           ref={stageRef as React.RefObject<Konva.Stage>}
           width={canvasWidth}
@@ -198,6 +243,9 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
           {/* Camada de Vetores e Anotações */}
           <Layer>
             {annotations.map((ann) => {
+              // Todos os elementos são movimentáveis (draggable) enquanto não estiverem bloqueados/salvos
+              const canDrag = !isLocked;
+
               if (ann.type === 'rect') {
                 return (
                   <Rect
@@ -209,8 +257,9 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                     height={ann.height}
                     stroke={ann.stroke}
                     strokeWidth={ann.strokeWidth}
-                    draggable={activeTool === 'select'}
+                    draggable={canDrag}
                     onClick={() => onSelectId(ann.id)}
+                    onDragStart={() => onSelectId(ann.id)}
                     onDragEnd={(e) => onUpdateAnnotation(ann.id, { x: e.target.x(), y: e.target.y() })}
                   />
                 );
@@ -227,8 +276,9 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                     radiusY={ann.radiusY}
                     stroke={ann.stroke}
                     strokeWidth={ann.strokeWidth}
-                    draggable={activeTool === 'select'}
+                    draggable={canDrag}
                     onClick={() => onSelectId(ann.id)}
+                    onDragStart={() => onSelectId(ann.id)}
                     onDragEnd={(e) => onUpdateAnnotation(ann.id, { x: e.target.x(), y: e.target.y() })}
                   />
                 );
@@ -239,14 +289,18 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                   <Arrow
                     key={ann.id}
                     id={ann.id}
+                    x={ann.x || 0}
+                    y={ann.y || 0}
                     points={ann.points}
                     stroke={ann.stroke}
                     strokeWidth={ann.strokeWidth}
                     fill={ann.stroke}
                     pointerLength={10}
                     pointerWidth={10}
-                    draggable={activeTool === 'select'}
+                    draggable={canDrag}
                     onClick={() => onSelectId(ann.id)}
+                    onDragStart={() => onSelectId(ann.id)}
+                    onDragEnd={(e) => onUpdateAnnotation(ann.id, { x: e.target.x(), y: e.target.y() })}
                   />
                 );
               }
@@ -261,9 +315,21 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                     text={ann.text}
                     fontSize={ann.fontSize}
                     fill={ann.fill || '#000000'}
-                    draggable={activeTool === 'select'}
+                    draggable={canDrag}
                     onClick={() => onSelectId(ann.id)}
+                    onDragStart={() => onSelectId(ann.id)}
                     onDragEnd={(e) => onUpdateAnnotation(ann.id, { x: e.target.x(), y: e.target.y() })}
+                    onDblClick={() => {
+                      onSelectId(ann.id);
+                      setEditingText({
+                        id: ann.id,
+                        x: ann.x,
+                        y: ann.y,
+                        text: ann.text,
+                        fontSize: ann.fontSize,
+                        fill: ann.fill || '#000000',
+                      });
+                    }}
                   />
                 );
               }
@@ -275,8 +341,9 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                     id={ann.id}
                     x={ann.x}
                     y={ann.y}
-                    draggable={activeTool === 'select'}
+                    draggable={canDrag}
                     onClick={() => onSelectId(ann.id)}
+                    onDragStart={() => onSelectId(ann.id)}
                     onDragEnd={(e) => onUpdateAnnotation(ann.id, { x: e.target.x(), y: e.target.y() })}
                   >
                     <Circle radius={ann.radius} stroke="#ff9f0a" strokeWidth={3} fill="#ffffff" opacity={0.3} />
@@ -329,6 +396,51 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
             <Transformer ref={transformerRef} />
           </Layer>
         </Stage>
+
+        {/* Input Inline de Edição de Texto Direto sobre o Canvas (Sem Modais) */}
+        {editingText && (
+          <textarea
+            autoFocus
+            defaultValue={editingText.text}
+            onFocus={(e) => e.target.select()}
+            onBlur={(e) => {
+              const val = e.target.value.trim();
+              if (val) {
+                onUpdateAnnotation(editingText.id, { text: val });
+              }
+              setEditingText(null);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                const val = (e.target as HTMLTextAreaElement).value.trim();
+                if (val) {
+                  onUpdateAnnotation(editingText.id, { text: val });
+                }
+                setEditingText(null);
+              } else if (e.key === 'Escape') {
+                setEditingText(null);
+              }
+            }}
+            style={{
+              position: 'absolute',
+              left: `${editingText.x}px`,
+              top: `${editingText.y}px`,
+              fontSize: `${editingText.fontSize}px`,
+              color: editingText.fill,
+              fontFamily: 'system-ui, sans-serif',
+              border: '1px dashed #0071e3',
+              borderRadius: '3px',
+              backgroundColor: 'rgba(255, 255, 255, 0.95)',
+              padding: '2px 4px',
+              outline: 'none',
+              resize: 'both',
+              minWidth: '150px',
+              minHeight: '32px',
+              zIndex: 1000,
+            }}
+          />
+        )}
       </div>
     </div>
   );

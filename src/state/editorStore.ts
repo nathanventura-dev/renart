@@ -27,6 +27,8 @@ export interface EllipseAnnotation extends BaseAnnotation {
 
 export interface ArrowAnnotation extends BaseAnnotation {
   type: 'arrow';
+  x?: number;
+  y?: number;
   points: number[]; // [x1, y1, x2, y2]
 }
 
@@ -71,6 +73,7 @@ export interface EditorState {
   strokeColor: string;
   strokeWidth: number;
   fontSize: number;
+  isLocked: boolean;
 }
 
 export function createEditorStore(initialState?: Partial<EditorState>) {
@@ -81,6 +84,7 @@ export function createEditorStore(initialState?: Partial<EditorState>) {
     strokeColor: '#ff3b30',
     strokeWidth: 3,
     fontSize: 16,
+    isLocked: false,
     ...initialState,
   };
 
@@ -122,6 +126,12 @@ export function createEditorStore(initialState?: Partial<EditorState>) {
       notify();
     },
 
+    isLocked: () => state.isLocked,
+    setLocked: (locked: boolean) => {
+      state = { ...state, isLocked: locked };
+      notify();
+    },
+
     addAnnotation: (annotation: Annotation) => {
       undoStack.push([...state.annotations]);
       redoStack.length = 0; // limpa o redo ao fazer uma nova ação
@@ -129,6 +139,7 @@ export function createEditorStore(initialState?: Partial<EditorState>) {
         ...state,
         annotations: [...state.annotations, annotation],
         selectedId: annotation.id,
+        isLocked: false, // nova edição desbloqueia o canvas para movimentação
       };
       notify();
     },
@@ -139,6 +150,7 @@ export function createEditorStore(initialState?: Partial<EditorState>) {
       state = {
         ...state,
         annotations: state.annotations.map((a) => (a.id === id ? ({ ...a, ...updates } as Annotation) : a)),
+        isLocked: false,
       };
       notify();
     },
