@@ -66,17 +66,26 @@ Se você desejar apontar, destacar ou enriquecer o print antes de salvar:
 
 ### 4.1. Ferramentas Disponíveis
 - **Cursor / Seleção (Mouse Pointer):** Permite clicar sobre qualquer elemento já desenhado para movê-lo, rotacioná-lo ou redimensioná-lo.
-- **Retângulo (Square):** Cria caixas retangulares. Ao clicar no retângulo com a ferramenta de seleção, surgem **âncoras nos 4 cantos** que permitem esticar ou encolher o elemento com precisão milimétrica.
-- **Círculo / Elipse (Circle):** Cria destaques circulares ou ovais com âncoras de ajuste.
+- **Retângulo (Square):** Cria caixas retangulares. Ao clicar no retângulo, surgem **âncoras nos cantos e laterais** que permitem esticar ou encolher o elemento com precisão milimétrica.
+- **Círculo / Elipse (Circle):** Cria destaques circulares ou ovais com âncoras de ajuste e movimentação livre.
 - **Flecha Vetorial (Arrow):** Desenha setas com ponta automática. Ideal para indicar botões, erros ou áreas de interesse em tutoriais.
-- **Bloco de Texto (Type):** Insere caixas de texto com tamanho de fonte e cores customizáveis sobre a imagem.
+- **Bloco de Texto (Type):** Insere caixas de texto com tamanho de fonte e cores customizáveis sobre a imagem (edição direta inline no canvas com duplo clique, sem janelas modais).
 - **Inserir Imagem / Figura (ImageIcon):** Permite anexar logos, selos, carimbos ou figuras externas sobre o print.
-- **Ferramenta de Lupa (Zoom Lens):** Cria uma lente circular de destaque simulando uma lupa com ampliação de pixels (2x / 3x) para evidenciar detalhes pequenos.
+- **Ferramenta de Lupa com Coroa Giratória (Zoom Lens):**
+  - **Ampliação Real:** A lente circular recorta e amplia em tempo real os pixels da imagem que estão exatamente sob sua área.
+  - **Coroa Giratória ("Coroa Giratória"):** Ao redor da lupa há um aro dentado giratório com um seletor inferior (`◀ 2.0x ▶`). Ao clicar, segurar na coroa/seletor e **arrastar para a esquerda**, o zoom diminui; ao **arrastar para a direita**, o zoom aumenta, girando visualmente a coroa.
+  - **Níveis de Zoom:** Varia do mínimo `1.0x` (tamanho normal idêntico à imagem original) até o máximo `3.0x` (3 vezes o tamanho), alternando de `0.5` em `0.5` (`1.0x`, `1.5x`, `2.0x`, `2.5x`, `3.0x`).
 
-### 4.2. Controles de Estilo e Histórico
+### 4.2. Reconhecimento Inteligente de Hover e Drag-and-Drop
+- Quando você está com qualquer ferramenta de criação selecionada (qualquer bloco exceto o primeiro ponteiro de seleção):
+  - **Mouse dentro da área de um bloco existente:** O editor reconhece automaticamente o bloco sob o cursor, muda o ponteiro para movimentação (`move` / Drag-and-Drop) e permite clicar e arrastar o bloco existente imediatamente.
+  - **Mouse fora da área dos blocos adicionados:** O ponteiro permanece no modo de criação (`crosshair`) e clicar na área livre adiciona mais um bloco normalmente.
+
+### 4.3. Controles de Estilo e Histórico
 - **Paleta de Cores:** Vermelho, Laranja, Verde, Azul, Roxo, Preto e Branco.
 - **Espessura do Traço:** 2px, 3px, 5px e 8px.
-- **Desfazer (Undo) e Refazer (Redo):** Atalhos `Ctrl+Z` / `Ctrl+Y` ou botões visuais na barra para reverter qualquer ação sem medo de errar.
+- **Desfazer (Undo) e Refazer (Redo):** Atalhos `Ctrl+Z` (Desfazer) e `Ctrl+Shift+Z` / `Ctrl+Y` (Refazer) ou botões visuais na barra para reverter qualquer ação.
+- **Desselecionar (`ESC`) e Salvar (`Ctrl+S`):** Pressionar `ESC` desmarca qualquer bloco selecionado mantendo os blocos móveis até que o usuário salve a imagem com `Ctrl+S` ou pelo menu Salvar/Exportar.
 
 ---
 
@@ -85,9 +94,10 @@ Se você desejar apontar, destacar ou enriquecer o print antes de salvar:
 No painel esquerdo da aplicação, uma galeria visual organiza seus trabalhos recentes:
 
 - **Alternância Instantânea:** Clique em qualquer miniatura para trazê-la ao centro do canvas, mantendo todas as anotações feitas.
+- **Colagem Direta (`Ctrl+V`):** Você também pode colar imagens da área de transferência diretamente na seção de miniaturas pressionando `Ctrl+V`.
 - **Contador com Limite Rígido (Máximo 10 Itens):**
   - A barra exibe o número de capturas abertas (ex: `3 / 10`).
-  - **Política FIFO (First-In, First-Out):** Se você atingir o teto de 10 capturas e tirar uma 11ª foto, a captura mais antiga da lista é automaticamente descartada da memória, garantindo que o programa nunca consuma memória excessiva do computador.
+  - **Política FIFO (First-In, First-Out):** Se você atingir o teto de 10 capturas e tirar ou colar uma 11ª imagem, a captura mais antiga da lista é automaticamente descartada da memória, garantindo que o programa nunca consuma memória excessiva do computador.
 - **Fechamento Manual:** Cada miniatura possui um botão `X` no canto superior direito para fechar capturas que você já utilizou.
 
 ---
