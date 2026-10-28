@@ -48,6 +48,8 @@ import {
   getArrowHeadDimensions,
   calculateResizedArrowStroke,
   clampArrowResizeBox,
+  updateCurvedArrowAnchor,
+  getCurvedArrowAnchorPositions,
 } from '../utils/zoomAndCrop';
 
 interface CanvasEditorProps {
@@ -255,6 +257,10 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
     null
   );
   const [cropRect, setCropRect] = useState<CropBox | null>(null);
+  const [liveAnchorPoints, setLiveAnchorPoints] = useState<number[] | null>(null);
+  const [draggingAnchor, setDraggingAnchor] = useState<{ id: string; index: 0 | 1 | 2 } | null>(null);
+  const [hoveredAnchor, setHoveredAnchor] = useState<0 | 1 | 2 | null>(null);
+  const [isDraggingArrowBody, setIsDraggingArrowBody] = useState(false);
 
   const transformerRef = useRef<Konva.Transformer>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -374,6 +380,10 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
     setIsDrawing(false);
     setNewAnnotation(null);
     setMarqueeBox(null);
+    setLiveAnchorPoints(null);
+    setDraggingAnchor(null);
+    setHoveredAnchor(null);
+    setIsDraggingArrowBody(false);
   }, [activeTool, imageBase64, annotations.length]);
 
   const isDraggingCrown = Boolean(crownDrag);
@@ -466,7 +476,7 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
       const nodes: Konva.Node[] = [];
       for (const id of effectiveSelectedIds) {
         const ann = annotations.find((a) => a.id === id);
-        if (ann && shouldAttachTransformer(ann.type)) {
+        if (ann && shouldAttachTransformer(ann.type, ann.type === 'arrow' ? ann.arrowStyle : undefined)) {
           const found = stageRef.current.findOne(`#${id}`);
           if (found) {
             nodes.push(found);
@@ -485,13 +495,21 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
   // Resolve o estilo do cursor dinamicamente conforme hover em blocos, alça de foco ou coroa da lupa
   const pointerBehavior = resolveCanvasPointerBehavior(activeTool, isHoveringBlock, isLocked);
   const currentCursor =
-    crownDrag || isHoveringCrown
-      ? 'ew-resize'
-      : focusDrag
+    draggingAnchor
+      ? draggingAnchor.index === 1
         ? 'grabbing'
-        : isHoveringFocus
+        : 'crosshair'
+      : hoveredAnchor !== null
+        ? hoveredAnchor === 1
           ? 'grab'
-          : pointerBehavior.cursor;
+          : 'crosshair'
+        : crownDrag || isHoveringCrown
+          ? 'ew-resize'
+          : focusDrag
+            ? 'grabbing'
+            : isHoveringFocus
+              ? 'grab'
+              : pointerBehavior.cursor;
 
   const handleBlockMouseEnter = () => {
     if (!isLocked) {
@@ -520,6 +538,11 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
     if (!activeIds.includes(id)) {
       activeIds = [id];
       applySelectionIds([id]);
+    }
+
+    const ann = annotations.find((a) => a.id === id);
+    if (ann?.type === 'arrow' && ann.arrowStyle === 'curved') {
+      setIsDraggingArrowBody(true);
     }
 
     if (activeIds.length > 1 && stageRef.current) {
@@ -627,6 +650,7 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
   // Finalização do arraste (salva posição única ou de todos os blocos da multiseleção)
   const handleBlockDragEnd = (id: string, e: Konva.KonvaEventObject<DragEvent>) => {
     setLiveLensDrag(null);
+    setIsDraggingArrowBody(false);
     const imgW = bgImage ? bgImage.width : 800;
     const imgH = bgImage ? bgImage.height : 600;
     const multi = multiDragStartRef.current;
@@ -652,6 +676,23 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
             updatesById[selId] = hasDetached
               ? { x: clamped.x, y: clamped.y }
               : { x: clamped.x, y: clamped.y, focusX: clamped.x, focusY: clamped.y };
+          } else if (ann.type === 'arrow' && ann.arrowStyle === 'curved') {
+            const clamped = clampAnnotationPositionToBounds(
+              ann,
+              node.x(),
+              node.y(),
+              imgW,
+              imgH,
+              node.width?.(),
+              node.height?.()
+            );
+            const ox = ann.x || 0;
+            const oy = ann.y || 0;
+            const dx = clamped.x - ox;
+            const dy = clamped.y - oy;
+            const bakedPoints = ann.points.map((p, idx) => (idx % 2 === 0 ? p + dx : p + dy));
+            node.position({ x: 0, y: 0 });
+            updatesById[selId] = { x: 0, y: 0, points: bakedPoints };
           } else {
             const clamped = clampAnnotationPositionToBounds(
               ann,
@@ -693,6 +734,30 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
           ? { x: clamped.x, y: clamped.y }
           : { x: clamped.x, y: clamped.y, focusX: clamped.x, focusY: clamped.y }
       );
+      return;
+    }
+
+    if (draggedAnn?.type === 'arrow' && draggedAnn.arrowStyle === 'curved') {
+      const clamped = clampAnnotationPositionToBounds(
+        draggedAnn,
+        e.currentTarget.x(),
+        e.currentTarget.y(),
+        imgW,
+        imgH,
+        e.currentTarget.width?.(),
+        e.currentTarget.height?.()
+      );
+      const ox = draggedAnn.x || 0;
+      const oy = draggedAnn.y || 0;
+      const dx = clamped.x - ox;
+      const dy = clamped.y - oy;
+      const bakedPoints = draggedAnn.points.map((p, idx) => (idx % 2 === 0 ? p + dx : p + dy));
+      e.currentTarget.position({ x: 0, y: 0 });
+      onUpdateAnnotation(id, {
+        x: 0,
+        y: 0,
+        points: bakedPoints,
+      });
       return;
     }
 
@@ -1437,6 +1502,29 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
   const visualWidth = Math.round(canvasWidth * zoomLevel);
   const visualHeight = Math.round(canvasHeight * zoomLevel);
 
+  const selectedCurvedArrow = useMemo(() => {
+    if (effectiveSelectedIds.length !== 1) return null;
+    const ann = annotations.find((a) => a.id === effectiveSelectedIds[0]);
+    if (ann && ann.type === 'arrow' && ann.arrowStyle === 'curved') {
+      return ann;
+    }
+    return null;
+  }, [effectiveSelectedIds, annotations]);
+
+  const effectiveCurvedPoints = useMemo(() => {
+    if (!selectedCurvedArrow) return null;
+    const rawPoints =
+      liveAnchorPoints && draggingAnchor?.id === selectedCurvedArrow.id
+        ? liveAnchorPoints
+        : selectedCurvedArrow.points;
+    const ox = selectedCurvedArrow.x || 0;
+    const oy = selectedCurvedArrow.y || 0;
+    if (ox !== 0 || oy !== 0) {
+      return rawPoints.map((p, idx) => (idx % 2 === 0 ? p + ox : p + oy));
+    }
+    return rawPoints;
+  }, [selectedCurvedArrow, liveAnchorPoints, draggingAnchor]);
+
   return (
     <div
       ref={containerRef}
@@ -1629,14 +1717,18 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                 const headDims = getArrowHeadDimensions(ann.strokeWidth || 4, currentArrowStyle);
                 const isDashed = currentArrowStyle === 'dashed';
                 const isCurved = currentArrowStyle === 'curved';
+                const isCurvedSelected = selectedCurvedArrow?.id === ann.id;
+                const displayPoints = isCurvedSelected && liveAnchorPoints ? liveAnchorPoints : ann.points;
+                const displayX = isCurvedSelected && liveAnchorPoints ? 0 : (ann.x || 0);
+                const displayY = isCurvedSelected && liveAnchorPoints ? 0 : (ann.y || 0);
 
                 return (
                   <Arrow
                     key={ann.id}
                     id={ann.id}
-                    x={ann.x || 0}
-                    y={ann.y || 0}
-                    points={ann.points}
+                    x={displayX}
+                    y={displayY}
+                    points={displayPoints}
                     scaleX={ann.scaleX ?? 1}
                     scaleY={ann.scaleY ?? 1}
                     rotation={ann.rotation ?? 0}
@@ -1649,13 +1741,13 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                     fill={ann.stroke}
                     pointerLength={headDims.pointerLength}
                     pointerWidth={headDims.pointerWidth}
-                    draggable={canDrag}
+                    draggable={canDrag && !draggingAnchor}
                     dragBoundFunc={(pos) =>
                       getTransformedDragBound(pos, zoomLevel, (localX, localY) =>
                         clampLinePointsToBounds(
                           localX,
                           localY,
-                          ann.points,
+                          displayPoints,
                           canvasWidth,
                           canvasHeight,
                           ann.scaleX ?? 1,
@@ -2406,6 +2498,92 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                 />
               </Group>
             )}
+
+            {/* Âncoras interativas de ajuste manual da flecha curva selecionada (1: Cauda/Origem, 2: Meio/Curvatura, 3: Ponta/Alvo) */}
+            {selectedCurvedArrow &&
+              effectiveCurvedPoints &&
+              effectiveCurvedPoints.length >= 6 &&
+              !isLocked &&
+              !isCropping &&
+              !isDrawing &&
+              !isDraggingArrowBody &&
+              effectiveSelectedIds.length === 1 && (() => {
+                const anchors = getCurvedArrowAnchorPositions(effectiveCurvedPoints);
+                const anchorList: Array<{ index: 0 | 1 | 2; pos: { x: number; y: number }; name: string }> = [
+                  { index: 0, pos: anchors.tail, name: 'curved-arrow-anchor-tail' },
+                  { index: 1, pos: anchors.bend, name: 'curved-arrow-anchor-bend' },
+                  { index: 2, pos: anchors.tip, name: 'curved-arrow-anchor-tip' },
+                ];
+
+                return (
+                  <Group name="curved-arrow-anchors-group">
+                    {anchorList.map(({ index, pos, name }) => (
+                      <Circle
+                        key={name}
+                        name={name}
+                        x={pos.x}
+                        y={pos.y}
+                        radius={6}
+                        fill="#ffffff"
+                        stroke="#0071e3"
+                        strokeWidth={2}
+                        shadowColor="rgba(0, 0, 0, 0.25)"
+                        shadowBlur={3}
+                        hitStrokeWidth={16}
+                        draggable={!isLocked}
+                        dragBoundFunc={(absolutePos) =>
+                          getTransformedDragBound(absolutePos, zoomLevel, (localX, localY) => ({
+                            x: Math.max(0, Math.min(localX, canvasWidth)),
+                            y: Math.max(0, Math.min(localY, canvasHeight)),
+                          }))
+                        }
+                        onMouseEnter={() => setHoveredAnchor(index)}
+                        onMouseLeave={() => setHoveredAnchor((prev) => (prev === index ? null : prev))}
+                        onDragStart={(e) => {
+                          e.cancelBubble = true;
+                          setDraggingAnchor({ id: selectedCurvedArrow.id, index });
+                          setLiveAnchorPoints(effectiveCurvedPoints);
+                        }}
+                        onDragMove={(e) => {
+                          e.cancelBubble = true;
+                          const nextPoints = updateCurvedArrowAnchor(
+                            effectiveCurvedPoints,
+                            index,
+                            e.target.x(),
+                            e.target.y(),
+                            canvasWidth,
+                            canvasHeight
+                          );
+                          setLiveAnchorPoints(nextPoints);
+                        }}
+                        onDragEnd={(e) => {
+                          e.cancelBubble = true;
+                          const finalPoints = updateCurvedArrowAnchor(
+                            liveAnchorPoints || effectiveCurvedPoints,
+                            index,
+                            e.target.x(),
+                            e.target.y(),
+                            canvasWidth,
+                            canvasHeight
+                          );
+                          const hasChanged = finalPoints.some(
+                            (val, i) => val !== selectedCurvedArrow.points[i]
+                          );
+                          if (hasChanged || (selectedCurvedArrow.x && selectedCurvedArrow.x !== 0) || (selectedCurvedArrow.y && selectedCurvedArrow.y !== 0)) {
+                            onUpdateAnnotation(selectedCurvedArrow.id, {
+                              x: 0,
+                              y: 0,
+                              points: finalPoints,
+                            });
+                          }
+                          setLiveAnchorPoints(null);
+                          setDraggingAnchor(null);
+                        }}
+                      />
+                    ))}
+                  </Group>
+                );
+              })()}
 
             {/* Transformer de Redimensionamento (Simples, Multiseleção, Texto Sem Distorção 12..48, Lupa e Quadro de Recorte) */}
             <Transformer

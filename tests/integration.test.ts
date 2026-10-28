@@ -2,6 +2,7 @@
 import { describe, it, expect } from 'vitest';
 import { createGalleryStore } from '../src/state/galleryStore';
 import { createEditorStore } from '../src/state/editorStore';
+import { updateCurvedArrowAnchor } from '../src/utils/zoomAndCrop';
 
 describe('Integration Flow', () => {
   it('coordinates gallery selection with canvas editor state', () => {
@@ -116,5 +117,57 @@ describe('Integration Flow', () => {
     editor.undo();
     const curvedUndone = editor.getState().annotations.find((a) => a.id === 'arrow-curved');
     expect(curvedUndone?.type === 'arrow' && curvedUndone.curveDirection).toBe('right');
+  });
+
+  it('supports updating individual anchors of a curved arrow with undo and redo history', () => {
+    const editor = createEditorStore();
+    const initialPoints = [100, 100, 200, 50, 300, 100];
+
+    editor.addAnnotation({
+      id: 'arrow-curve-anchor',
+      type: 'arrow',
+      points: initialPoints,
+      stroke: '#0071e3',
+      strokeWidth: 4,
+      arrowStyle: 'curved',
+    });
+    editor.setSelectedIds(['arrow-curve-anchor']);
+
+    const getCurvedPoints = () => {
+      const ann = editor.getState().annotations[0];
+      return ann?.type === 'arrow' ? ann.points : [];
+    };
+
+    // 1. Modifica a cauda (âncora 0)
+    const pointsTail = updateCurvedArrowAnchor(initialPoints, 0, 80, 120, 800, 600);
+    editor.updateAnnotation('arrow-curve-anchor', { points: pointsTail });
+    expect(getCurvedPoints()[0]).toBe(80);
+    expect(getCurvedPoints()[1]).toBe(120);
+
+    // 2. Modifica a curvatura (âncora 1)
+    const pointsBend = updateCurvedArrowAnchor(pointsTail, 1, 200, 180, 800, 600);
+    editor.updateAnnotation('arrow-curve-anchor', { points: pointsBend });
+    expect(getCurvedPoints()[3]).toBe(180);
+
+    // 3. Modifica a ponta (âncora 2)
+    const pointsTip = updateCurvedArrowAnchor(pointsBend, 2, 350, 90, 800, 600);
+    editor.updateAnnotation('arrow-curve-anchor', { points: pointsTip });
+    expect(getCurvedPoints()[4]).toBe(350);
+
+    // 4. Undo desfaz o ajuste da ponta
+    editor.undo();
+    expect(getCurvedPoints()[4]).toBe(300);
+
+    // 5. Undo desfaz o ajuste do arco
+    editor.undo();
+    expect(getCurvedPoints()[3]).toBe(50);
+
+    // 6. Undo desfaz o ajuste da cauda
+    editor.undo();
+    expect(getCurvedPoints()[0]).toBe(100);
+
+    // 7. Redo reaplica
+    editor.redo();
+    expect(getCurvedPoints()[0]).toBe(80);
   });
 });

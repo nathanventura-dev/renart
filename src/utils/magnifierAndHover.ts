@@ -1,4 +1,4 @@
-import { Annotation, FONT_SIZES, ToolType, ArrowStyle } from '../state/editorStore';
+import { Annotation, FONT_SIZES, ToolType } from '../state/editorStore';
 
 export const MIN_FONT_SIZE = FONT_SIZES[0]; // 12
 export const MAX_FONT_SIZE = FONT_SIZES[FONT_SIZES.length - 1]; // 48
