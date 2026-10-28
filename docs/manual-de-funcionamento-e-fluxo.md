@@ -72,7 +72,10 @@ Se você desejar apontar, destacar ou enriquecer o print antes de salvar:
 - **Flecha Vetorial (Arrow):** Desenha setas com ponta automática. Ideal para indicar botões, erros ou áreas de interesse em tutoriais.
 - **Bloco de Texto (Type):** Insere caixas de texto com tamanho de fonte e cores customizáveis sobre a imagem (edição direta inline no canvas com duplo clique, sem janelas modais).
 - **Inserir Imagem / Figura (ImageIcon):** Permite anexar logos, selos, carimbos ou figuras externas sobre o print.
-- **Ferramenta de Lupa com Coroa Minimalista Inferior (Zoom Lens):**
+- **Ferramenta de Lupa com Opções "Sem foco" e "Com foco" (Zoom Lens):**
+  - **Duas Opções de Uso na Barra de Ferramentas:** Ao selecionar a Lupa, você pode escolher entre:
+    - **`Sem foco`:** Mantém a lupa tradicional que amplia diretamente a região sob a própria lente.
+    - **`Com foco`:** Permite clicar no ponto exato que deseja focar e arrastar a lupa para qualquer canto da tela. O ponto focal exibe **apenas um ponto discreto** (sem círculo ao redor para não poluir a visão) conectado à lupa por um **rastro levemente fosco estreito**. Tanto o ponto focal quanto o corpo da lupa podem ser reposicionados livremente.
   - **Ampliação Real da Imagem e de Todos os Blocos Adicionados:** A lente circular fica **sempre acima de todos os elementos da imagem** (independentemente da ordem de criação) e recorta/amplia em tempo real tanto os pixels da imagem de fundo quanto **todos os blocos adicionados** sob ela (setas, traços/linhas, elipses, quadrados/retângulos, textos e imagens inseridas).
   - **Redimensionamento Livre Respeitando o Limite da Imagem:** Ao selecionar a lupa, surgem âncoras de redimensionamento ao redor da lente (deixando a parte inferior livre para a coroa de zoom), permitindo aumentar ou diminuir o espaço ocupado pela lupa conforme desejar, sempre respeitando automaticamente as bordas da imagem.
   - **Movimentação Livre:** Pode ser arrastada livremente dentro dos limites da imagem tanto logo após a criação quanto depois de redimensionar ou realizar zoom in / zoom out.

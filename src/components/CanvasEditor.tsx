@@ -41,7 +41,7 @@ interface CanvasEditorProps {
   autoStrokeWidth?: boolean;
   fontSize: number;
   isLocked?: boolean;
-  magnifierMode?: 'v1-handle' | 'v2-callout';
+  magnifierMode?: 'without-focus' | 'with-focus';
   onSelectId: (id: string | null) => void;
   onSelectIds?: (ids: string[]) => void;
   onToggleSelectId?: (id: string) => void;
@@ -172,7 +172,7 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
   autoStrokeWidth = true,
   fontSize,
   isLocked = false,
-  magnifierMode = 'v1-handle',
+  magnifierMode = 'without-focus',
   onSelectId,
   onSelectIds,
   onToggleSelectId,
@@ -748,8 +748,8 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
       const clamped = clampMagnifierToImageBounds(pos.x, pos.y, 65, imgW, imgH);
       const clampedFocus = clampFocusPointToImageBounds(pos.x, pos.y, imgW, imgH);
 
-      if (magnifierMode === 'v2-callout') {
-        // Versão 2 (Estilo Callout Direto): O ponto clicado já é cravado como o Foco
+      if (magnifierMode === 'with-focus') {
+        // Lupa Com Foco (V2): O ponto clicado fica cravado como o Ponto Focal
         // e arrastar o mouse posiciona o corpo da lupa no canto desejado com o rastro fosco!
         setIsDrawing(true);
         setNewAnnotation({
@@ -765,7 +765,7 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
         return;
       }
 
-      // Versão 1 (Alça de Foco): Cria a lupa com a alça de foco pronta para puxar para qualquer ponto
+      // Lupa Sem Foco: Cria a lupa tradicional ampliando a área diretamente sob a lente
       onAddAnnotation({
         id,
         type: 'magnifier',
@@ -773,8 +773,6 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
         y: clamped.y,
         radius: clamped.radius,
         zoomLevel: 2.0,
-        focusX: clamped.x,
-        focusY: clamped.y,
       });
       applySelectionIds([id]);
       return;
@@ -1272,7 +1270,7 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                     onDragMove={(e) => handleBlockDragMove(ann.id, e)}
                     onDragEnd={(e) => handleBlockDragEnd(ann.id, e)}
                   >
-                    {/* Cone/Rastro Levemente Fosco e Círculo Focal (Estilo Screenpresso) */}
+                    {/* Rastro Levemente Fosco Estreito e Apenas o Ponto Focal (Sem Círculo Externo) */}
                     {focusGeo.hasOffsetFocus && (
                       <Group
                         ref={(node) => {
@@ -1281,16 +1279,16 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                           }
                         }}
                       >
-                        {/* Polígono do Rastro Levemente Fosco entre o Ponto Focal e a Lupa */}
+                        {/* Polígono do Rastro Levemente Fosco estreito partindo do ponto focal até a lupa */}
                         <Line
                           points={focusGeo.conePoints}
                           closed
-                          fill="rgba(255, 255, 255, 0.38)"
-                          stroke="rgba(255, 255, 255, 0.72)"
+                          fill="rgba(255, 255, 255, 0.36)"
+                          stroke="rgba(255, 255, 255, 0.68)"
                           strokeWidth={1}
                           listening={false}
                         />
-                        {/* Linhas Tangentes Laterais Sutis */}
+                        {/* Linhas Laterais Sutis do Rastro */}
                         <Line
                           points={[
                             focusGeo.conePoints[0],
@@ -1299,9 +1297,9 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                             focusGeo.conePoints[7],
                           ]}
                           stroke={ringColor}
-                          strokeWidth={1.2}
-                          opacity={0.5}
-                          dash={[4, 4]}
+                          strokeWidth={1}
+                          opacity={0.42}
+                          dash={[3, 3]}
                           listening={false}
                         />
                         <Line
@@ -1312,43 +1310,30 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                             focusGeo.conePoints[5],
                           ]}
                           stroke={ringColor}
-                          strokeWidth={1.2}
-                          opacity={0.5}
-                          dash={[4, 4]}
+                          strokeWidth={1}
+                          opacity={0.42}
+                          dash={[3, 3]}
                           listening={false}
                         />
 
-                        {/* Círculo do Ponto Focal (Região Ampliada) - Arrastável */}
+                        {/* Área de Clique Invisível ao redor do Ponto Focal para Facilitar o Arraste */}
                         <Circle
                           name="magnifier-focus"
                           x={focusGeo.dx}
                           y={focusGeo.dy}
-                          radius={focusGeo.focusRadius}
-                          fill="rgba(255, 255, 255, 0.18)"
-                          stroke="rgba(255, 255, 255, 0.9)"
-                          strokeWidth={2.5}
+                          radius={14}
+                          fill="rgba(0, 0, 0, 0.001)"
                           onMouseEnter={() => setIsHoveringFocus(true)}
                           onMouseLeave={() => setIsHoveringFocus(false)}
                           onMouseDown={startFocusDrag}
-                          onDblClick={(e) => {
-                            e.cancelBubble = true;
-                            onUpdateAnnotation(ann.id, { focusX: ann.x, focusY: ann.y });
-                          }}
                         />
-                        <Circle
-                          x={focusGeo.dx}
-                          y={focusGeo.dy}
-                          radius={focusGeo.focusRadius}
-                          stroke={ringColor}
-                          strokeWidth={1.5}
-                          listening={false}
-                        />
-                        {/* Ponto Central de Mira no Foco */}
+
+                        {/* Apenas o Ponto Central do Foco (Sem Círculo ao Redor) */}
                         <Circle
                           name="magnifier-focus"
                           x={focusGeo.dx}
                           y={focusGeo.dy}
-                          radius={5}
+                          radius={focusGeo.focusDotRadius}
                           fill={ringColor}
                           stroke="#ffffff"
                           strokeWidth={1.5}
@@ -1520,49 +1505,6 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                       strokeWidth={ann.strokeWidth || (isSelected ? 2 : 1.5)}
                       listening={false}
                     />
-
-                    {/* Alça de Foco (Versão 1: Quando o foco ainda está acoplado ao centro, exibe pino para puxar o foco para fora) */}
-                    {!focusGeo.hasOffsetFocus && !isLocked && isSelected && (
-                      <Group
-                        ref={(node) => {
-                          if (node) {
-                            node.getClientRect = () => ({ x: 0, y: 0, width: 0, height: 0 });
-                          }
-                        }}
-                        onMouseEnter={() => setIsHoveringFocus(true)}
-                        onMouseLeave={() => setIsHoveringFocus(false)}
-                        onMouseDown={startFocusDrag}
-                      >
-                        <Rect
-                          name="magnifier-focus"
-                          x={-24}
-                          y={-11}
-                          width={48}
-                          height={22}
-                          cornerRadius={11}
-                          fill="rgba(15, 23, 42, 0.78)"
-                          stroke="#ffffff"
-                          strokeWidth={1.2}
-                        />
-                        <Circle
-                          name="magnifier-focus"
-                          x={-13}
-                          y={0}
-                          radius={3.5}
-                          fill="#38bdf8"
-                        />
-                        <Text
-                          name="magnifier-focus"
-                          x={-6}
-                          y={-5}
-                          width={26}
-                          text="Foco"
-                          fontSize={10}
-                          fontStyle="bold"
-                          fill="#f8fafc"
-                        />
-                      </Group>
-                    )}
 
                     {/* Detalhe Cosmético Minimalista na Parte de Baixo: Coroa Giratória Discreta */}
                     <Group
@@ -1752,17 +1694,17 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                           <Line
                             points={previewFocusGeo.conePoints}
                             closed
-                            fill="rgba(255, 255, 255, 0.38)"
-                            stroke="rgba(255, 255, 255, 0.72)"
+                            fill="rgba(255, 255, 255, 0.36)"
+                            stroke="rgba(255, 255, 255, 0.68)"
                             strokeWidth={1}
                             listening={false}
                           />
                           <Circle
                             x={previewFocusGeo.dx}
                             y={previewFocusGeo.dy}
-                            radius={previewFocusGeo.focusRadius}
-                            fill="rgba(255, 255, 255, 0.18)"
-                            stroke="#0071e3"
+                            radius={previewFocusGeo.focusDotRadius}
+                            fill="#0071e3"
+                            stroke="#ffffff"
                             strokeWidth={1.5}
                             listening={false}
                           />

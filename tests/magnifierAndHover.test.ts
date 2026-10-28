@@ -151,18 +151,22 @@ describe('Magnifier Zoom & Rotating Crown (Coroa Giratória)', () => {
     });
   });
 
-  it('calculates Screenpresso-style frosted trail cone and focal circle geometry between focus and lens', () => {
-    // Quando o foco está no mesmo centro da lupa, não há rastro esticado (hasOffsetFocus = false)
+  it('calculates sleek frosted trail from a single focal dot (without outer circle) to a compact lens spread', () => {
+    // Quando o foco está no mesmo centro da lupa (modo Sem Foco), não há rastro esticado (hasOffsetFocus = false)
     const centered = calculateMagnifierFocusGeometry(300, 200, 65, 300, 200, 2.0);
     expect(centered.hasOffsetFocus).toBe(false);
+    expect(centered.hasOuterFocusCircle).toBe(false);
     expect(centered.conePoints).toEqual([]);
 
-    // Quando a lupa está no canto (500, 350) e o foco está em (200, 150), gera o cone tangente (8 coordenadas = 4 vértices)
-    const offset = calculateMagnifierFocusGeometry(500, 350, 80, 200, 150, 2.0);
+    // Quando a lupa está com foco remoto (500, 350 -> foco em 200, 150), usa apenas o ponto focal (focusDotRadius = 5)
+    // sem círculo externo e gera um rastro fosco mais estreito (lensSpread = 42% do raio da lente)
+    const offset = calculateMagnifierFocusGeometry(500, 350, 100, 200, 150, 2.0);
     expect(offset.hasOffsetFocus).toBe(true);
+    expect(offset.hasOuterFocusCircle).toBe(false);
     expect(offset.dx).toBe(-300);
     expect(offset.dy).toBe(-200);
-    expect(offset.focusRadius).toBe(40); // 80 / 2.0
+    expect(offset.focusDotRadius).toBe(5);
+    expect(offset.lensSpread).toBe(42); // 42% de 100, menor que o raio total da lupa
     expect(offset.conePoints.length).toBe(8);
   });
 

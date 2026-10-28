@@ -81,8 +81,8 @@ interface ToolbarProps {
   onCopy: () => void;
   onExport: (format: 'png' | 'jpeg' | 'pdf') => void;
   onInsertImage: (file: File) => void;
-  magnifierMode?: 'v1-handle' | 'v2-callout';
-  onSelectMagnifierMode?: (mode: 'v1-handle' | 'v2-callout') => void;
+  magnifierMode?: 'without-focus' | 'with-focus';
+  onSelectMagnifierMode?: (mode: 'without-focus' | 'with-focus') => void;
 }
 
 const COLORS = ['#ff3b30', '#ff9f0a', '#34c759', '#0071e3', '#5856d6', '#000000', '#ffffff'];
@@ -104,7 +104,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   onCopy,
   onExport,
   onInsertImage,
-  magnifierMode = 'v1-handle',
+  magnifierMode = 'without-focus',
   onSelectMagnifierMode,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -325,39 +325,39 @@ export const Toolbar: React.FC<ToolbarProps> = ({
           >
             <button
               type="button"
-              title="Versão 1: Cria a lupa e permite puxar a alça de foco para fora"
-              onClick={() => onSelectMagnifierMode?.('v1-handle')}
+              title="Lupa Sem Foco: Amplia diretamente a área sob a lente (como tradicionalmente)"
+              onClick={() => onSelectMagnifierMode?.('without-focus')}
               style={{
                 height: '24px',
-                padding: '0 7px',
+                padding: '0 8px',
                 fontSize: '11px',
                 fontWeight: 600,
                 border: 'none',
                 borderRadius: '4px',
                 cursor: 'pointer',
-                backgroundColor: magnifierMode === 'v1-handle' ? '#0071e3' : 'transparent',
-                color: magnifierMode === 'v1-handle' ? '#ffffff' : '#334155',
+                backgroundColor: magnifierMode === 'without-focus' ? '#0071e3' : 'transparent',
+                color: magnifierMode === 'without-focus' ? '#ffffff' : '#334155',
               }}
             >
-              V1: Alça
+              Sem foco
             </button>
             <button
               type="button"
-              title="Versão 2: Clica no ponto de foco e arrasta para posicionar a lupa no canto"
-              onClick={() => onSelectMagnifierMode?.('v2-callout')}
+              title="Lupa Com Foco: Clica no ponto de foco e puxa a lupa para o canto com rastro fosco"
+              onClick={() => onSelectMagnifierMode?.('with-focus')}
               style={{
                 height: '24px',
-                padding: '0 7px',
+                padding: '0 8px',
                 fontSize: '11px',
                 fontWeight: 600,
                 border: 'none',
                 borderRadius: '4px',
                 cursor: 'pointer',
-                backgroundColor: magnifierMode === 'v2-callout' ? '#0071e3' : 'transparent',
-                color: magnifierMode === 'v2-callout' ? '#ffffff' : '#334155',
+                backgroundColor: magnifierMode === 'with-focus' ? '#0071e3' : 'transparent',
+                color: magnifierMode === 'with-focus' ? '#ffffff' : '#334155',
               }}
             >
-              V2: Puxar
+              Com foco
             </button>
           </div>
         )}

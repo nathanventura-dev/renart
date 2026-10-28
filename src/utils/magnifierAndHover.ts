@@ -66,18 +66,22 @@ export function calculateMagnifierImageTransform(
   };
 }
 
+export type MagnifierMode = 'without-focus' | 'with-focus';
+
 export interface MagnifierFocusGeometry {
   hasOffsetFocus: boolean;
+  hasOuterFocusCircle: false;
   dx: number;
   dy: number;
   distance: number;
-  focusRadius: number;
+  focusDotRadius: number;
+  lensSpread: number;
   conePoints: number[];
 }
 
 /**
- * Calcula a geometria óptica do foco remoto e do cone/rastro levemente fosco (estilo Screenpresso)
- * em coordenadas locais relativas ao centro da lupa (0, 0).
+ * Calcula a geometria óptica do foco remoto exibindo apenas o ponto focal (sem círculo ao redor)
+ * e um cone/rastro levemente fosco mais estreito e discreto até a lupa.
  */
 export function calculateMagnifierFocusGeometry(
   lensX: number,
@@ -85,50 +89,55 @@ export function calculateMagnifierFocusGeometry(
   radius: number,
   focusX?: number,
   focusY?: number,
-  zoomLevel: number = 2.0
+  _zoomLevel: number = 2.0
 ): MagnifierFocusGeometry {
   const targetX = focusX ?? lensX;
   const targetY = focusY ?? lensY;
   const dx = targetX - lensX;
   const dy = targetY - lensY;
   const distance = Math.hypot(dx, dy);
-  const zoom = snapToZoomStep(zoomLevel);
-  const focusRadius = Math.max(14, Math.min(Math.round(radius * 0.85), Math.round(radius / zoom)));
+  const focusDotRadius = 5;
+  const lensSpread = Math.max(12, Math.round(radius * 0.42));
 
   if (distance <= 4) {
     return {
       hasOffsetFocus: false,
+      hasOuterFocusCircle: false,
       dx,
       dy,
       distance,
-      focusRadius,
+      focusDotRadius,
+      lensSpread,
       conePoints: [],
     };
   }
 
-  // Vetor unitário da lente (0,0) até o foco (dx, dy) e seu perpendicular
+  // Vetor unitário da lente (0,0) até o ponto focal (dx, dy) e seu perpendicular
   const ux = dx / distance;
   const uy = dy / distance;
   const px = -uy;
   const py = ux;
 
-  // Polígono tangente conectando o círculo focal (raio focusRadius) à lente (raio radius)
-  const lensX1 = Number((px * radius).toFixed(2));
-  const lensY1 = Number((py * radius).toFixed(2));
-  const lensX2 = Number((-px * radius).toFixed(2));
-  const lensY2 = Number((-py * radius).toFixed(2));
+  // Rastro estreito partindo diretamente do ponto focal (tipSpread = 2px) até uma faixa compacta na lente (lensSpread)
+  const tipSpread = 2;
+  const lensX1 = Number((px * lensSpread).toFixed(2));
+  const lensY1 = Number((py * lensSpread).toFixed(2));
+  const lensX2 = Number((-px * lensSpread).toFixed(2));
+  const lensY2 = Number((-py * lensSpread).toFixed(2));
 
-  const focusX1 = Number((dx - px * focusRadius).toFixed(2));
-  const focusY1 = Number((dy - py * focusRadius).toFixed(2));
-  const focusX2 = Number((dx + px * focusRadius).toFixed(2));
-  const focusY2 = Number((dy + py * focusRadius).toFixed(2));
+  const focusX1 = Number((dx - px * tipSpread).toFixed(2));
+  const focusY1 = Number((dy - py * tipSpread).toFixed(2));
+  const focusX2 = Number((dx + px * tipSpread).toFixed(2));
+  const focusY2 = Number((dy + py * tipSpread).toFixed(2));
 
   return {
     hasOffsetFocus: true,
+    hasOuterFocusCircle: false,
     dx,
     dy,
     distance,
-    focusRadius,
+    focusDotRadius,
+    lensSpread,
     conePoints: [lensX1, lensY1, lensX2, lensY2, focusX1, focusY1, focusX2, focusY2],
   };
 }

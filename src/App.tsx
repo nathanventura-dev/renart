@@ -18,7 +18,7 @@ export const App: React.FC = () => {
   const [isCapturing, setIsCapturing] = useState(false);
   const [captureMode, setCaptureMode] = useState<CaptureMode>('region');
   const [preCapturedScreen, setPreCapturedScreen] = useState<string | null>(null);
-  const [magnifierMode, setMagnifierMode] = useState<'v1-handle' | 'v2-callout'>('v1-handle');
+  const [magnifierMode, setMagnifierMode] = useState<'without-focus' | 'with-focus'>('without-focus');
   const stageRef = useRef<Konva.Stage | null>(null);
 
   // Sincronização dos estados com React
