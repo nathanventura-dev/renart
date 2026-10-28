@@ -84,6 +84,8 @@ export function clampTextResizeBox(
   };
 }
 
+export { clampArrowResizeBox } from './zoomAndCrop';
+
 export const ZOOM_STEPS = [1.0, 1.5, 2.0, 2.5, 3.0] as const;
 export type ZoomStep = (typeof ZOOM_STEPS)[number];
 

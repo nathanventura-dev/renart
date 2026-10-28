@@ -1,4 +1,5 @@
-import { Annotation } from '../state/editorStore';
+import { Annotation, ArrowStyle } from '../state/editorStore';
+import type { TransformerBoundBox } from './magnifierAndHover';
 
 export const MIN_ZOOM_LEVEL = 0.25; // 25%
 export const MAX_ZOOM_LEVEL = 4.0; // 400%
@@ -627,4 +628,152 @@ export function clampAnnotationPositionToBounds(
         y: Math.max(0, Math.min(y, canvasHeight)),
       };
   }
+}
+
+export const ARROW_STROKE_STEPS = [2, 3, 4, 6, 8] as const;
+export const ARROW_DEFAULT_STROKE = 4;
+
+/**
+ * Arredonda qualquer espessura para o passo mais próximo em ARROW_STROKE_STEPS [2, 3, 4, 6, 8],
+ * travando estritamente nos limites mínimo (2) e máximo (8).
+ */
+export function snapToArrowStrokeStep(rawStroke: number): number {
+  if (rawStroke <= ARROW_STROKE_STEPS[0]) return ARROW_STROKE_STEPS[0];
+  if (rawStroke >= ARROW_STROKE_STEPS[ARROW_STROKE_STEPS.length - 1]) {
+    return ARROW_STROKE_STEPS[ARROW_STROKE_STEPS.length - 1];
+  }
+  let closest: number = ARROW_STROKE_STEPS[0];
+  let minDiff = Math.abs(rawStroke - closest);
+  for (const step of ARROW_STROKE_STEPS) {
+    const diff = Math.abs(rawStroke - step);
+    if (diff < minDiff) {
+      minDiff = diff;
+      closest = step;
+    }
+  }
+  return closest;
+}
+
+/**
+ * Calcula a nova espessura da flecha em degraus de 2px a 8px ao ser redimensionada.
+ */
+export function calculateResizedArrowStroke(baseStroke: number, scaleFactor: number): number {
+  const safeScale = Math.max(0.01, Math.abs(scaleFactor));
+  const rawStroke = baseStroke * safeScale;
+  return snapToArrowStrokeStep(rawStroke);
+}
+
+/**
+ * Calcula dimensões proporcionais da ponta da flecha (pointerLength e pointerWidth)
+ * garantindo que a ponta cresça/diminua proporcionalmente à espessura sem qualquer distorção.
+ */
+export function getArrowHeadDimensions(
+  strokeWidth: number,
+  arrowStyle: ArrowStyle = 'standard'
+): { pointerLength: number; pointerWidth: number } {
+  const safeStroke = Math.max(2, Math.min(8, strokeWidth));
+  if (arrowStyle === 'thin') {
+    return {
+      pointerLength: Math.round(safeStroke * 4), // 8px para stroke 2
+      pointerWidth: Math.round(safeStroke * 3), // 6px para stroke 2
+    };
+  }
+  return {
+    pointerLength: Math.round(safeStroke * 3.2), // 13px para stroke 4, 26px para stroke 8
+    pointerWidth: Math.round(safeStroke * 2.5), // 10px para stroke 4, 20px para stroke 8
+  };
+}
+
+/**
+ * Calcula as coordenadas de 6 pontos [x1, y1, midX, midY, x2, y2] para flecha curva,
+ * projetando o ponto médio perpendicularmente à corda para um arco suave.
+ */
+export function calculateCurvedArrowPoints(
+  x1: number,
+  y1: number,
+  x2: number,
+  y2: number,
+  direction: 'left' | 'right' = 'right',
+  curvatureFactor: number = 0.25
+): number[] {
+  const chordMidX = (x1 + x2) / 2;
+  const chordMidY = (y1 + y2) / 2;
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  const len = Math.hypot(dx, dy);
+
+  if (len < 1e-4) {
+    return [x1, y1, x1, y1, x2, y2];
+  }
+
+  // Normal perpendicular à corda
+  const nx = -dy / len;
+  const ny = dx / len;
+
+  const offset = Math.max(10, Math.min(len * curvatureFactor, 100));
+  const sign = direction === 'left' ? -1 : 1;
+
+  const midX = Math.round(chordMidX + nx * offset * sign);
+  const midY = Math.round(chordMidY + ny * offset * sign);
+
+  return [x1, y1, midX, midY, x2, y2];
+}
+
+/**
+ * Inverte a curvatura da flecha espelhando o ponto médio do arco em relação à corda,
+ * mantendo as posições de início e fim intactas.
+ */
+export function invertCurvedArrowPoints(points: number[]): number[] {
+  if (points.length < 6) return points;
+  const [x1, y1, midX, midY, x2, y2] = points;
+  const chordMidX = (x1 + x2) / 2;
+  const chordMidY = (y1 + y2) / 2;
+  const invertedMidX = Math.round(2 * chordMidX - midX);
+  const invertedMidY = Math.round(2 * chordMidY - midY);
+  return [x1, y1, invertedMidX, invertedMidY, x2, y2];
+}
+
+/**
+ * Ajusta a caixa delimitadora do Transformer para flechas em degraus de espessura [2, 3, 4, 6, 8],
+ * travando nos limites 2px (mínimo) e 8px (máximo) e mantendo proporções sem distorção.
+ */
+export function clampArrowResizeBox(
+  oldBox: TransformerBoundBox,
+  newBox: TransformerBoundBox,
+  baseStrokeWidth: number,
+  baseWidth: number,
+  baseHeight: number
+): TransformerBoundBox {
+  if (Math.abs(newBox.rotation - oldBox.rotation) > 1e-4) {
+    return newBox;
+  }
+  if (baseWidth <= 0 || baseHeight <= 0 || newBox.width <= 1 || newBox.height <= 1) {
+    return oldBox;
+  }
+
+  const rawScale = Math.max(newBox.width / baseWidth, newBox.height / baseHeight);
+  const snappedStroke = calculateResizedArrowStroke(baseStrokeWidth, rawScale);
+  const snappedScale = snappedStroke / baseStrokeWidth;
+  const snappedWidth = Number((baseWidth * snappedScale).toFixed(2));
+  const snappedHeight = Number((baseHeight * snappedScale).toFixed(2));
+
+  if (
+    Math.abs(snappedWidth - oldBox.width) < 0.01 &&
+    Math.abs(snappedHeight - oldBox.height) < 0.01
+  ) {
+    return oldBox;
+  }
+
+  const deltaWidth = newBox.width - oldBox.width;
+  const ratio = Math.abs(deltaWidth) > 1e-4 ? (snappedWidth - oldBox.width) / deltaWidth : 0;
+  const snappedX = Number((oldBox.x + (newBox.x - oldBox.x) * ratio).toFixed(2));
+  const snappedY = Number((oldBox.y + (newBox.y - oldBox.y) * ratio).toFixed(2));
+
+  return {
+    x: snappedX,
+    y: snappedY,
+    width: snappedWidth,
+    height: snappedHeight,
+    rotation: newBox.rotation,
+  };
 }

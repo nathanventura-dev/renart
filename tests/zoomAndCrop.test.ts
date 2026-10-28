@@ -17,6 +17,14 @@ import {
   toLocalBoundingBox,
   toAbsoluteBoundingBox,
   calculateProportionalResizeBox,
+  ARROW_STROKE_STEPS,
+  ARROW_DEFAULT_STROKE,
+  snapToArrowStrokeStep,
+  calculateResizedArrowStroke,
+  getArrowHeadDimensions,
+  calculateCurvedArrowPoints,
+  invertCurvedArrowPoints,
+  clampArrowResizeBox,
 } from '../src/utils/zoomAndCrop';
 import { Annotation } from '../src/state/editorStore';
 
@@ -417,6 +425,106 @@ describe('Pointer and Drag Coordinate Transformations Under Zoom', () => {
       // 100 * 2.5 = 250px de comprimento => limite X = 800 - 250 = 550
       expect(clampedDistorted.x).toBe(550);
       expect(clampedDistorted.y).toBe(100);
+    });
+  });
+
+  describe('Arrow Geometry, Head Scaling and Stepped Resizing', () => {
+    it('defines arrow stroke steps and snaps correctly between 2px and 8px', () => {
+      expect(ARROW_DEFAULT_STROKE).toBe(4);
+      expect(ARROW_STROKE_STEPS).toEqual([2, 3, 4, 6, 8]);
+
+      expect(snapToArrowStrokeStep(1)).toBe(2);
+      expect(snapToArrowStrokeStep(2)).toBe(2);
+      expect(snapToArrowStrokeStep(2.8)).toBe(3);
+      expect(snapToArrowStrokeStep(4.2)).toBe(4);
+      expect(snapToArrowStrokeStep(5.6)).toBe(6);
+      expect(snapToArrowStrokeStep(7.8)).toBe(8);
+      expect(snapToArrowStrokeStep(15)).toBe(8);
+    });
+
+    it('calculates resized arrow stroke within bounds', () => {
+      expect(calculateResizedArrowStroke(4, 1.0)).toBe(4);
+      expect(calculateResizedArrowStroke(4, 0.5)).toBe(2);
+      expect(calculateResizedArrowStroke(4, 1.5)).toBe(6);
+      expect(calculateResizedArrowStroke(4, 2.0)).toBe(8);
+      expect(calculateResizedArrowStroke(4, 5.0)).toBe(8);
+      expect(calculateResizedArrowStroke(4, 0.1)).toBe(2);
+    });
+
+    it('calculates proportional head dimensions scaling with stroke to avoid distortion', () => {
+      const standard4 = getArrowHeadDimensions(4, 'standard');
+      expect(standard4.pointerLength).toBe(13);
+      expect(standard4.pointerWidth).toBe(10);
+
+      const standard8 = getArrowHeadDimensions(8, 'standard');
+      expect(standard8.pointerLength).toBe(26);
+      expect(standard8.pointerWidth).toBe(20);
+
+      const thin2 = getArrowHeadDimensions(2, 'thin');
+      expect(thin2.pointerLength).toBe(8);
+      expect(thin2.pointerWidth).toBe(6);
+    });
+
+    it('calculates curved arrow points with perpendicular offset for smooth arc', () => {
+      // Vetor horizontal de (100, 100) para (200, 100). Corda de 100px.
+      const curvedRight = calculateCurvedArrowPoints(100, 100, 200, 100, 'right');
+      expect(curvedRight).toHaveLength(6);
+      expect(curvedRight[0]).toBe(100);
+      expect(curvedRight[1]).toBe(100);
+      expect(curvedRight[4]).toBe(200);
+      expect(curvedRight[5]).toBe(100);
+      // Ponto médio da corda é X=150, Y=100. Vetor normal aponta para baixo (+Y para 'right')
+      expect(curvedRight[2]).toBe(150);
+      expect(curvedRight[3]).toBeGreaterThan(100);
+
+      const curvedLeft = calculateCurvedArrowPoints(100, 100, 200, 100, 'left');
+      expect(curvedLeft[2]).toBe(150);
+      expect(curvedLeft[3]).toBeLessThan(100);
+
+      // Distâncias perpendiculares de left e right são opostas e simétricas
+      const diffRight = curvedRight[3] - 100;
+      const diffLeft = 100 - curvedLeft[3];
+      expect(diffRight).toBe(diffLeft);
+
+      // Clique sem arrastar (comprimento zero) não gera NaN nem Infinity
+      const zeroLength = calculateCurvedArrowPoints(50, 50, 50, 50);
+      expect(zeroLength).toEqual([50, 50, 50, 50, 50, 50]);
+    });
+
+    it('inverts curved arrow points mirroring the mid-point across chord', () => {
+      const original = calculateCurvedArrowPoints(100, 100, 300, 100, 'right');
+      const inverted = invertCurvedArrowPoints(original);
+
+      expect(inverted[0]).toBe(original[0]);
+      expect(inverted[1]).toBe(original[1]);
+      expect(inverted[4]).toBe(original[4]);
+      expect(inverted[5]).toBe(original[5]);
+
+      // O ponto médio espelhado: (original[3] + inverted[3]) / 2 === corda Y (100)
+      expect((original[3] + inverted[3]) / 2).toBe(100);
+    });
+
+    it('clamps transformer resize box in stepped increments between 2px and 8px', () => {
+      const oldBox = { x: 100, y: 100, width: 200, height: 100, rotation: 0 };
+      // Dobrar de tamanho (escala 2.0x => 4px * 2.0 = 8px)
+      const expandedBox = { x: 100, y: 100, width: 400, height: 200, rotation: 0 };
+      const clampedExpanded = clampArrowResizeBox(oldBox, expandedBox, 4, 200, 100);
+
+      // Deve atingir o degrau 8 (escala 8/4 = 2.0x)
+      expect(clampedExpanded.width).toBe(400);
+      expect(clampedExpanded.height).toBe(200);
+
+      // Tentar expandir 4x (excederia 8px): trava no limite máximo 8px (escala 2x)
+      const overExpandedBox = { x: 100, y: 100, width: 800, height: 400, rotation: 0 };
+      const clampedMax = clampArrowResizeBox(oldBox, overExpandedBox, 4, 200, 100);
+      expect(clampedMax.width).toBe(400);
+      expect(clampedMax.height).toBe(200);
+
+      // Tentar reduzir abaixo de 2px (ex: 0.1x): trava no limite mínimo 2px (escala 2/4 = 0.5x)
+      const overShrunkBox = { x: 100, y: 100, width: 20, height: 10, rotation: 0 };
+      const clampedMin = clampArrowResizeBox(oldBox, overShrunkBox, 4, 200, 100);
+      expect(clampedMin.width).toBe(100);
+      expect(clampedMin.height).toBe(50);
     });
   });
 });
