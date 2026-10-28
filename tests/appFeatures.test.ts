@@ -3,7 +3,12 @@ import { describe, it, expect } from 'vitest';
 import { createEditorStore } from '../src/state/editorStore';
 import { createGalleryStore } from '../src/state/galleryStore';
 import { calculateCropCoordinates } from '../src/services/screenCaptureService';
-import { resolveToolbarActionFeedback, getToolbarLayoutMetrics } from '../src/components/Toolbar';
+import {
+  resolveToolbarActionFeedback,
+  getToolbarLayoutMetrics,
+  ARROW_STYLE_OPTIONS,
+  resolveArrowToolbarState,
+} from '../src/components/Toolbar';
 
 describe('App Enhanced Features & User Fixes', () => {
   it('handles paste of image dataUrl into gallery respecting 10 items limit', () => {
@@ -233,5 +238,38 @@ describe('App Enhanced Features & User Fixes', () => {
     expect(metrics.leftAlignment).toBe('flex-start');
     expect(metrics.centerAlignment).toBe('center');
     expect(metrics.rightAlignment).toBe('flex-end');
+  });
+
+  it('provides arrow toolbar styles, options and contextual flip state', () => {
+    // 4 opções disponíveis
+    expect(ARROW_STYLE_OPTIONS).toHaveLength(4);
+    expect(ARROW_STYLE_OPTIONS.map((o) => o.id)).toEqual(['standard', 'thin', 'dashed', 'curved']);
+    expect(ARROW_STYLE_OPTIONS.map((o) => o.label)).toEqual(['Padrão', 'Fina', 'Pontilhada', 'Curva']);
+
+    // Com ferramenta flecha ativa e padrão
+    const stateDefault = resolveArrowToolbarState('arrow', [], 'standard');
+    expect(stateDefault.showArrowControls).toBe(true);
+    expect(stateDefault.effectiveArrowStyle).toBe('standard');
+    expect(stateDefault.showInvertCurve).toBe(false);
+
+    // Com flecha curva ativa
+    const stateCurved = resolveArrowToolbarState('arrow', [], 'curved');
+    expect(stateCurved.showArrowControls).toBe(true);
+    expect(stateCurved.effectiveArrowStyle).toBe('curved');
+    expect(stateCurved.showInvertCurve).toBe(true);
+
+    // Com ferramenta select sem seleção
+    const stateSelectEmpty = resolveArrowToolbarState('select', [], 'standard');
+    expect(stateSelectEmpty.showArrowControls).toBe(false);
+
+    // Com ferramenta select e flecha curva selecionada
+    const stateSelectCurvedArrow = resolveArrowToolbarState(
+      'select',
+      [{ id: 'arr-1', type: 'arrow', points: [0, 0, 10, 10], arrowStyle: 'curved' }],
+      'standard'
+    );
+    expect(stateSelectCurvedArrow.showArrowControls).toBe(true);
+    expect(stateSelectCurvedArrow.effectiveArrowStyle).toBe('curved');
+    expect(stateSelectCurvedArrow.showInvertCurve).toBe(true);
   });
 });

@@ -1,5 +1,12 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { ToolType, FONT_FAMILIES, FONT_SIZES } from '../state/editorStore';
+import {
+  ToolType,
+  FONT_FAMILIES,
+  FONT_SIZES,
+  ArrowStyle,
+  Annotation,
+  shouldShowArrowControls,
+} from '../state/editorStore';
 import { formatZoomPercentage } from '../utils/zoomAndCrop';
 import {
   MousePointer,
@@ -20,6 +27,7 @@ import {
   Copy,
   Save,
   Camera,
+  RotateCw,
 } from 'lucide-react';
 
 export type HoveredToolbarAction = 'copy' | 'export' | null;
@@ -70,6 +78,43 @@ export function resolveToolbarActionFeedback(
   };
 }
 
+export interface ArrowStyleOption {
+  id: ArrowStyle;
+  label: string;
+  tooltip: string;
+}
+
+export const ARROW_STYLE_OPTIONS: ArrowStyleOption[] = [
+  { id: 'standard', label: 'Padrão', tooltip: 'Flecha Padrão: Traço contínuo com ponta clássica' },
+  { id: 'thin', label: 'Fina', tooltip: 'Flecha Fina: Traço fino e ponta sutil (estilo ->)' },
+  { id: 'dashed', label: 'Pontilhada', tooltip: 'Flecha Pontilhada: Traço pontilhado no corpo e ponta sólida' },
+  { id: 'curved', label: 'Curva', tooltip: 'Flecha Curva: Traço mais encorpado com curvatura suave' },
+];
+
+export interface ArrowToolbarState {
+  showArrowControls: boolean;
+  effectiveArrowStyle: ArrowStyle;
+  showInvertCurve: boolean;
+}
+
+export function resolveArrowToolbarState(
+  activeTool: ToolType,
+  selectedAnnotations: Annotation[] = [],
+  globalArrowStyle: ArrowStyle = 'standard'
+): ArrowToolbarState {
+  const showArrowControls = shouldShowArrowControls(activeTool, selectedAnnotations);
+  const selectedArrow = selectedAnnotations.find((a) => a.type === 'arrow');
+  const effectiveArrowStyle: ArrowStyle =
+    selectedArrow?.arrowStyle || globalArrowStyle || 'standard';
+  const showInvertCurve = showArrowControls && effectiveArrowStyle === 'curved';
+
+  return {
+    showArrowControls,
+    effectiveArrowStyle,
+    showInvertCurve,
+  };
+}
+
 interface ToolbarProps {
   activeTool: ToolType;
   onSelectTool: (tool: ToolType) => void;
@@ -102,6 +147,10 @@ interface ToolbarProps {
   onToggleCrop?: () => void;
   onConfirmCrop?: () => void;
   onCancelCrop?: () => void;
+  arrowStyle?: ArrowStyle;
+  onSelectArrowStyle?: (style: ArrowStyle) => void;
+  onToggleCurveDirection?: () => void;
+  selectedAnnotations?: Annotation[];
 }
 
 const COLORS = ['#ff3b30', '#ff9f0a', '#34c759', '#0071e3', '#5856d6', '#000000', '#ffffff'];
@@ -138,6 +187,10 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   onToggleCrop,
   onConfirmCrop,
   onCancelCrop,
+  arrowStyle = 'standard',
+  onSelectArrowStyle,
+  onToggleCurveDirection,
+  selectedAnnotations = [],
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const exportMenuRef = useRef<HTMLDivElement>(null);
@@ -149,6 +202,11 @@ export const Toolbar: React.FC<ToolbarProps> = ({
 
   const feedback = resolveToolbarActionFeedback(hoveredAction, isCopied);
   const layoutMetrics = getToolbarLayoutMetrics();
+  const { showArrowControls, effectiveArrowStyle, showInvertCurve } = resolveArrowToolbarState(
+    activeTool,
+    selectedAnnotations,
+    arrowStyle
+  );
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -467,6 +525,73 @@ export const Toolbar: React.FC<ToolbarProps> = ({
               Com foco
             </button>
           </div>
+        )}
+
+        {showArrowControls && (
+          <div
+            data-testid="arrow-style-selector"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              height: INNER_CONTROL_HEIGHT,
+              backgroundColor: '#e2e8f0',
+              borderRadius: '6px',
+              padding: '2px',
+              gap: '2px',
+              boxSizing: 'border-box',
+            }}
+          >
+            {ARROW_STYLE_OPTIONS.map((opt) => {
+              const isSelected = effectiveArrowStyle === opt.id;
+              return (
+                <button
+                  key={opt.id}
+                  type="button"
+                  title={opt.tooltip}
+                  onClick={() => onSelectArrowStyle?.(opt.id)}
+                  style={{
+                    height: '24px',
+                    padding: '0 8px',
+                    fontSize: '11px',
+                    fontWeight: 600,
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    backgroundColor: isSelected ? '#0071e3' : 'transparent',
+                    color: isSelected ? '#ffffff' : '#334155',
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  {opt.label}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {showInvertCurve && (
+          <button
+            type="button"
+            title="Inverter direção do arco da flecha curva"
+            onClick={onToggleCurveDirection}
+            style={{
+              height: INNER_CONTROL_HEIGHT,
+              padding: '0 8px',
+              fontSize: '11px',
+              fontWeight: 600,
+              border: '1px solid #cbd5e1',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              backgroundColor: '#f8fafc',
+              color: '#334155',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '4px',
+            }}
+          >
+            <RotateCw size={13} />
+            <span>Inverter arco</span>
+          </button>
         )}
 
         <div style={{ width: '1px', height: '20px', backgroundColor: '#d1d1d6', margin: '0 4px' }} />

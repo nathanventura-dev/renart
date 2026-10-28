@@ -455,6 +455,10 @@ export const App: React.FC = () => {
         onToggleCrop={handleToggleCrop}
         onConfirmCrop={handleConfirmCrop}
         onCancelCrop={handleCancelCrop}
+        arrowStyle={editorState.arrowStyle}
+        onSelectArrowStyle={(style) => editorStore.setArrowStyle(style)}
+        onToggleCurveDirection={() => editorStore.toggleArrowCurveDirection()}
+        selectedAnnotations={selectedAnnotations}
       />
 
       {/* Espaço Principal: Galeria Lateral (Esquerda) + Canvas Central */}
