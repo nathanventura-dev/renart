@@ -44,6 +44,14 @@ export function createGalleryStore(maxCaptures: number = 10) {
       notify();
     },
 
+    updateCaptureDataUrl: (id: string, dataUrl: string) => {
+      state = {
+        ...state,
+        captures: state.captures.map((c) => (c.id === id ? { ...c, dataUrl } : c)),
+      };
+      notify();
+    },
+
     removeCapture: (id: string) => {
       const remaining = state.captures.filter((c) => c.id !== id);
       let newActiveId = state.activeId;

@@ -344,7 +344,9 @@ export function isTargetExistingAnnotation(targetName: string, isStageTarget: bo
     targetName === 'bg-image' ||
     targetName === 'magnifier-crown' ||
     targetName === 'magnifier-focus' ||
-    targetName === 'marquee-selection-box'
+    targetName === 'marquee-selection-box' ||
+    targetName === 'crop-box-rect' ||
+    targetName.startsWith('crop-')
   ) {
     return false;
   }

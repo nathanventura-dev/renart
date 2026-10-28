@@ -1,5 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { ToolType, FONT_FAMILIES, FONT_SIZES } from '../state/editorStore';
+import { formatZoomPercentage } from '../utils/zoomAndCrop';
 import {
   MousePointer,
   Square,
@@ -8,7 +9,12 @@ import {
   ArrowRight,
   Type,
   Image as ImageIcon,
+  Search,
+  Crop,
+  Check,
+  X,
   ZoomIn,
+  ZoomOut,
   Undo2,
   Redo2,
   Copy,
@@ -88,6 +94,14 @@ interface ToolbarProps {
   onSelectFontFamily?: (fontFamily: string) => void;
   fontSize?: number;
   onSelectFontSize?: (fontSize: number) => void;
+  zoomLevel?: number;
+  onZoomIn?: () => void;
+  onZoomOut?: () => void;
+  onResetZoom?: () => void;
+  isCropping?: boolean;
+  onToggleCrop?: () => void;
+  onConfirmCrop?: () => void;
+  onCancelCrop?: () => void;
 }
 
 const COLORS = ['#ff3b30', '#ff9f0a', '#34c759', '#0071e3', '#5856d6', '#000000', '#ffffff'];
@@ -116,6 +130,14 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   onSelectFontFamily,
   fontSize = 18,
   onSelectFontSize,
+  zoomLevel = 1.0,
+  onZoomIn,
+  onZoomOut,
+  onResetZoom,
+  isCropping = false,
+  onToggleCrop,
+  onConfirmCrop,
+  onCancelCrop,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const exportMenuRef = useRef<HTMLDivElement>(null);
@@ -317,8 +339,83 @@ export const Toolbar: React.FC<ToolbarProps> = ({
           onClick={() => onSelectTool('magnifier')}
           style={getToolButtonStyle(activeTool === 'magnifier')}
         >
-          <ZoomIn size={16} />
+          <Search size={16} />
         </button>
+
+        <button
+          type="button"
+          title="Recortar Imagem (Crop)"
+          onClick={() => {
+            if (onToggleCrop) {
+              onToggleCrop();
+            } else {
+              onSelectTool('crop');
+            }
+          }}
+          style={getToolButtonStyle(activeTool === 'crop' || Boolean(isCropping))}
+        >
+          <Crop size={16} />
+        </button>
+
+        {isCropping && (
+          <div
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              height: INNER_CONTROL_HEIGHT,
+              backgroundColor: '#e2e8f0',
+              borderRadius: '6px',
+              padding: '2px',
+              gap: '4px',
+              boxSizing: 'border-box',
+            }}
+          >
+            <button
+              type="button"
+              title="Confirmar Recorte (Enter)"
+              onClick={onConfirmCrop}
+              style={{
+                height: '24px',
+                padding: '0 8px',
+                fontSize: '11px',
+                fontWeight: 600,
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                backgroundColor: '#34c759',
+                color: '#ffffff',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px',
+              }}
+            >
+              <Check size={14} />
+              <span>Confirmar</span>
+            </button>
+            <button
+              type="button"
+              title="Cancelar Recorte (Esc)"
+              onClick={onCancelCrop}
+              style={{
+                height: '24px',
+                padding: '0 8px',
+                fontSize: '11px',
+                fontWeight: 600,
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                backgroundColor: '#ef4444',
+                color: '#ffffff',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px',
+              }}
+            >
+              <X size={14} />
+              <span>Cancelar</span>
+            </button>
+          </div>
+        )}
 
         {activeTool === 'magnifier' && (
           <div
@@ -547,6 +644,76 @@ export const Toolbar: React.FC<ToolbarProps> = ({
           }}
         >
           <Redo2 size={16} />
+        </button>
+
+        <div style={{ width: '1px', height: '20px', backgroundColor: '#d1d1d6', margin: '0 4px' }} />
+
+        {/* Controles de Zoom In e Zoom Out */}
+        <button
+          type="button"
+          title="Diminuir Zoom (Ctrl/Cmd -)"
+          onClick={onZoomOut}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: INNER_CONTROL_HEIGHT,
+            height: INNER_CONTROL_HEIGHT,
+            boxSizing: 'border-box',
+            border: 'none',
+            borderRadius: '6px',
+            backgroundColor: 'transparent',
+            cursor: 'pointer',
+            padding: 0,
+            color: '#334155',
+          }}
+        >
+          <ZoomOut size={16} />
+        </button>
+
+        <button
+          type="button"
+          title="Ajustar à tela (Ctrl/Cmd 0)"
+          onClick={onResetZoom}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            height: INNER_CONTROL_HEIGHT,
+            boxSizing: 'border-box',
+            border: '1px solid #d1d1d6',
+            borderRadius: '6px',
+            backgroundColor: '#ffffff',
+            cursor: 'pointer',
+            padding: '0 6px',
+            fontSize: '11px',
+            fontWeight: 600,
+            color: '#334155',
+          }}
+        >
+          {formatZoomPercentage(zoomLevel)}
+        </button>
+
+        <button
+          type="button"
+          title="Aumentar Zoom (Ctrl/Cmd +)"
+          onClick={onZoomIn}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: INNER_CONTROL_HEIGHT,
+            height: INNER_CONTROL_HEIGHT,
+            boxSizing: 'border-box',
+            border: 'none',
+            borderRadius: '6px',
+            backgroundColor: 'transparent',
+            cursor: 'pointer',
+            padding: 0,
+            color: '#334155',
+          }}
+        >
+          <ZoomIn size={16} />
         </button>
       </div>
 

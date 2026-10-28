@@ -103,6 +103,18 @@ Para garantir robustez, estabilidade e manutenibilidade sem regressões, os test
   - Reconhecimento automático de hover sobre blocos existentes (`cursor: 'move'` e ação `move-existing`) versus área livre do canvas (`cursor: 'crosshair'` e ação `create-new`) quando ferramentas de criação estão selecionadas.
 - **Comando:** `cmd.exe /c npm test tests/magnifierAndHover.test.ts`
 
+### 2.11. `tests/zoomAndCrop.test.ts` (Ajuste à Tela, Zoom Multiplataforma e Recorte com Translação de Anotações)
+- **Objetivo:** Validar os cálculos de ajuste de tela (`calculateFitToScreenScale`), passos discretos e limites de zoom de 25% a 400% (`clampZoomLevel`, `getNextZoomStep`), formatação de percentuais (`formatZoomPercentage`), atalhos de teclado para Windows, Linux e macOS (`isZoomShortcut`), restrição geométrica da caixa de corte (`calculateCropBounds`) e translação/filtragem de anotações durante o recorte (`adjustAnnotationsForCrop`).
+- **Cenários Cobertos:**
+  - Imagens menores que o viewport mantêm 100% (1.0) nativo sem barras de rolagem.
+  - Imagens 4K em viewports menores calculam escala proporcional reduzida (ex: 0.3) ficando 100% visíveis sem barras de rolagem iniciais.
+  - Clamping estrito do zoom entre 25% (0.25) e 400% (4.0).
+  - Passos lógicos de zoom in e zoom out respeitando os limites.
+  - Reconhecimento dos atalhos `Ctrl +`, `Ctrl -`, `Ctrl 0` no Windows/Linux e `Cmd +`, `Cmd -`, `Cmd 0` no macOS.
+  - Ajuste de limites do recorte restringindo à largura e altura da imagem com dimensão mínima de segurança.
+  - Translação de anotações internas pelo deslocamento `-cropOffset` e descarte de anotações externas à área recortada.
+- **Comando:** `cmd.exe /c npm test tests/zoomAndCrop.test.ts`
+
 ---
 
 ## 3. Como Executar Todos os Testes

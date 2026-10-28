@@ -6,7 +6,8 @@ export type ToolType =
   | 'arrow'
   | 'text'
   | 'image'
-  | 'magnifier';
+  | 'magnifier'
+  | 'crop';
 
 export interface BaseAnnotation {
   id: string;
@@ -411,6 +412,19 @@ export function createEditorStore(initialState?: Partial<EditorState>) {
     isLocked: () => state.isLocked,
     setLocked: (locked: boolean) => {
       state = { ...state, isLocked: locked };
+      notify();
+    },
+
+    replaceAnnotations: (newAnnotations: Annotation[]) => {
+      undoStack.push([...state.annotations]);
+      redoStack.length = 0;
+      state = {
+        ...state,
+        annotations: newAnnotations,
+        selectedId: null,
+        selectedIds: [],
+        isLocked: false,
+      };
       notify();
     },
 

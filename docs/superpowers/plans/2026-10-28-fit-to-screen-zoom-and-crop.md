@@ -69,11 +69,11 @@
   - Tratamento global de teclado para `Ctrl/Cmd +`, `Ctrl/Cmd -`, `Ctrl/Cmd 0`.
   - Tratamento de `WheelEvent` com `e.ctrlKey || e.metaKey` no container do canvas com `{ passive: false }` e `e.preventDefault()`.
 
-- [ ] **Step 1: Adicionar testes de cálculo de passos de zoom e atalhos em `tests/zoomAndCrop.test.ts`**
-- [ ] **Step 2: Adicionar botões de Zoom `| [-] [ 100% ] [+]` na `Toolbar.tsx`**
-- [ ] **Step 3: Implementar listeners de teclado e `Ctrl + wheel` / trackpad pinch em `CanvasEditor.tsx` e `App.tsx`**
-- [ ] **Step 4: Executar testes de regressão e validação (`npm test`)**
-- [ ] **Step 5: Gravar alterações e realizar commit em português**
+- [x] **Step 1: Adicionar testes de cálculo de passos de zoom e atalhos em `tests/zoomAndCrop.test.ts`**
+- [x] **Step 2: Adicionar botões de Zoom `| [-] [ 100% ] [+]` na `Toolbar.tsx`**
+- [x] **Step 3: Implementar listeners de teclado e `Ctrl + wheel` / trackpad pinch em `CanvasEditor.tsx` e `App.tsx`**
+- [x] **Step 4: Executar testes de regressão e validação (`npm test`)**
+- [x] **Step 5: Gravar alterações e realizar commit em português**
 
 ---
 
@@ -91,11 +91,11 @@
   - Se imagem for menor: inicializa com `zoomLevel = 1.0` (centralizada).
   - Scroll suave habilitado somente quando `zoomLevel > fitScale`.
 
-- [ ] **Step 1: Implementar medição do container e cálculo de escala inicial no `CanvasEditor.tsx`**
-- [ ] **Step 2: Sincronizar o estado de zoom com a `Toolbar.tsx`**
-- [ ] **Step 3: Validar que imagens 4K abrem 100% visíveis sem scrollbar e imagens pequenas permanecem nativas**
-- [ ] **Step 4: Executar suíte de testes (`npm test`)**
-- [ ] **Step 5: Gravar alterações e realizar commit em português**
+- [x] **Step 1: Implementar medição do container e cálculo de escala inicial no `CanvasEditor.tsx`**
+- [x] **Step 2: Sincronizar o estado de zoom com a `Toolbar.tsx`**
+- [x] **Step 3: Validar que imagens 4K abrem 100% visíveis sem scrollbar e imagens pequenas permanecem nativas**
+- [x] **Step 4: Executar suíte de testes (`npm test`)**
+- [x] **Step 5: Gravar alterações e realizar commit em português**
 
 ---
 
@@ -116,9 +116,9 @@
   - Botões de confirmação `[✓ Check]` e cancelamento `[✕ Cancelar]` (e tecla `ESC`).
   - Função de recorte de imagem via Canvas HTML5 gerando nova base64 e transladando anotações com suporte a Undo/Redo.
 
-- [ ] **Step 1: Escrever testes unitários para a ação de recorte com Undo/Redo em `tests/zoomAndCrop.test.ts` e `tests/editorStore.test.ts`**
-- [ ] **Step 2: Implementar ferramenta de corte e ações na `Toolbar.tsx`**
-- [ ] **Step 3: Implementar moldura de recorte visual interativa no `CanvasEditor.tsx`**
-- [ ] **Step 4: Implementar `confirmCrop` e `cancelCrop` com persistência na galeria e Undo/Redo**
-- [ ] **Step 5: Executar testes e validação completa (`npm test` e `npm run build`)**
-- [ ] **Step 6: Atualizar documentação e realizar commit em português**
+- [x] **Step 1: Escrever testes unitários para a ação de recorte com Undo/Redo em `tests/zoomAndCrop.test.ts` e `tests/editorStore.test.ts`**
+- [x] **Step 2: Implementar ferramenta de corte e ações na `Toolbar.tsx`**
+- [x] **Step 3: Implementar moldura de recorte visual interativa no `CanvasEditor.tsx`**
+- [x] **Step 4: Implementar `confirmCrop` e `cancelCrop` com persistência na galeria e Undo/Redo**
+- [x] **Step 5: Executar testes e validação completa (`npm test` e `npm run build`)**
+- [x] **Step 6: Atualizar documentação e realizar commit em português**

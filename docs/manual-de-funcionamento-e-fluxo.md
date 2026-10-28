@@ -105,6 +105,30 @@ Se você desejar apontar, destacar ou enriquecer o print antes de salvar:
 - **Desfazer (Undo) e Refazer (Redo):** Atalhos `Ctrl+Z` (Desfazer) e `Ctrl+Shift+Z` / `Ctrl+Y` (Refazer) ou botões visuais na barra para reverter qualquer ação.
 - **Desselecionar (`ESC`) e Salvar (`Ctrl+S`):** Pressionar `ESC` desmarca qualquer bloco selecionado mantendo os blocos móveis até que o usuário salve a imagem com `Ctrl+S` ou pelo menu Salvar/Exportar.
 
+### 4.4. Ajuste Automático à Tela (Fit to Screen) e Zoom Multiplataforma
+- **Ajuste Automático sem Barras de Rolagem Iniciais:**
+  - Ao colar imagens externas (`Ctrl+V`) ou abrir capturas com dimensões superiores à janela do usuário (ex: imagens Full HD ou 4K em notebooks de 13 ou 14 polegadas), a imagem calcula automaticamente uma escala proporcional (`fitScale`) para ficar **100% visível sem gerar barras de rolagem horizontais ou verticais**, preservando a nitidez total.
+  - Imagens menores que a tela abrem centralizadas em tamanho nativo (`100%`).
+- **Controles de Zoom na Barra Superior:**
+  - Posicionados logo após os botões de Desfazer e Refazer, separados por um divisor visual (`|`):
+    - `[-]`: Reduz o zoom em degraus lógicos (até o mínimo de `25%`).
+    - `[ 100% ]`: Botão indicador de percentual que, ao ser clicado, alterna instantaneamente entre o ajuste à tela e `100%` (ou atalho `Ctrl/Cmd 0`).
+    - `[+]`: Aumenta o zoom em degraus lógicos (até o máximo de `400%`).
+- **Atalhos de Teclado, Mouse e Trackpad:**
+  - **Teclado:** `Ctrl +` e `Ctrl -` (Windows/Linux) ou `Cmd +` e `Cmd -` (macOS) para ampliar e diminuir o zoom; `Ctrl 0` ou `Cmd 0` para redefinir.
+  - **Mouse:** `Ctrl + Roda do Mouse` (scroll wheel) amplia ou reduz suavemente.
+  - **Trackpad:** Gesto de pinça (pinch-to-zoom) amplia e reduz a imagem diretamente.
+  - **Interceptação Inteligente:** A aplicação intercepta os eventos com `{ passive: false }` e cancela o zoom padrão de página do navegador/WebView2, mantendo toda a interface e os botões fixos no tamanho correto enquanto apenas a imagem e suas anotações sofrem zoom.
+  - **Barras de Rolagem Sob Demanda:** As barras de rolagem aparecem de forma fluida apenas quando o usuário aplica zoom além dos limites visíveis da janela.
+
+### 4.5. Ferramenta de Recorte (Crop Mode) Estilo Windows
+- **Ativação:** Clique no botão de Recorte (**Crop**) na barra de ferramentas.
+- **Moldura Interativa com 8 Alças:** Um quadro delimitador surge sobre a imagem acompanhado de 8 alças (cantos e laterais) e uma máscara semi-transparente escurecida que cobre a área descartada, permitindo ajustar a região com precisão cirúrgica ou arrastar a caixa inteira.
+- **Ações na Barra Superior:**
+  - Botão verde **`[✓ Confirmar]`** (ou atalho **`Enter`**): Aplica o recorte na imagem base via Canvas 2D, atualiza a miniatura correspondente na galeria, reposiciona (translada) as anotações contidas dentro do corte e descarta anotações externas.
+  - Botão vermelho **`[✕ Cancelar]`** (ou atalho **`ESC`**): Descarta o quadro de recorte e retorna à ferramenta de seleção sem alterar a imagem.
+- **Compatibilidade com Histórico (Undo/Redo):** A alteração de anotações e da imagem de fundo é gravada no histórico, permitindo reverter com `Ctrl+Z` a qualquer momento.
+
 ---
 
 ## 5. Galeria Lateral de Capturas Recentes (Sessões Independentes)

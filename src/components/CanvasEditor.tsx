@@ -31,6 +31,11 @@ import {
   calculateResizedFontSize,
   clampTextResizeBox,
 } from '../utils/magnifierAndHover';
+import {
+  calculateFitToScreenScale,
+  calculateCropBounds,
+  CropBox,
+} from '../utils/zoomAndCrop';
 
 interface CanvasEditorProps {
   imageBase64: string;
@@ -45,6 +50,12 @@ interface CanvasEditorProps {
   fontFamily?: string;
   isLocked?: boolean;
   magnifierMode?: 'without-focus' | 'with-focus';
+  zoomLevel?: number;
+  onZoomIn?: () => void;
+  onZoomOut?: () => void;
+  onFitScaleCalculated?: (scale: number) => void;
+  isCropping?: boolean;
+  onCropRectChange?: (cropBox: CropBox) => void;
   onSelectId: (id: string | null) => void;
   onSelectIds?: (ids: string[]) => void;
   onToggleSelectId?: (id: string) => void;
@@ -178,6 +189,12 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
   fontFamily = 'Arial',
   isLocked = false,
   magnifierMode = 'without-focus',
+  zoomLevel = 1.0,
+  onZoomIn,
+  onZoomOut,
+  onFitScaleCalculated,
+  isCropping = false,
+  onCropRectChange,
   onSelectId,
   onSelectIds,
   onToggleSelectId,
@@ -199,6 +216,7 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
   const [liveLensDrag, setLiveLensDrag] = useState<{ id: string; x: number; y: number } | null>(
     null
   );
+  const [cropRect, setCropRect] = useState<CropBox | null>(null);
 
   const transformerRef = useRef<Konva.Transformer>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -260,8 +278,54 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
     if (!imageBase64) return;
     const img = new window.Image();
     img.src = imageBase64;
-    img.onload = () => setBgImage(img);
-  }, [imageBase64]);
+    img.onload = () => {
+      setBgImage(img);
+      if (containerRef.current) {
+        const vw = containerRef.current.clientWidth;
+        const vh = containerRef.current.clientHeight;
+        const scale = calculateFitToScreenScale(img.width, img.height, vw, vh, 24);
+        onFitScaleCalculated?.(scale);
+      }
+    };
+  }, [imageBase64, onFitScaleCalculated]);
+
+  // Listener para Ctrl + Roda do mouse e gesto de pinça (pinch) do trackpad com passive: false
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const handleWheel = (e: WheelEvent) => {
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault();
+        if (e.deltaY < 0 && onZoomIn) {
+          onZoomIn();
+        } else if (e.deltaY > 0 && onZoomOut) {
+          onZoomOut();
+        }
+      }
+    };
+
+    container.addEventListener('wheel', handleWheel, { passive: false });
+    return () => container.removeEventListener('wheel', handleWheel);
+  }, [onZoomIn, onZoomOut]);
+
+  // Inicializa o quadro de corte ao entrar na ferramenta de recorte (crop)
+  useEffect(() => {
+    if (activeTool === 'crop' || isCropping) {
+      if (!cropRect && bgImage) {
+        const initCrop: CropBox = {
+          x: Math.round(bgImage.width * 0.05),
+          y: Math.round(bgImage.height * 0.05),
+          width: Math.round(bgImage.width * 0.9),
+          height: Math.round(bgImage.height * 0.9),
+        };
+        setCropRect(initCrop);
+        onCropRectChange?.(initCrop);
+      }
+    } else if (cropRect) {
+      setCropRect(null);
+    }
+  }, [activeTool, isCropping, bgImage, cropRect, onCropRectChange]);
 
   // Sempre que o usuário alternar entre ferramentas (Formas, Texto, Seta, Lupa) ou trocar de imagem,
   // limpa o estado de hover para nunca travar a imagem inteira como se fosse um bloco.
@@ -348,9 +412,18 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [editingText]);
 
-  // Atualiza a seleção simples ou múltipla no Transformer do Konva
+  // Atualiza a seleção simples ou múltipla no Transformer do Konva (ou acopla ao quadro de recorte)
   useEffect(() => {
     if (!transformerRef.current || !stageRef.current) return;
+    if (activeTool === 'crop' || isCropping) {
+      const cropNode = stageRef.current.findOne('#crop-box-rect');
+      if (cropNode) {
+        transformerRef.current.nodes([cropNode]);
+        transformerRef.current.forceUpdate();
+        transformerRef.current.getLayer()?.batchDraw();
+        return;
+      }
+    }
     if (effectiveSelectedIds.length > 0 && !isLocked) {
       const nodes: Konva.Node[] = [];
       for (const id of effectiveSelectedIds) {
@@ -369,7 +442,7 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
       transformerRef.current.nodes([]);
       transformerRef.current.getLayer()?.batchDraw();
     }
-  }, [effectiveSelectedIds, annotations, isLocked, stageRef]);
+  }, [effectiveSelectedIds, annotations, isLocked, stageRef, activeTool, isCropping, cropRect]);
 
   // Resolve o estilo do cursor dinamicamente conforme hover em blocos, alça de foco ou coroa da lupa
   const pointerBehavior = resolveCanvasPointerBehavior(activeTool, isHoveringBlock, isLocked);
@@ -566,11 +639,27 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
     });
   };
 
-  // Mantém a ampliação da lente íntegra em tempo real enquanto o usuário redimensiona a lupa
+  // Mantém a ampliação da lente íntegra em tempo real enquanto o usuário redimensiona a lupa ou o quadro de recorte
   const handleTransform = () => {
     if (!transformerRef.current) return;
     const nodes = transformerRef.current.nodes();
     for (const node of nodes) {
+      if (node.id() === 'crop-box-rect') {
+        const sx = node.scaleX() || 1;
+        const sy = node.scaleY() || 1;
+        const nextX = Math.round(node.x());
+        const nextY = Math.round(node.y());
+        const nextW = Math.max(20, Math.round(node.width() * sx));
+        const nextH = Math.max(20, Math.round(node.height() * sy));
+        node.scaleX(1);
+        node.scaleY(1);
+        node.width(nextW);
+        node.height(nextH);
+        const updatedCrop: CropBox = { x: nextX, y: nextY, width: nextW, height: nextH };
+        setCropRect(updatedCrop);
+        onCropRectChange?.(updatedCrop);
+        return;
+      }
       const ann = annotations.find((a) => a.id === node.id());
       if (ann?.type === 'magnifier') {
         const sx = node.scaleX() || 1;
@@ -601,11 +690,39 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
     }
   };
 
-  // Salva redimensionamento / rotação feito pelo Transformer (simples ou multiseleção, incluindo raio da lupa e tamanho da fonte do texto)
+  // Salva redimensionamento / rotação feito pelo Transformer (simples, multiseleção, lupa ou quadro de recorte)
   const handleTransformEnd = () => {
     if (!transformerRef.current) return;
     const nodes = transformerRef.current.nodes();
     if (nodes.length === 0) return;
+
+    if (nodes[0]?.id() === 'crop-box-rect') {
+      const node = nodes[0] as Konva.Rect;
+      const sx = node.scaleX() || 1;
+      const sy = node.scaleY() || 1;
+      const nextX = Math.round(node.x());
+      const nextY = Math.round(node.y());
+      const nextW = Math.max(20, Math.round(node.width() * sx));
+      const nextH = Math.max(20, Math.round(node.height() * sy));
+      node.scaleX(1);
+      node.scaleY(1);
+      node.width(nextW);
+      node.height(nextH);
+      const imgW = bgImage ? bgImage.width : 800;
+      const imgH = bgImage ? bgImage.height : 600;
+      const clamped = calculateCropBounds(
+        { x: nextX, y: nextY, width: nextW, height: nextH },
+        imgW,
+        imgH
+      );
+      node.position({ x: clamped.x, y: clamped.y });
+      node.width(clamped.width);
+      node.height(clamped.height);
+      setCropRect(clamped);
+      onCropRectChange?.(clamped);
+      transformerRef.current.forceUpdate();
+      return;
+    }
 
     const imgW = bgImage ? bgImage.width : 800;
     const imgH = bgImage ? bgImage.height : 600;
@@ -702,6 +819,10 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
   };
 
   const handleMouseDown = (e: Konva.KonvaEventObject<MouseEvent>) => {
+    if (activeTool === 'crop' || isCropping) {
+      return;
+    }
+
     const targetName = e.target.name();
     if (targetName === 'magnifier-crown' || targetName === 'magnifier-focus') {
       return;
@@ -1019,6 +1140,8 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
 
   const canvasWidth = bgImage ? bgImage.width : 800;
   const canvasHeight = bgImage ? bgImage.height : 600;
+  const visualWidth = Math.round(canvasWidth * zoomLevel);
+  const visualHeight = Math.round(canvasHeight * zoomLevel);
 
   return (
     <div
@@ -1036,6 +1159,10 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
     >
       <div
         style={{
+          width: `${visualWidth}px`,
+          height: `${visualHeight}px`,
+          minWidth: `${visualWidth}px`,
+          minHeight: `${visualHeight}px`,
           position: 'relative',
           boxShadow: '0 4px 24px rgba(0,0,0,0.15)',
           borderRadius: '4px',
@@ -1045,8 +1172,10 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
       >
         <Stage
           ref={stageRef as React.RefObject<Konva.Stage>}
-          width={canvasWidth}
-          height={canvasHeight}
+          width={visualWidth}
+          height={visualHeight}
+          scaleX={zoomLevel}
+          scaleY={zoomLevel}
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
@@ -1800,30 +1929,134 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
               />
             )}
 
-            {/* Transformer de Redimensionamento (Simples, Multiseleção, Texto Sem Distorção 12..48 e Lupa) */}
+            {/* Modo de Recorte (Crop): Máscara Escurecida Externa e Quadro Interativo */}
+            {(activeTool === 'crop' || isCropping) && cropRect && (
+              <Group name="crop-overlay-group">
+                {/* 4 Retângulos escurecidos fora do quadro de recorte */}
+                <Rect
+                  x={0}
+                  y={0}
+                  width={canvasWidth}
+                  height={Math.max(0, cropRect.y)}
+                  fill="rgba(0, 0, 0, 0.55)"
+                  listening={false}
+                />
+                <Rect
+                  x={0}
+                  y={cropRect.y + cropRect.height}
+                  width={canvasWidth}
+                  height={Math.max(0, canvasHeight - (cropRect.y + cropRect.height))}
+                  fill="rgba(0, 0, 0, 0.55)"
+                  listening={false}
+                />
+                <Rect
+                  x={0}
+                  y={cropRect.y}
+                  width={Math.max(0, cropRect.x)}
+                  height={cropRect.height}
+                  fill="rgba(0, 0, 0, 0.55)"
+                  listening={false}
+                />
+                <Rect
+                  x={cropRect.x + cropRect.width}
+                  y={cropRect.y}
+                  width={Math.max(0, canvasWidth - (cropRect.x + cropRect.width))}
+                  height={cropRect.height}
+                  fill="rgba(0, 0, 0, 0.55)"
+                  listening={false}
+                />
+
+                {/* Retângulo de recorte interativo com alças e borda tracejada */}
+                <Rect
+                  id="crop-box-rect"
+                  name="crop-box-rect"
+                  x={cropRect.x}
+                  y={cropRect.y}
+                  width={cropRect.width}
+                  height={cropRect.height}
+                  stroke="#ffffff"
+                  strokeWidth={2}
+                  dash={[6, 4]}
+                  draggable
+                  dragBoundFunc={(pos) => ({
+                    x: Math.max(0, Math.min(pos.x, canvasWidth - cropRect.width)),
+                    y: Math.max(0, Math.min(pos.y, canvasHeight - cropRect.height)),
+                  })}
+                  onDragMove={(e) => {
+                    const nextX = Math.round(e.target.x());
+                    const nextY = Math.round(e.target.y());
+                    setCropRect((prev) => (prev ? { ...prev, x: nextX, y: nextY } : null));
+                  }}
+                  onDragEnd={(e) => {
+                    const nextX = Math.round(e.target.x());
+                    const nextY = Math.round(e.target.y());
+                    const updated: CropBox = {
+                      x: nextX,
+                      y: nextY,
+                      width: cropRect.width,
+                      height: cropRect.height,
+                    };
+                    setCropRect(updated);
+                    onCropRectChange?.(updated);
+                  }}
+                />
+              </Group>
+            )}
+
+            {/* Transformer de Redimensionamento (Simples, Multiseleção, Texto Sem Distorção 12..48, Lupa e Quadro de Recorte) */}
             <Transformer
               ref={transformerRef}
               onTransform={handleTransform}
               onTransformEnd={handleTransformEnd}
               flipEnabled={false}
-              rotateEnabled={!hasSelectedMagnifier}
-              keepRatio={hasSelectedMagnifier || hasSelectedText}
+              rotateEnabled={!hasSelectedMagnifier && activeTool !== 'crop' && !isCropping}
+              keepRatio={
+                activeTool === 'crop' || isCropping
+                  ? false
+                  : hasSelectedMagnifier || hasSelectedText
+              }
               enabledAnchors={
-                hasSelectedText
-                  ? ['top-left', 'top-right', 'bottom-left', 'bottom-right']
-                  : hasSelectedMagnifier
-                    ? [
-                        'top-left',
-                        'top-right',
-                        'bottom-left',
-                        'bottom-right',
-                        'middle-left',
-                        'middle-right',
-                        'top-center',
-                      ]
-                    : undefined
+                activeTool === 'crop' || isCropping
+                  ? [
+                      'top-left',
+                      'top-center',
+                      'top-right',
+                      'middle-left',
+                      'middle-right',
+                      'bottom-left',
+                      'bottom-center',
+                      'bottom-right',
+                    ]
+                  : hasSelectedText
+                    ? ['top-left', 'top-right', 'bottom-left', 'bottom-right']
+                    : hasSelectedMagnifier
+                      ? [
+                          'top-left',
+                          'top-right',
+                          'bottom-left',
+                          'bottom-right',
+                          'middle-left',
+                          'middle-right',
+                          'top-center',
+                        ]
+                      : undefined
               }
               boundBoxFunc={(oldBox, newBox) => {
+                if (activeTool === 'crop' || isCropping) {
+                  const minW = 20;
+                  const minH = 20;
+                  const clampedX = Math.max(0, Math.min(newBox.x, canvasWidth - minW));
+                  const clampedY = Math.max(0, Math.min(newBox.y, canvasHeight - minH));
+                  const clampedW = Math.max(minW, Math.min(newBox.width, canvasWidth - clampedX));
+                  const clampedH = Math.max(minH, Math.min(newBox.height, canvasHeight - clampedY));
+                  return {
+                    ...newBox,
+                    x: clampedX,
+                    y: clampedY,
+                    width: clampedW,
+                    height: clampedH,
+                  };
+                }
                 if (hasSelectedMagnifier) {
                   if (
                     newBox.width < 48 ||
@@ -1885,9 +2118,9 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
             }}
             style={{
               position: 'absolute',
-              left: `${editingText.x}px`,
-              top: `${editingText.y}px`,
-              fontSize: `${editingText.fontSize}px`,
+              left: `${editingText.x * zoomLevel}px`,
+              top: `${editingText.y * zoomLevel}px`,
+              fontSize: `${editingText.fontSize * zoomLevel}px`,
               color: editingText.fill,
               fontFamily: editingText.fontFamily || 'Arial',
               border: '1px dashed #0071e3',
@@ -1896,8 +2129,8 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
               padding: '2px 4px',
               outline: 'none',
               resize: 'both',
-              minWidth: '150px',
-              minHeight: '32px',
+              minWidth: `${150 * zoomLevel}px`,
+              minHeight: `${32 * zoomLevel}px`,
               zIndex: 1000,
             }}
           />

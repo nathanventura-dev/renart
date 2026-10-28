@@ -76,6 +76,39 @@ export function getNextZoomStep(currentZoom: number, direction: 'in' | 'out'): n
   return MIN_ZOOM_LEVEL;
 }
 
+/**
+ * Formata o nível de zoom em porcentagem limpa para exibição na barra (ex: '100%', '75%', '150%').
+ */
+export function formatZoomPercentage(zoomLevel: number): string {
+  return `${Math.round(zoomLevel * 100)}%`;
+}
+
+/**
+ * Reconhece se um evento de teclado corresponde a um atalho de zoom:
+ * - 'in': Ctrl/Cmd + '+' ou '='
+ * - 'out': Ctrl/Cmd + '-' ou '_'
+ * - 'reset': Ctrl/Cmd + '0'
+ */
+export function isZoomShortcut(e: {
+  ctrlKey: boolean;
+  metaKey: boolean;
+  key: string;
+}): 'in' | 'out' | 'reset' | null {
+  if (!e.ctrlKey && !e.metaKey) {
+    return null;
+  }
+  if (e.key === '+' || e.key === '=') {
+    return 'in';
+  }
+  if (e.key === '-' || e.key === '_') {
+    return 'out';
+  }
+  if (e.key === '0') {
+    return 'reset';
+  }
+  return null;
+}
+
 export interface CropBox {
   x: number;
   y: number;

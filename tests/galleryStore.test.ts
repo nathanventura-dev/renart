@@ -61,4 +61,11 @@ describe('Gallery Store', () => {
     store.setActive('cap-x');
     expect(store.getState().activeId).toBe('cap-x');
   });
+
+  it('updates the dataUrl of a capture when cropped', () => {
+    const store = createGalleryStore();
+    store.addCapture({ id: 'cap-1', title: 'Original', dataUrl: 'data:mock-original', createdAt: 1 });
+    store.updateCaptureDataUrl('cap-1', 'data:mock-cropped');
+    expect(store.getActiveCapture()?.dataUrl).toBe('data:mock-cropped');
+  });
 });

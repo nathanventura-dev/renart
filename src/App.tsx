@@ -9,6 +9,13 @@ import { createGalleryStore } from './state/galleryStore';
 import { exportCanvas, copyCanvasToClipboard, ExportFormat } from './services/exportService';
 import { captureDesktopFrame, cropCapturedScreen } from './services/screenCaptureService';
 import { CaptureMode, RectBounds, Point } from './types/capture';
+import {
+  CropBox,
+  adjustAnnotationsForCrop,
+  calculateCropBounds,
+  getNextZoomStep,
+  isZoomShortcut,
+} from './utils/zoomAndCrop';
 
 // Instâncias globais dos stores para a sessão da janela
 const editorStore = createEditorStore();
@@ -19,6 +26,9 @@ export const App: React.FC = () => {
   const [captureMode, setCaptureMode] = useState<CaptureMode>('region');
   const [preCapturedScreen, setPreCapturedScreen] = useState<string | null>(null);
   const [magnifierMode, setMagnifierMode] = useState<'without-focus' | 'with-focus'>('without-focus');
+  const [zoomLevel, setZoomLevel] = useState<number>(1.0);
+  const [fitScale, setFitScale] = useState<number>(1.0);
+  const [cropRect, setCropRect] = useState<CropBox | null>(null);
   const stageRef = useRef<Konva.Stage | null>(null);
 
   // Sincronização dos estados com React
@@ -80,10 +90,121 @@ export const App: React.FC = () => {
     }
   }, [activeCapture?.title]);
 
-  // Listener global de atalhos de teclado (Ctrl+Z, Ctrl+Shift+Z, Ctrl+Y, Ctrl+S, ESC, Delete)
+  const handleFitScaleCalculated = useCallback((scale: number) => {
+    setFitScale(scale);
+    setZoomLevel(scale);
+  }, []);
+
+  const handleZoomIn = useCallback(() => {
+    setZoomLevel((prev) => getNextZoomStep(prev, 'in'));
+  }, []);
+
+  const handleZoomOut = useCallback(() => {
+    setZoomLevel((prev) => getNextZoomStep(prev, 'out'));
+  }, []);
+
+  const handleResetZoom = useCallback(() => {
+    setZoomLevel((prev) => (Math.abs(prev - 1.0) < 0.01 ? fitScale : 1.0));
+  }, [fitScale]);
+
+  const handleToggleCrop = useCallback(() => {
+    if (editorState.activeTool === 'crop') {
+      setCropRect(null);
+      editorStore.setActiveTool('select');
+    } else {
+      editorStore.setActiveTool('crop');
+    }
+  }, [editorState.activeTool]);
+
+  const handleCancelCrop = useCallback(() => {
+    setCropRect(null);
+    editorStore.setActiveTool('select');
+  }, []);
+
+  const handleConfirmCrop = useCallback(async () => {
+    if (!activeCapture || !cropRect) {
+      editorStore.setActiveTool('select');
+      return;
+    }
+
+    const img = new window.Image();
+    img.src = activeCapture.dataUrl;
+    await new Promise((resolve) => {
+      img.onload = resolve;
+    });
+
+    const bounds = calculateCropBounds(cropRect, img.width, img.height);
+    const offCanvas = document.createElement('canvas');
+    offCanvas.width = bounds.width;
+    offCanvas.height = bounds.height;
+    const ctx = offCanvas.getContext('2d');
+    if (!ctx) return;
+
+    ctx.drawImage(
+      img,
+      bounds.x,
+      bounds.y,
+      bounds.width,
+      bounds.height,
+      0,
+      0,
+      bounds.width,
+      bounds.height
+    );
+
+    const croppedDataUrl = offCanvas.toDataURL('image/png');
+
+    // Atualiza a imagem na galeria
+    galleryStore.updateCaptureDataUrl(activeCapture.id, croppedDataUrl);
+
+    // Translada e filtra anotações existentes dentro da área de recorte
+    const adjusted = adjustAnnotationsForCrop(
+      editorState.annotations,
+      { x: bounds.x, y: bounds.y },
+      { width: bounds.width, height: bounds.height }
+    );
+    editorStore.replaceAnnotations(adjusted);
+
+    setCropRect(null);
+    editorStore.setActiveTool('select');
+  }, [activeCapture, cropRect, editorState.annotations]);
+
+  // Listener global de atalhos de teclado (Ctrl+Z, Ctrl+Shift+Z, Ctrl+Y, Ctrl+S, ESC, Delete, Zoom e Recorte)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const isCtrlOrCmd = e.ctrlKey || e.metaKey;
+
+      // Atalhos de Zoom Multiplataforma (Ctrl/Cmd +, -, 0)
+      const zoomShortcut = isZoomShortcut(e);
+      if (zoomShortcut === 'in') {
+        e.preventDefault();
+        handleZoomIn();
+        return;
+      }
+      if (zoomShortcut === 'out') {
+        e.preventDefault();
+        handleZoomOut();
+        return;
+      }
+      if (zoomShortcut === 'reset') {
+        e.preventDefault();
+        handleResetZoom();
+        return;
+      }
+
+      // Atalhos de Recorte: Enter confirma, Esc cancela
+      if (editorState.activeTool === 'crop') {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          handleConfirmCrop();
+          return;
+        }
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          handleCancelCrop();
+          return;
+        }
+      }
 
       // ESC: Desseleciona qualquer bloco ativo
       if (e.key === 'Escape') {
@@ -126,7 +247,15 @@ export const App: React.FC = () => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleExport]);
+  }, [
+    handleExport,
+    handleZoomIn,
+    handleZoomOut,
+    handleResetZoom,
+    editorState.activeTool,
+    handleConfirmCrop,
+    handleCancelCrop,
+  ]);
 
   // Listener para Colar Imagens da Área de Transferência (Ctrl+V)
   useEffect(() => {
@@ -301,6 +430,14 @@ export const App: React.FC = () => {
         onSelectFontFamily={(f: string) => editorStore.setFontFamily(f)}
         fontSize={editorState.fontSize}
         onSelectFontSize={(s: number) => editorStore.setFontSize(s)}
+        zoomLevel={zoomLevel}
+        onZoomIn={handleZoomIn}
+        onZoomOut={handleZoomOut}
+        onResetZoom={handleResetZoom}
+        isCropping={editorState.activeTool === 'crop'}
+        onToggleCrop={handleToggleCrop}
+        onConfirmCrop={handleConfirmCrop}
+        onCancelCrop={handleCancelCrop}
       />
 
       {/* Espaço Principal: Galeria Lateral (Esquerda) + Canvas Central */}
@@ -347,6 +484,12 @@ export const App: React.FC = () => {
               editorStore.updateAnnotations(updatesById)
             }
             magnifierMode={magnifierMode}
+            zoomLevel={zoomLevel}
+            onZoomIn={handleZoomIn}
+            onZoomOut={handleZoomOut}
+            onFitScaleCalculated={handleFitScaleCalculated}
+            isCropping={editorState.activeTool === 'crop'}
+            onCropRectChange={setCropRect}
             stageRef={stageRef}
           />
         ) : (

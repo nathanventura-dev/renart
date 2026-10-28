@@ -381,4 +381,54 @@ describe('Editor Store', () => {
     store.updateAnnotation('txt-1', { fontSize: 36, scaleX: 1, scaleY: 1 });
     expect(store.getState().fontSize).toBe(36);
   });
+
+  it('replaces all annotations during crop and supports undo/redo stack', () => {
+    const store = createEditorStore();
+    store.addAnnotation({
+      id: 'ann-1',
+      type: 'rect',
+      x: 10,
+      y: 10,
+      width: 50,
+      height: 50,
+      stroke: '#ff0000',
+    });
+    store.addAnnotation({
+      id: 'ann-2',
+      type: 'rect',
+      x: 200,
+      y: 200,
+      width: 50,
+      height: 50,
+      stroke: '#00ff00',
+    });
+    expect(store.getState().annotations).toHaveLength(2);
+
+    // Substitui annotations (como após recorte)
+    const croppedAnnotations: Annotation[] = [
+      {
+        id: 'ann-1',
+        type: 'rect',
+        x: 0,
+        y: 0,
+        width: 50,
+        height: 50,
+        stroke: '#ff0000',
+      },
+    ];
+    store.replaceAnnotations(croppedAnnotations);
+    expect(store.getState().annotations).toHaveLength(1);
+    expect(store.getState().annotations[0].x).toBe(0);
+
+    // Undo restaura as 2 anotações originais
+    store.undo();
+    expect(store.getState().annotations).toHaveLength(2);
+    expect(store.getState().annotations[0].x).toBe(10);
+    expect(store.getState().annotations[1].x).toBe(200);
+
+    // Redo reaplica as anotações recortadas
+    store.redo();
+    expect(store.getState().annotations).toHaveLength(1);
+    expect(store.getState().annotations[0].x).toBe(0);
+  });
 });

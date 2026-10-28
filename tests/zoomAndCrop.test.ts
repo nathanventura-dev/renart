@@ -6,6 +6,8 @@ import {
   calculateCropBounds,
   adjustAnnotationsForCrop,
   ZOOM_PRESETS,
+  formatZoomPercentage,
+  isZoomShortcut,
 } from '../src/utils/zoomAndCrop';
 import { Annotation } from '../src/state/editorStore';
 
@@ -38,6 +40,29 @@ describe('Zoom and Fit-To-Screen Calculations', () => {
     expect(getNextZoomStep(1.0, 'out')).toBeLessThan(1.0);
     expect(getNextZoomStep(4.0, 'in')).toBe(4.0); // trava no máximo
     expect(getNextZoomStep(0.25, 'out')).toBe(0.25); // trava no mínimo
+  });
+
+  it('formats zoom percentage cleanly for UI display', () => {
+    expect(formatZoomPercentage(1.0)).toBe('100%');
+    expect(formatZoomPercentage(0.5)).toBe('50%');
+    expect(formatZoomPercentage(1.75)).toBe('175%');
+    expect(formatZoomPercentage(0.333)).toBe('33%');
+  });
+
+  it('recognizes zoom keyboard shortcuts for Windows, Linux, and macOS', () => {
+    // Windows / Linux: Ctrl + '+' ou Ctrl + '='
+    expect(isZoomShortcut({ ctrlKey: true, metaKey: false, key: '+' })).toBe('in');
+    expect(isZoomShortcut({ ctrlKey: true, metaKey: false, key: '=' })).toBe('in');
+    expect(isZoomShortcut({ ctrlKey: true, metaKey: false, key: '-' })).toBe('out');
+    expect(isZoomShortcut({ ctrlKey: true, metaKey: false, key: '0' })).toBe('reset');
+
+    // macOS: Cmd + '+' / Cmd + '-' / Cmd + '0'
+    expect(isZoomShortcut({ ctrlKey: false, metaKey: true, key: '+' })).toBe('in');
+    expect(isZoomShortcut({ ctrlKey: false, metaKey: true, key: '-' })).toBe('out');
+    expect(isZoomShortcut({ ctrlKey: false, metaKey: true, key: '0' })).toBe('reset');
+
+    // Sem tecla modificadora: não é atalho de zoom
+    expect(isZoomShortcut({ ctrlKey: false, metaKey: false, key: '+' })).toBeNull();
   });
 });
 
