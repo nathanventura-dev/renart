@@ -43,6 +43,7 @@ import {
   clampEllipseToBounds,
   clampLinePointsToBounds,
   clampAnnotationPositionToBounds,
+  calculateProportionalResizeBox,
 } from '../utils/zoomAndCrop';
 
 interface CanvasEditorProps {
@@ -185,10 +186,13 @@ const InsertedImageNode: React.FC<{
           clampRectToBounds(
             localX,
             localY,
-            ann.width * Math.abs(ann.scaleX ?? 1),
-            ann.height * Math.abs(ann.scaleY ?? 1),
+            ann.width,
+            ann.height,
             canvasWidth,
-            canvasHeight
+            canvasHeight,
+            ann.scaleX ?? 1,
+            ann.scaleY ?? 1,
+            ann.rotation ?? 0
           )
         )
       }
@@ -754,6 +758,14 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
         const steppedScale = nextFontSize / ann.fontSize;
         node.scaleX(steppedScale);
         node.scaleY(steppedScale);
+      } else if (ann) {
+        // Para qualquer outra forma (rect, ellipse, arrow, line, image):
+        // Garante escala uniforme em tempo real (scaleX === scaleY) sem qualquer distorção
+        const sx = Math.abs(node.scaleX() || 1);
+        const sy = Math.abs(node.scaleY() || 1);
+        const maxScale = Math.max(sx, sy);
+        node.scaleX(maxScale * (node.scaleX() < 0 ? -1 : 1));
+        node.scaleY(maxScale * (node.scaleY() < 0 ? -1 : 1));
       }
     }
   };
@@ -857,6 +869,95 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
               focusX: clamped.x,
               focusY: clamped.y,
             };
+      }
+
+      if (ann?.type === 'rect') {
+        const sx = Math.abs(node.scaleX() || 1);
+        const sy = Math.abs(node.scaleY() || 1);
+        const scale = Math.max(sx, sy);
+        const nextW = Math.max(5, Math.round(ann.width * scale));
+        const nextH = Math.max(5, Math.round(ann.height * scale));
+        node.scaleX(1);
+        node.scaleY(1);
+        (node as Konva.Rect).width(nextW);
+        (node as Konva.Rect).height(nextH);
+        const clamped = clampRectToBounds(node.x(), node.y(), nextW, nextH, imgW, imgH, 1, 1, node.rotation());
+        node.position({ x: clamped.x, y: clamped.y });
+        return {
+          x: clamped.x,
+          y: clamped.y,
+          width: nextW,
+          height: nextH,
+          scaleX: 1,
+          scaleY: 1,
+          rotation: node.rotation(),
+        };
+      }
+
+      if (ann?.type === 'ellipse') {
+        const sx = Math.abs(node.scaleX() || 1);
+        const sy = Math.abs(node.scaleY() || 1);
+        const scale = Math.max(sx, sy);
+        const nextRx = Math.max(5, Math.round(ann.radiusX * scale));
+        const nextRy = Math.max(5, Math.round(ann.radiusY * scale));
+        node.scaleX(1);
+        node.scaleY(1);
+        (node as Konva.Ellipse).radiusX(nextRx);
+        (node as Konva.Ellipse).radiusY(nextRy);
+        const clamped = clampEllipseToBounds(node.x(), node.y(), nextRx, nextRy, imgW, imgH, 1, 1, node.rotation());
+        node.position({ x: clamped.x, y: clamped.y });
+        return {
+          x: clamped.x,
+          y: clamped.y,
+          radiusX: nextRx,
+          radiusY: nextRy,
+          scaleX: 1,
+          scaleY: 1,
+          rotation: node.rotation(),
+        };
+      }
+
+      if (ann?.type === 'line' || ann?.type === 'arrow') {
+        const sx = node.scaleX() || 1;
+        const sy = node.scaleY() || 1;
+        const uniformScale = Math.max(Math.abs(sx), Math.abs(sy)) * (sx < 0 ? -1 : 1);
+        const nextPoints = ann.points.map((p) => Math.round(p * uniformScale));
+        node.scaleX(1);
+        node.scaleY(1);
+        (node as Konva.Line).points(nextPoints);
+        const clamped = clampLinePointsToBounds(node.x(), node.y(), nextPoints, imgW, imgH, 1, 1, node.rotation());
+        node.position({ x: clamped.x, y: clamped.y });
+        return {
+          x: clamped.x,
+          y: clamped.y,
+          points: nextPoints,
+          scaleX: 1,
+          scaleY: 1,
+          rotation: node.rotation(),
+        };
+      }
+
+      if (ann?.type === 'image') {
+        const sx = Math.abs(node.scaleX() || 1);
+        const sy = Math.abs(node.scaleY() || 1);
+        const scale = Math.max(sx, sy);
+        const nextW = Math.max(10, Math.round(ann.width * scale));
+        const nextH = Math.max(10, Math.round(ann.height * scale));
+        node.scaleX(1);
+        node.scaleY(1);
+        node.width(nextW);
+        node.height(nextH);
+        const clamped = clampRectToBounds(node.x(), node.y(), nextW, nextH, imgW, imgH, 1, 1, node.rotation());
+        node.position({ x: clamped.x, y: clamped.y });
+        return {
+          x: clamped.x,
+          y: clamped.y,
+          width: nextW,
+          height: nextH,
+          scaleX: 1,
+          scaleY: 1,
+          rotation: node.rotation(),
+        };
       }
 
       if (ann) {
@@ -1358,10 +1459,13 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                         clampRectToBounds(
                           localX,
                           localY,
-                          ann.width * Math.abs(ann.scaleX ?? 1),
-                          ann.height * Math.abs(ann.scaleY ?? 1),
+                          ann.width,
+                          ann.height,
                           canvasWidth,
-                          canvasHeight
+                          canvasHeight,
+                          ann.scaleX ?? 1,
+                          ann.scaleY ?? 1,
+                          ann.rotation ?? 0
                         )
                       )
                     }
@@ -1397,10 +1501,13 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                         clampEllipseToBounds(
                           localX,
                           localY,
-                          ann.radiusX * Math.abs(ann.scaleX ?? 1),
-                          ann.radiusY * Math.abs(ann.scaleY ?? 1),
+                          ann.radiusX,
+                          ann.radiusY,
                           canvasWidth,
-                          canvasHeight
+                          canvasHeight,
+                          ann.scaleX ?? 1,
+                          ann.scaleY ?? 1,
+                          ann.rotation ?? 0
                         )
                       )
                     }
@@ -1438,7 +1545,10 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                           localY,
                           ann.points,
                           canvasWidth,
-                          canvasHeight
+                          canvasHeight,
+                          ann.scaleX ?? 1,
+                          ann.scaleY ?? 1,
+                          ann.rotation ?? 0
                         )
                       )
                     }
@@ -1478,7 +1588,10 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                           localY,
                           ann.points,
                           canvasWidth,
-                          canvasHeight
+                          canvasHeight,
+                          ann.scaleX ?? 1,
+                          ann.scaleY ?? 1,
+                          ann.rotation ?? 0
                         )
                       )
                     }
@@ -1509,10 +1622,20 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                     draggable={canDrag}
                     dragBoundFunc={(pos) => {
                       const textNode = stageRef.current?.findOne(`#${ann.id}`) as Konva.Text | undefined;
-                      const w = (textNode ? textNode.width() : 120) * Math.abs(ann.scaleX ?? 1);
-                      const h = (textNode ? textNode.height() : 30) * Math.abs(ann.scaleY ?? 1);
+                      const w = textNode ? textNode.width() : 120;
+                      const h = textNode ? textNode.height() : 30;
                       return getTransformedDragBound(pos, zoomLevel, (localX, localY) =>
-                        clampRectToBounds(localX, localY, w, h, canvasWidth, canvasHeight)
+                        clampRectToBounds(
+                          localX,
+                          localY,
+                          w,
+                          h,
+                          canvasWidth,
+                          canvasHeight,
+                          ann.scaleX ?? 1,
+                          ann.scaleY ?? 1,
+                          ann.rotation ?? 0
+                        )
                       );
                     }}
                     onMouseEnter={handleBlockMouseEnter}
@@ -2212,11 +2335,7 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
               onTransformEnd={handleTransformEnd}
               flipEnabled={false}
               rotateEnabled={!hasSelectedMagnifier && activeTool !== 'crop' && !isCropping}
-              keepRatio={
-                activeTool === 'crop' || isCropping
-                  ? false
-                  : hasSelectedMagnifier || hasSelectedText
-              }
+              keepRatio={activeTool === 'crop' || isCropping ? false : true}
               enabledAnchors={
                 activeTool === 'crop' || isCropping
                   ? [
@@ -2231,17 +2350,16 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                     ]
                   : hasSelectedText
                     ? ['top-left', 'top-right', 'bottom-left', 'bottom-right']
-                    : hasSelectedMagnifier
-                      ? [
-                          'top-left',
-                          'top-right',
-                          'bottom-left',
-                          'bottom-right',
-                          'middle-left',
-                          'middle-right',
-                          'top-center',
-                        ]
-                      : undefined
+                    : [
+                        'top-left',
+                        'top-center',
+                        'top-right',
+                        'middle-left',
+                        'middle-right',
+                        'bottom-left',
+                        'bottom-center',
+                        'bottom-right',
+                      ]
               }
               boundBoxFunc={(oldBox, newBox) => {
                 const localNewBox = toLocalBoundingBox(newBox, zoomLevel);
@@ -2265,18 +2383,24 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                     zoomLevel
                   );
                 }
+
+                // Ajusta a proporção uniforme (scaleX === scaleY) ao redimensionar para cima, baixo ou lados
+                const proportionalBox = calculateProportionalResizeBox(localOldBox, localNewBox);
+
                 if (hasSelectedMagnifier) {
                   if (
-                    localNewBox.width < 48 ||
-                    localNewBox.height < 48 ||
-                    localNewBox.x < 0 ||
-                    localNewBox.y < 0 ||
-                    localNewBox.x + localNewBox.width > canvasWidth ||
-                    localNewBox.y + localNewBox.height > canvasHeight
+                    proportionalBox.width < 48 ||
+                    proportionalBox.height < 48 ||
+                    proportionalBox.x < 0 ||
+                    proportionalBox.y < 0 ||
+                    proportionalBox.x + proportionalBox.width > canvasWidth ||
+                    proportionalBox.y + proportionalBox.height > canvasHeight
                   ) {
                     return oldBox;
                   }
+                  return toAbsoluteBoundingBox(proportionalBox, zoomLevel);
                 }
+
                 if (hasSelectedText && transformerRef.current) {
                   const nodes = transformerRef.current.nodes();
                   if (nodes.length === 1) {
@@ -2285,7 +2409,7 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                     if (ann?.type === 'text') {
                       const clampedLocal = clampTextResizeBox(
                         localOldBox,
-                        localNewBox,
+                        proportionalBox,
                         ann.fontSize,
                         node.width(),
                         node.height()
@@ -2308,16 +2432,18 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                     }
                   }
                 }
-                // Limita qualquer outro elemento (retângulo, elipse, imagem inserida, etc.) aos limites da imagem
+
+                // Para qualquer outro elemento (retângulo, elipse, imagem inserida, flecha, linha):
+                // Impede ultrapassar os limites da imagem de fundo
                 if (
-                  localNewBox.x < 0 ||
-                  localNewBox.y < 0 ||
-                  localNewBox.x + localNewBox.width > canvasWidth ||
-                  localNewBox.y + localNewBox.height > canvasHeight
+                  proportionalBox.x < 0 ||
+                  proportionalBox.y < 0 ||
+                  proportionalBox.x + proportionalBox.width > canvasWidth ||
+                  proportionalBox.y + proportionalBox.height > canvasHeight
                 ) {
                   return oldBox;
                 }
-                return newBox;
+                return toAbsoluteBoundingBox(proportionalBox, zoomLevel);
               }}
             />
           </Layer>

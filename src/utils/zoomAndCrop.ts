@@ -360,7 +360,66 @@ export function toAbsoluteBoundingBox(
 }
 
 /**
- * Restringe as coordenadas (x, y) de um retângulo ou imagem aos limites da imagem de fundo [0, canvas].
+ * Calcula uma caixa delimitadora proporcional (sem distorção) ao redimensionar elementos
+ * pelas laterais ("para o lado"), pelo topo/base ("para cima/baixo") ou pelos cantos.
+ * Garante que a proporção entre largura e altura seja estritamente preservada (scaleX === scaleY),
+ * impedindo distorções no conteúdo das formas e em suas cabeças de flechas.
+ */
+export function calculateProportionalResizeBox(
+  oldBox: TransformerBoundBox,
+  newBox: TransformerBoundBox,
+  minDimension: number = 10
+): TransformerBoundBox {
+  if (oldBox.width <= 0 || oldBox.height <= 0) {
+    return newBox;
+  }
+
+  const scaleX = newBox.width / oldBox.width;
+  const scaleY = newBox.height / oldBox.height;
+
+  // Se ambos os eixos já foram escalados por igual
+  if (Math.abs(scaleX - scaleY) < 0.001) {
+    return newBox;
+  }
+
+  // Se a largura mudou mais que a altura (arraste lateral / "para o lado")
+  if (Math.abs(scaleX - 1) > Math.abs(scaleY - 1)) {
+    const targetW = Math.max(minDimension, Math.round(oldBox.width * scaleX));
+    const targetH = Math.max(minDimension, Math.round(oldBox.height * scaleX));
+    const deltaW = targetW - oldBox.width;
+    const movedLeft = Math.abs(newBox.x - oldBox.x) > 0.01;
+    const nextX = movedLeft ? oldBox.x - deltaW : oldBox.x;
+    const nextY = Math.round(oldBox.y - (targetH - oldBox.height) / 2);
+
+    return {
+      x: nextX,
+      y: nextY,
+      width: targetW,
+      height: targetH,
+      rotation: newBox.rotation,
+    };
+  }
+
+  // Se a altura mudou mais que a largura (arraste vertical / "para cima")
+  const targetH = Math.max(minDimension, Math.round(oldBox.height * scaleY));
+  const targetW = Math.max(minDimension, Math.round(oldBox.width * scaleY));
+  const deltaH = targetH - oldBox.height;
+  const movedTop = Math.abs(newBox.y - oldBox.y) > 0.01;
+  const nextY = movedTop ? oldBox.y - deltaH : oldBox.y;
+  const nextX = Math.round(oldBox.x - (targetW - oldBox.width) / 2);
+
+  return {
+    x: nextX,
+    y: nextY,
+    width: targetW,
+    height: targetH,
+    rotation: newBox.rotation,
+  };
+}
+
+/**
+ * Restringe as coordenadas (x, y) de um retângulo ou imagem aos limites da imagem de fundo [0, canvas],
+ * levando em conta dimensões reais, escala e rotação.
  */
 export function clampRectToBounds(
   x: number,
@@ -368,21 +427,68 @@ export function clampRectToBounds(
   width: number,
   height: number,
   canvasWidth: number,
-  canvasHeight: number
+  canvasHeight: number,
+  scaleX: number = 1,
+  scaleY: number = 1,
+  rotation: number = 0
 ): { x: number; y: number } {
-  const safeW = Math.max(0, width);
-  const safeH = Math.max(0, height);
-  const maxX = Math.max(0, canvasWidth - safeW);
-  const maxY = Math.max(0, canvasHeight - safeH);
+  const safeW = Math.max(0, width * Math.abs(scaleX));
+  const safeH = Math.max(0, height * Math.abs(scaleY));
+
+  if (rotation === 0) {
+    const maxX = Math.max(0, canvasWidth - safeW);
+    const maxY = Math.max(0, canvasHeight - safeH);
+    return {
+      x: Math.max(0, Math.min(x, maxX)),
+      y: Math.max(0, Math.min(y, maxY)),
+    };
+  }
+
+  const rad = (rotation * Math.PI) / 180;
+  const cos = Math.cos(rad);
+  const sin = Math.sin(rad);
+
+  const corners = [
+    { x: 0, y: 0 },
+    { x: safeW * cos, y: safeW * sin },
+    { x: safeW * cos - safeH * sin, y: safeW * sin + safeH * cos },
+    { x: -safeH * sin, y: safeH * cos },
+  ];
+
+  let minX = Infinity;
+  let maxX = -Infinity;
+  let minY = Infinity;
+  let maxY = -Infinity;
+
+  for (const c of corners) {
+    if (c.x < minX) minX = c.x;
+    if (c.x > maxX) maxX = c.x;
+    if (c.y < minY) minY = c.y;
+    if (c.y > maxY) maxY = c.y;
+  }
+
+  const allowedMinX = -minX;
+  const allowedMaxX = canvasWidth - maxX;
+  const allowedMinY = -minY;
+  const allowedMaxY = canvasHeight - maxY;
+
+  const clampedX =
+    allowedMaxX >= allowedMinX
+      ? Math.max(allowedMinX, Math.min(x, allowedMaxX))
+      : allowedMinX;
+  const clampedY =
+    allowedMaxY >= allowedMinY
+      ? Math.max(allowedMinY, Math.min(y, allowedMaxY))
+      : allowedMinY;
 
   return {
-    x: Math.max(0, Math.min(x, maxX)),
-    y: Math.max(0, Math.min(y, maxY)),
+    x: clampedX,
+    y: clampedY,
   };
 }
 
 /**
- * Restringe o centro (x, y) de uma elipse aos limites da imagem com base nos seus raios.
+ * Restringe o centro (x, y) de uma elipse aos limites da imagem com base nos seus raios, escala e rotação.
  */
 export function clampEllipseToBounds(
   x: number,
@@ -390,14 +496,27 @@ export function clampEllipseToBounds(
   radiusX: number,
   radiusY: number,
   canvasWidth: number,
-  canvasHeight: number
+  canvasHeight: number,
+  scaleX: number = 1,
+  scaleY: number = 1,
+  rotation: number = 0
 ): { x: number; y: number } {
-  const rx = Math.max(0, radiusX);
-  const ry = Math.max(0, radiusY);
-  const minX = Math.min(rx, canvasWidth / 2);
-  const maxX = Math.max(rx, canvasWidth - rx);
-  const minY = Math.min(ry, canvasHeight / 2);
-  const maxY = Math.max(ry, canvasHeight - ry);
+  const rx = Math.max(0, radiusX * Math.abs(scaleX));
+  const ry = Math.max(0, radiusY * Math.abs(scaleY));
+
+  let extentX = rx;
+  let extentY = ry;
+
+  if (rotation !== 0) {
+    const rad = (rotation * Math.PI) / 180;
+    extentX = Math.sqrt(Math.pow(rx * Math.cos(rad), 2) + Math.pow(ry * Math.sin(rad), 2));
+    extentY = Math.sqrt(Math.pow(rx * Math.sin(rad), 2) + Math.pow(ry * Math.cos(rad), 2));
+  }
+
+  const minX = Math.min(extentX, canvasWidth / 2);
+  const maxX = Math.max(extentX, canvasWidth - extentX);
+  const minY = Math.min(extentY, canvasHeight / 2);
+  const maxY = Math.max(extentY, canvasHeight - extentY);
 
   return {
     x: Math.max(minX, Math.min(x, maxX)),
@@ -406,15 +525,19 @@ export function clampEllipseToBounds(
 }
 
 /**
- * Restringe o deslocamento (x, y) de uma linha ou seta para que todos os seus vértices (points)
- * permaneçam estritamente dentro da área visível da imagem.
+ * Restringe o deslocamento (x, y) de uma linha ou seta para que todos os seus vértices (points),
+ * considerando sua escala (scaleX, scaleY) e rotação (rotation), permaneçam estritamente
+ * dentro da área total da imagem.
  */
 export function clampLinePointsToBounds(
   x: number,
   y: number,
   points: number[],
   canvasWidth: number,
-  canvasHeight: number
+  canvasHeight: number,
+  scaleX: number = 1,
+  scaleY: number = 1,
+  rotation: number = 0
 ): { x: number; y: number } {
   if (!points || points.length === 0) {
     return {
@@ -423,14 +546,22 @@ export function clampLinePointsToBounds(
     };
   }
 
+  const rad = rotation !== 0 ? (rotation * Math.PI) / 180 : 0;
+  const cos = rotation !== 0 ? Math.cos(rad) : 1;
+  const sin = rotation !== 0 ? Math.sin(rad) : 0;
+
   let minPtX = Infinity;
   let maxPtX = -Infinity;
   let minPtY = Infinity;
   let maxPtY = -Infinity;
 
   for (let i = 0; i < points.length; i += 2) {
-    const px = points[i];
-    const py = points[i + 1];
+    const rawPx = points[i] * scaleX;
+    const rawPy = points[i + 1] * scaleY;
+
+    const px = rotation !== 0 ? rawPx * cos - rawPy * sin : rawPx;
+    const py = rotation !== 0 ? rawPx * sin + rawPy * cos : rawPy;
+
     if (px < minPtX) minPtX = px;
     if (px > maxPtX) maxPtX = px;
     if (py < minPtY) minPtY = py;
@@ -452,7 +583,8 @@ export function clampLinePointsToBounds(
 }
 
 /**
- * Despachante universal para restringir qualquer tipo de anotação aos limites da imagem de fundo.
+ * Despachante universal para restringir qualquer tipo de anotação aos limites da imagem de fundo,
+ * respeitando com exatidão a geometria escalada e rotacionada.
  */
 export function clampAnnotationPositionToBounds(
   ann: Annotation,
@@ -463,20 +595,24 @@ export function clampAnnotationPositionToBounds(
   nodeWidth?: number,
   nodeHeight?: number
 ): { x: number; y: number } {
+  const sx = ann.scaleX ?? 1;
+  const sy = ann.scaleY ?? 1;
+  const rot = ann.rotation ?? 0;
+
   switch (ann.type) {
     case 'rect':
-      return clampRectToBounds(x, y, ann.width, ann.height, canvasWidth, canvasHeight);
+      return clampRectToBounds(x, y, ann.width, ann.height, canvasWidth, canvasHeight, sx, sy, rot);
     case 'image':
-      return clampRectToBounds(x, y, ann.width, ann.height, canvasWidth, canvasHeight);
+      return clampRectToBounds(x, y, ann.width, ann.height, canvasWidth, canvasHeight, sx, sy, rot);
     case 'ellipse':
-      return clampEllipseToBounds(x, y, ann.radiusX, ann.radiusY, canvasWidth, canvasHeight);
+      return clampEllipseToBounds(x, y, ann.radiusX, ann.radiusY, canvasWidth, canvasHeight, sx, sy, rot);
     case 'line':
     case 'arrow':
-      return clampLinePointsToBounds(x, y, ann.points, canvasWidth, canvasHeight);
+      return clampLinePointsToBounds(x, y, ann.points, canvasWidth, canvasHeight, sx, sy, rot);
     case 'text': {
       const w = nodeWidth ?? 120;
       const h = nodeHeight ?? 30;
-      return clampRectToBounds(x, y, w, h, canvasWidth, canvasHeight);
+      return clampRectToBounds(x, y, w, h, canvasWidth, canvasHeight, sx, sy, rot);
     }
     case 'magnifier': {
       const r = ann.radius;

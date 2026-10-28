@@ -16,6 +16,7 @@ import {
   clampAnnotationPositionToBounds,
   toLocalBoundingBox,
   toAbsoluteBoundingBox,
+  calculateProportionalResizeBox,
 } from '../src/utils/zoomAndCrop';
 import { Annotation } from '../src/state/editorStore';
 
@@ -340,6 +341,82 @@ describe('Pointer and Drag Coordinate Transformations Under Zoom', () => {
 
       const convertedBack = toAbsoluteBoundingBox(localBox, zoom);
       expect(convertedBack).toEqual(absBox);
+    });
+
+    it('calculates proportional resize box equally for horizontal and vertical resizing without distortion', () => {
+      const oldBox = { x: 100, y: 100, width: 200, height: 100, rotation: 0 };
+
+      // Redimensionando pelas laterais ("para o lado"): largura aumentou de 200 para 300 (escala 1.5x)
+      // A altura DEVE crescer na mesma proporção: 100 * 1.5 = 150
+      const sideDrag = { x: 100, y: 100, width: 300, height: 100, rotation: 0 };
+      const propSide = calculateProportionalResizeBox(oldBox, sideDrag);
+      expect(propSide.width).toBe(300);
+      expect(propSide.height).toBe(150);
+
+      // Redimensionando pelo topo/fundo ("para cima"): altura aumentou de 100 para 200 (escala 2.0x)
+      // A largura DEVE crescer na mesma proporção: 200 * 2.0 = 400
+      const topDrag = { x: 100, y: 50, width: 200, height: 200, rotation: 0 };
+      const propTop = calculateProportionalResizeBox(oldBox, topDrag);
+      expect(propTop.width).toBe(400);
+      expect(propTop.height).toBe(200);
+
+      // Redimensionando pelos cantos com proporção idêntica
+      const cornerDrag = { x: 100, y: 100, width: 400, height: 200, rotation: 0 };
+      const propCorner = calculateProportionalResizeBox(oldBox, cornerDrag);
+      expect(propCorner.width).toBe(400);
+      expect(propCorner.height).toBe(200);
+    });
+
+    it('recognizes 100% of the image canvas area for scaled and rotated arrows/lines', () => {
+      // Flecha com vetor base de 100px no eixo X: (0, 0) até (100, 0)
+      const points = [0, 0, 100, 0];
+
+      // Flecha escalada para 200px (scaleX: 2.0, scaleY: 2.0) sem rotação
+      // O comprimento real é 200px. No canvas de 800px, x pode ir de 0 até 800 - 200 = 600
+      const clampedScaled = clampLinePointsToBounds(
+        750,
+        100,
+        points,
+        canvasWidth,
+        canvasHeight,
+        2.0,
+        2.0,
+        0
+      );
+      expect(clampedScaled.x).toBe(600);
+      expect(clampedScaled.y).toBe(100);
+
+      // Flecha rotacionada em 90 graus (apontando para baixo) com escala 2x:
+      // O vetor se estende 200px no eixo Y.
+      // Em X pode ir até 800 (pois largura é 0), e em Y pode ir até 600 - 200 = 400
+      const clampedRotated = clampLinePointsToBounds(
+        800,
+        550,
+        points,
+        canvasWidth,
+        canvasHeight,
+        2.0,
+        2.0,
+        90
+      );
+      expect(clampedRotated.x).toBe(800);
+      expect(clampedRotated.y).toBe(400);
+
+      // Mesmo que o elemento tenha sido distorcido previamente (scaleX: 2.5, scaleY: 0.5):
+      // A flecha reconhece a área total real ocupada e permite navegar até o limite exato
+      const clampedDistorted = clampLinePointsToBounds(
+        700,
+        100,
+        points,
+        canvasWidth,
+        canvasHeight,
+        2.5,
+        0.5,
+        0
+      );
+      // 100 * 2.5 = 250px de comprimento => limite X = 800 - 250 = 550
+      expect(clampedDistorted.x).toBe(550);
+      expect(clampedDistorted.y).toBe(100);
     });
   });
 });
