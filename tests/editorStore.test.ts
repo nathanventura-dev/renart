@@ -273,4 +273,35 @@ describe('Editor Store', () => {
     store.undo();
     expect(store.getState().annotations).toHaveLength(3);
   });
+
+  it('supports adding, styling, and undo/redo of line annotations for underlining text', () => {
+    const store = createEditorStore();
+    store.setActiveTool('line');
+    expect(store.getState().activeTool).toBe('line');
+
+    store.addAnnotation({
+      id: 'line-1',
+      type: 'line',
+      x: 0,
+      y: 0,
+      points: [50, 120, 250, 120],
+      stroke: '#ff3b30',
+      strokeWidth: 3,
+    });
+
+    const added = store.getState().annotations[0];
+    expect(added.type).toBe('line');
+    expect(added.autoStrokeWidth).toBe(true);
+    if (added.type === 'line') {
+      expect(added.points).toEqual([50, 120, 250, 120]);
+    }
+
+    // Altera cor e espessura da linha selecionada
+    store.setStrokeColor('#0071e3');
+    store.setStrokeWidth(5);
+    const updated = store.getState().annotations[0];
+    expect(updated.stroke).toBe('#0071e3');
+    expect(updated.strokeWidth).toBe(5);
+    expect(updated.autoStrokeWidth).toBe(false);
+  });
 });

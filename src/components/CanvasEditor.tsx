@@ -534,6 +534,17 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
         strokeWidth,
         autoStrokeWidth,
       });
+    } else if (activeTool === 'line') {
+      setNewAnnotation({
+        id,
+        type: 'line',
+        x: 0,
+        y: 0,
+        points: [pos.x, pos.y, pos.x, pos.y],
+        stroke: strokeColor,
+        strokeWidth,
+        autoStrokeWidth,
+      });
     } else if (activeTool === 'arrow') {
       setNewAnnotation({
         id,
@@ -596,6 +607,9 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
       const radiusX = Math.abs(pos.x - newAnnotation.x);
       const radiusY = Math.abs(pos.y - newAnnotation.y);
       setNewAnnotation({ ...newAnnotation, radiusX, radiusY });
+    } else if (newAnnotation.type === 'line') {
+      const p1 = newAnnotation.points;
+      setNewAnnotation({ ...newAnnotation, points: [p1[0], p1[1], pos.x, pos.y] });
     } else if (newAnnotation.type === 'arrow') {
       const p1 = newAnnotation.points;
       setNewAnnotation({ ...newAnnotation, points: [p1[0], p1[1], pos.x, pos.y] });
@@ -619,6 +633,11 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
       onAddAnnotation(newAnnotation);
     } else if (newAnnotation.type === 'ellipse' && newAnnotation.radiusX > 5 && newAnnotation.radiusY > 5) {
       onAddAnnotation(newAnnotation);
+    } else if (newAnnotation.type === 'line') {
+      const [x1, y1, x2, y2] = newAnnotation.points;
+      if (Math.hypot(x2 - x1, y2 - y1) > 3) {
+        onAddAnnotation(newAnnotation);
+      }
     } else if (newAnnotation.type === 'arrow') {
       onAddAnnotation(newAnnotation);
     }
@@ -718,6 +737,33 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                     stroke={ann.stroke}
                     strokeWidth={ann.strokeWidth}
                     strokeScaleEnabled={strokeScaleEnabled}
+                    draggable={canDrag}
+                    onMouseEnter={handleBlockMouseEnter}
+                    onMouseLeave={handleBlockMouseLeave}
+                    onClick={(e) => handleBlockClick(ann.id, e)}
+                    onDragStart={() => handleBlockDragStart(ann.id)}
+                    onDragMove={(e) => handleBlockDragMove(ann.id, e)}
+                    onDragEnd={(e) => handleBlockDragEnd(ann.id, e)}
+                  />
+                );
+              }
+
+              if (ann.type === 'line') {
+                return (
+                  <Line
+                    key={ann.id}
+                    id={ann.id}
+                    x={ann.x || 0}
+                    y={ann.y || 0}
+                    points={ann.points}
+                    scaleX={ann.scaleX ?? 1}
+                    scaleY={ann.scaleY ?? 1}
+                    rotation={ann.rotation ?? 0}
+                    stroke={ann.stroke}
+                    strokeWidth={ann.strokeWidth}
+                    strokeScaleEnabled={strokeScaleEnabled}
+                    lineCap="round"
+                    hitStrokeWidth={20}
                     draggable={canDrag}
                     onMouseEnter={handleBlockMouseEnter}
                     onMouseLeave={handleBlockMouseLeave}
@@ -1012,6 +1058,14 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                     radiusY={newAnnotation.radiusY}
                     stroke={newAnnotation.stroke}
                     strokeWidth={newAnnotation.strokeWidth}
+                  />
+                )}
+                {newAnnotation.type === 'line' && (
+                  <Line
+                    points={newAnnotation.points}
+                    stroke={newAnnotation.stroke}
+                    strokeWidth={newAnnotation.strokeWidth}
+                    lineCap="round"
                   />
                 )}
                 {newAnnotation.type === 'arrow' && (

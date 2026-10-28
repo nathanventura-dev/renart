@@ -1,4 +1,12 @@
-export type ToolType = 'select' | 'rect' | 'ellipse' | 'arrow' | 'text' | 'image' | 'magnifier';
+export type ToolType =
+  | 'select'
+  | 'rect'
+  | 'ellipse'
+  | 'line'
+  | 'arrow'
+  | 'text'
+  | 'image'
+  | 'magnifier';
 
 export interface BaseAnnotation {
   id: string;
@@ -27,6 +35,13 @@ export interface EllipseAnnotation extends BaseAnnotation {
   y: number;
   radiusX: number;
   radiusY: number;
+}
+
+export interface LineAnnotation extends BaseAnnotation {
+  type: 'line';
+  x?: number;
+  y?: number;
+  points: number[]; // [x1, y1, x2, y2]
 }
 
 export interface ArrowAnnotation extends BaseAnnotation {
@@ -65,6 +80,7 @@ export interface MagnifierAnnotation extends BaseAnnotation {
 export type Annotation =
   | RectAnnotation
   | EllipseAnnotation
+  | LineAnnotation
   | ArrowAnnotation
   | TextAnnotation
   | ImageAnnotation

@@ -4,6 +4,7 @@ import {
   MousePointer,
   Square,
   Circle,
+  Minus,
   ArrowRight,
   Type,
   Image as ImageIcon,
@@ -251,6 +252,15 @@ export const Toolbar: React.FC<ToolbarProps> = ({
           style={getToolButtonStyle(activeTool === 'ellipse')}
         >
           <Circle size={16} />
+        </button>
+
+        <button
+          type="button"
+          title="Linha / Traço (Sublinhar)"
+          onClick={() => onSelectTool('line')}
+          style={getToolButtonStyle(activeTool === 'line')}
+        >
+          <Minus size={16} />
         </button>
 
         <button

@@ -173,6 +173,7 @@ describe('Smart Hover & Drag-and-Drop Pointer Recognition', () => {
   it('identifies all annotations intersecting a marquee selection box when clicking and dragging', () => {
     const annotations = [
       { id: 'r1', type: 'rect' as const, x: 20, y: 20, width: 50, height: 40 },
+      { id: 'l1', type: 'line' as const, x: 0, y: 0, points: [30, 75, 120, 75] },
       { id: 'a1', type: 'arrow' as const, x: 0, y: 0, points: [80, 30, 140, 70] },
       { id: 'e1', type: 'ellipse' as const, x: 400, y: 400, radiusX: 30, radiusY: 20 },
     ];
@@ -184,6 +185,6 @@ describe('Smart Hover & Drag-and-Drop Pointer Recognition', () => {
       height: 90,
     });
 
-    expect(selected).toEqual(['r1', 'a1']);
+    expect(selected).toEqual(['r1', 'l1', 'a1']);
   });
 });

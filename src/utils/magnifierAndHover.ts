@@ -166,7 +166,7 @@ export function getAnnotationsInSelectionBox(
       maxX = ann.x + rx;
       minY = ann.y - ry;
       maxY = ann.y + ry;
-    } else if (ann.type === 'arrow') {
+    } else if (ann.type === 'line' || ann.type === 'arrow') {
       const offsetX = ann.x || 0;
       const offsetY = ann.y || 0;
       const [p1x, p1y, p2x, p2y] = ann.points;
