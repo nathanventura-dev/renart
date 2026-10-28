@@ -25,7 +25,6 @@ export const App: React.FC = () => {
   const [isCapturing, setIsCapturing] = useState(false);
   const [captureMode, setCaptureMode] = useState<CaptureMode>('region');
   const [preCapturedScreen, setPreCapturedScreen] = useState<string | null>(null);
-  const [magnifierMode, setMagnifierMode] = useState<'without-focus' | 'with-focus'>('without-focus');
   const [zoomLevel, setZoomLevel] = useState<number>(1.0);
   const [fitScale, setFitScale] = useState<number>(1.0);
   const [cropRect, setCropRect] = useState<CropBox | null>(null);
@@ -440,8 +439,8 @@ export const App: React.FC = () => {
         onCopy={handleCopy}
         onExport={handleExport}
         onInsertImage={handleInsertImage}
-        magnifierMode={magnifierMode}
-        onSelectMagnifierMode={setMagnifierMode}
+        magnifierMode={editorState.magnifierMode}
+        onSelectMagnifierMode={(mode) => editorStore.setMagnifierMode(mode)}
         showTextControls={showTextControls}
         fontFamily={editorState.fontFamily}
         onSelectFontFamily={(f: string) => editorStore.setFontFamily(f)}
@@ -504,7 +503,7 @@ export const App: React.FC = () => {
             onUpdateAnnotations={(updatesById: Record<string, Partial<Annotation>>) =>
               editorStore.updateAnnotations(updatesById)
             }
-            magnifierMode={magnifierMode}
+            magnifierMode={editorState.magnifierMode}
             arrowStyle={editorState.arrowStyle}
             arrowCurveDirection={editorState.arrowCurveDirection}
             zoomLevel={zoomLevel}

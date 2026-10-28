@@ -5,6 +5,7 @@ import {
   Annotation,
   shouldShowTextControls,
   shouldShowArrowControls,
+  shouldShowMagnifierControls,
 } from '../src/state/editorStore';
 
 describe('Editor Store', () => {
@@ -526,14 +527,21 @@ describe('Editor Store', () => {
     store.setSelectedIds(['arrow-1']);
     store.setArrowStyle('curved');
     expect(store.getState().arrowCurveDirection).toBe('right');
+    const ann1BeforeToggle = store.getState().annotations.find((a) => a.id === 'arrow-1');
+    const midYBefore = ann1BeforeToggle?.type === 'arrow' ? ann1BeforeToggle.points[3] : 0;
+
     store.toggleArrowCurveDirection('arrow-1');
     const ann1Curved = store.getState().annotations.find((a) => a.id === 'arrow-1');
     expect(ann1Curved?.type === 'arrow' && ann1Curved.curveDirection).toBe('left');
+    // Ao alternar a direção, os pontos da flecha selecionada DEVEM mudar de lado imediatamente
+    const midYAfter = ann1Curved?.type === 'arrow' ? ann1Curved.points[3] : 0;
+    expect(midYAfter).not.toBe(midYBefore);
 
-    // Undo alterna de volta para right
+    // Undo alterna de volta para right e restaura as coordenadas da curva
     store.undo();
     const ann1CurvedUndo = store.getState().annotations.find((a) => a.id === 'arrow-1');
     expect(ann1CurvedUndo?.type === 'arrow' && ann1CurvedUndo.curveDirection).toBe('right');
+    expect(ann1CurvedUndo?.type === 'arrow' && ann1CurvedUndo.points[3]).toBe(midYBefore);
   });
 
   it('determines when arrow controls should be shown in toolbar', () => {
@@ -558,5 +566,60 @@ describe('Editor Store', () => {
 
     expect(shouldShowArrowControls('select', [arrowAnn])).toBe(true);
     expect(shouldShowArrowControls('select', [rectAnn])).toBe(false);
+  });
+
+  it('manages magnifier mode and updates selected magnifier block with undo/redo', () => {
+    const store = createEditorStore();
+    expect(store.getState().magnifierMode).toBe('without-focus');
+
+    // Inicia lupa sem foco
+    store.addAnnotation({
+      id: 'mag-1',
+      type: 'magnifier',
+      x: 200,
+      y: 200,
+      radius: 65,
+      zoomLevel: 2.0,
+    });
+    store.setSelectedIds(['mag-1']);
+
+    // Alterna para com foco no elemento selecionado
+    store.setMagnifierMode('with-focus');
+    expect(store.getState().magnifierMode).toBe('with-focus');
+    const magWithFocus = store.getState().annotations.find((a) => a.id === 'mag-1');
+    expect(magWithFocus?.type === 'magnifier').toBe(true);
+    if (magWithFocus && magWithFocus.type === 'magnifier') {
+      expect(magWithFocus.focusX).toBeDefined();
+      expect(magWithFocus.focusY).toBeDefined();
+      expect(Math.hypot(magWithFocus.focusX! - magWithFocus.x, magWithFocus.focusY! - magWithFocus.y)).toBeGreaterThan(4);
+    }
+
+    // Alterna de volta para sem foco no elemento selecionado
+    store.setMagnifierMode('without-focus');
+    expect(store.getState().magnifierMode).toBe('without-focus');
+    const magWithoutFocus = store.getState().annotations.find((a) => a.id === 'mag-1');
+    if (magWithoutFocus && magWithoutFocus.type === 'magnifier') {
+      expect(magWithoutFocus.focusX).toBeUndefined();
+      expect(magWithoutFocus.focusY).toBeUndefined();
+    }
+
+    // Undo restaura com foco
+    store.undo();
+    const magRestored = store.getState().annotations.find((a) => a.id === 'mag-1');
+    if (magRestored && magRestored.type === 'magnifier') {
+      expect(magRestored.focusX).toBeDefined();
+    }
+
+    // Redo reaplica sem foco
+    store.redo();
+    const magRedone = store.getState().annotations.find((a) => a.id === 'mag-1');
+    if (magRedone && magRedone.type === 'magnifier') {
+      expect(magRedone.focusX).toBeUndefined();
+    }
+
+    // Determina se deve exibir controles de lupa na toolbar quando ativa ou selecionada
+    expect(shouldShowMagnifierControls('magnifier', [])).toBe(true);
+    expect(shouldShowMagnifierControls('select', [])).toBe(false);
+    expect(shouldShowMagnifierControls('select', [magRestored!])).toBe(true);
   });
 });

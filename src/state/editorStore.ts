@@ -1,3 +1,5 @@
+import { calculateCurvedArrowPoints, invertCurvedArrowPoints } from '../utils/zoomAndCrop';
+
 export type ToolType =
   | 'select'
   | 'rect'
@@ -107,6 +109,8 @@ export type Annotation =
   | ImageAnnotation
   | MagnifierAnnotation;
 
+export type MagnifierMode = 'without-focus' | 'with-focus';
+
 export interface EditorState {
   annotations: Annotation[];
   activeTool: ToolType;
@@ -119,6 +123,7 @@ export interface EditorState {
   fontFamily: string;
   arrowStyle: ArrowStyle;
   arrowCurveDirection: ArrowCurveDirection;
+  magnifierMode: MagnifierMode;
   isLocked: boolean;
 }
 
@@ -144,6 +149,18 @@ export function shouldShowArrowControls(
 ): boolean {
   if (activeTool === 'arrow') return true;
   return selectedAnnotations.some((ann) => ann.type === 'arrow');
+}
+
+/**
+ * Determina se a barra superior deve exibir o seletor contextual de modo de lupa
+ * (quando a ferramenta 'magnifier' está ativa ou há blocos 'magnifier' selecionados).
+ */
+export function shouldShowMagnifierControls(
+  activeTool: ToolType,
+  selectedAnnotations: Annotation[]
+): boolean {
+  if (activeTool === 'magnifier') return true;
+  return selectedAnnotations.some((ann) => ann.type === 'magnifier');
 }
 
 export interface HistorySnapshot {
@@ -179,6 +196,7 @@ export function createEditorStore(
     fontFamily: 'Arial',
     arrowStyle: 'standard',
     arrowCurveDirection: 'right',
+    magnifierMode: 'without-focus',
     isLocked: false,
     ...initialState,
   };
@@ -236,6 +254,17 @@ export function createEditorStore(
     const firstArrow = annotations.find((a) => ids.includes(a.id) && a.type === 'arrow') as
       | ArrowAnnotation
       | undefined;
+    const firstMag = annotations.find((a) => ids.includes(a.id) && a.type === 'magnifier') as
+      | MagnifierAnnotation
+      | undefined;
+    let nextMagMode = state.magnifierMode;
+    if (firstMag) {
+      const isDetached =
+        firstMag.focusX !== undefined &&
+        firstMag.focusY !== undefined &&
+        Math.hypot(firstMag.focusX - firstMag.x, firstMag.focusY - firstMag.y) > 4;
+      nextMagMode = isDetached ? 'with-focus' : 'without-focus';
+    }
 
     return {
       strokeColor: nextColor,
@@ -245,6 +274,7 @@ export function createEditorStore(
       fontFamily: firstText ? firstText.fontFamily || 'Arial' : state.fontFamily,
       arrowStyle: firstArrow ? firstArrow.arrowStyle || 'standard' : state.arrowStyle,
       arrowCurveDirection: firstArrow ? firstArrow.curveDirection || 'right' : state.arrowCurveDirection,
+      magnifierMode: nextMagMode,
     };
   };
 
@@ -503,13 +533,42 @@ export function createEditorStore(
             arrowStyle: style,
             annotations: state.annotations.map((ann) => {
               if (!selectedSet.has(ann.id) || ann.type !== 'arrow') return ann;
+
+              let nextPoints = ann.points;
+              const curveDir = ann.curveDirection || state.arrowCurveDirection || 'right';
+              if (style === 'curved' && ann.points.length === 4) {
+                nextPoints = calculateCurvedArrowPoints(
+                  ann.points[0],
+                  ann.points[1],
+                  ann.points[2],
+                  ann.points[3],
+                  curveDir
+                );
+              } else if (style !== 'curved' && ann.points.length >= 6) {
+                nextPoints = [
+                  ann.points[0],
+                  ann.points[1],
+                  ann.points[ann.points.length - 2],
+                  ann.points[ann.points.length - 1],
+                ];
+              }
+
+              const nextStroke =
+                style === 'thin' && (!ann.strokeWidth || ann.strokeWidth === 4)
+                  ? 2
+                  : style !== 'thin' && ann.strokeWidth === 2
+                  ? 4
+                  : ann.strokeWidth;
+
               return {
                 ...ann,
                 arrowStyle: style,
+                strokeWidth: nextStroke,
                 curveDirection:
                   style === 'curved'
                     ? ann.curveDirection || state.arrowCurveDirection || 'right'
                     : ann.curveDirection,
+                points: nextPoints,
               };
             }),
           };
@@ -538,6 +597,20 @@ export function createEditorStore(
           const currentDir = ann.curveDirection || state.arrowCurveDirection || 'right';
           const flippedDir: ArrowCurveDirection = currentDir === 'left' ? 'right' : 'left';
           pushUndoSnapshot();
+
+          let nextPoints = ann.points;
+          if (ann.points.length >= 6) {
+            nextPoints = invertCurvedArrowPoints(ann.points);
+          } else if (ann.points.length === 4) {
+            nextPoints = calculateCurvedArrowPoints(
+              ann.points[0],
+              ann.points[1],
+              ann.points[2],
+              ann.points[3],
+              flippedDir
+            );
+          }
+
           state = {
             ...state,
             arrowCurveDirection: flippedDir,
@@ -545,7 +618,9 @@ export function createEditorStore(
               if (a.id !== targetArrowId || a.type !== 'arrow') return a;
               return {
                 ...a,
+                arrowStyle: 'curved',
                 curveDirection: flippedDir,
+                points: nextPoints,
               };
             }),
           };
@@ -555,6 +630,46 @@ export function createEditorStore(
       }
 
       state = { ...state, arrowCurveDirection: nextGlobalDir };
+      notify();
+    },
+
+    setMagnifierMode: (mode: MagnifierMode) => {
+      if (state.selectedIds.length > 0 && !state.isLocked) {
+        const selectedSet = new Set(state.selectedIds);
+        const hasSelectedMag = state.annotations.some(
+          (ann) => selectedSet.has(ann.id) && ann.type === 'magnifier'
+        );
+        if (hasSelectedMag) {
+          pushUndoSnapshot();
+          state = {
+            ...state,
+            magnifierMode: mode,
+            annotations: state.annotations.map((ann) => {
+              if (!selectedSet.has(ann.id) || ann.type !== 'magnifier') return ann;
+              if (mode === 'without-focus') {
+                return {
+                  ...ann,
+                  focusX: undefined,
+                  focusY: undefined,
+                };
+              } else {
+                const isAlreadyDetached =
+                  ann.focusX !== undefined &&
+                  ann.focusY !== undefined &&
+                  Math.hypot(ann.focusX - ann.x, ann.focusY - ann.y) > 4;
+                return {
+                  ...ann,
+                  focusX: isAlreadyDetached ? ann.focusX : Math.max(0, ann.x - 110),
+                  focusY: isAlreadyDetached ? ann.focusY : ann.y + 85,
+                };
+              }
+            }),
+          };
+          notify();
+          return;
+        }
+      }
+      state = { ...state, magnifierMode: mode };
       notify();
     },
 

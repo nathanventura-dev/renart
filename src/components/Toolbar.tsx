@@ -5,7 +5,9 @@ import {
   FONT_SIZES,
   ArrowStyle,
   Annotation,
+  MagnifierAnnotation,
   shouldShowArrowControls,
+  shouldShowMagnifierControls,
 } from '../state/editorStore';
 import { formatZoomPercentage } from '../utils/zoomAndCrop';
 import {
@@ -115,6 +117,35 @@ export function resolveArrowToolbarState(
   };
 }
 
+export interface MagnifierToolbarState {
+  showMagnifierControls: boolean;
+  effectiveMagnifierMode: 'without-focus' | 'with-focus';
+}
+
+export function resolveMagnifierToolbarState(
+  activeTool: ToolType,
+  selectedAnnotations: Annotation[] = [],
+  globalMagnifierMode: 'without-focus' | 'with-focus' = 'without-focus'
+): MagnifierToolbarState {
+  const showMagnifierControls = shouldShowMagnifierControls(activeTool, selectedAnnotations);
+  const selectedMag = selectedAnnotations.find((a) => a.type === 'magnifier') as
+    | MagnifierAnnotation
+    | undefined;
+  let effectiveMagnifierMode = globalMagnifierMode;
+  if (selectedMag) {
+    const isDetached =
+      selectedMag.focusX !== undefined &&
+      selectedMag.focusY !== undefined &&
+      Math.hypot(selectedMag.focusX - selectedMag.x, selectedMag.focusY - selectedMag.y) > 4;
+    effectiveMagnifierMode = isDetached ? 'with-focus' : 'without-focus';
+  }
+
+  return {
+    showMagnifierControls,
+    effectiveMagnifierMode,
+  };
+}
+
 interface ToolbarProps {
   activeTool: ToolType;
   onSelectTool: (tool: ToolType) => void;
@@ -206,6 +237,11 @@ export const Toolbar: React.FC<ToolbarProps> = ({
     activeTool,
     selectedAnnotations,
     arrowStyle
+  );
+  const { showMagnifierControls, effectiveMagnifierMode } = resolveMagnifierToolbarState(
+    activeTool,
+    selectedAnnotations,
+    magnifierMode
   );
 
   useEffect(() => {
@@ -475,7 +511,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
           </div>
         )}
 
-        {activeTool === 'magnifier' && (
+        {showMagnifierControls && (
           <div
             style={{
               display: 'inline-flex',
@@ -500,8 +536,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 border: 'none',
                 borderRadius: '4px',
                 cursor: 'pointer',
-                backgroundColor: magnifierMode === 'without-focus' ? '#0071e3' : 'transparent',
-                color: magnifierMode === 'without-focus' ? '#ffffff' : '#334155',
+                backgroundColor: effectiveMagnifierMode === 'without-focus' ? '#0071e3' : 'transparent',
+                color: effectiveMagnifierMode === 'without-focus' ? '#ffffff' : '#334155',
               }}
             >
               Sem foco
@@ -518,8 +554,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 border: 'none',
                 borderRadius: '4px',
                 cursor: 'pointer',
-                backgroundColor: magnifierMode === 'with-focus' ? '#0071e3' : 'transparent',
-                color: magnifierMode === 'with-focus' ? '#ffffff' : '#334155',
+                backgroundColor: effectiveMagnifierMode === 'with-focus' ? '#0071e3' : 'transparent',
+                color: effectiveMagnifierMode === 'with-focus' ? '#ffffff' : '#334155',
               }}
             >
               Com foco

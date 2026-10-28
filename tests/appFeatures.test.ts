@@ -8,6 +8,7 @@ import {
   getToolbarLayoutMetrics,
   ARROW_STYLE_OPTIONS,
   resolveArrowToolbarState,
+  resolveMagnifierToolbarState,
 } from '../src/components/Toolbar';
 
 describe('App Enhanced Features & User Fixes', () => {
@@ -271,5 +272,34 @@ describe('App Enhanced Features & User Fixes', () => {
     expect(stateSelectCurvedArrow.showArrowControls).toBe(true);
     expect(stateSelectCurvedArrow.effectiveArrowStyle).toBe('curved');
     expect(stateSelectCurvedArrow.showInvertCurve).toBe(true);
+  });
+
+  it('provides magnifier toolbar state when tool is active or magnifier is selected', () => {
+    // Com ferramenta lupa ativa
+    const stateActive = resolveMagnifierToolbarState('magnifier', [], 'without-focus');
+    expect(stateActive.showMagnifierControls).toBe(true);
+    expect(stateActive.effectiveMagnifierMode).toBe('without-focus');
+
+    // Com ferramenta select e lupa selecionada com foco desacoplado
+    const stateSelectedWithFocus = resolveMagnifierToolbarState(
+      'select',
+      [{ id: 'm-1', type: 'magnifier', x: 100, y: 100, radius: 50, zoomLevel: 2, focusX: 20, focusY: 20 }],
+      'without-focus'
+    );
+    expect(stateSelectedWithFocus.showMagnifierControls).toBe(true);
+    expect(stateSelectedWithFocus.effectiveMagnifierMode).toBe('with-focus');
+
+    // Com ferramenta select e lupa sem foco
+    const stateSelectedWithoutFocus = resolveMagnifierToolbarState(
+      'select',
+      [{ id: 'm-2', type: 'magnifier', x: 100, y: 100, radius: 50, zoomLevel: 2 }],
+      'with-focus'
+    );
+    expect(stateSelectedWithoutFocus.showMagnifierControls).toBe(true);
+    expect(stateSelectedWithoutFocus.effectiveMagnifierMode).toBe('without-focus');
+
+    // Com ferramenta select sem nenhuma lupa selecionada
+    const stateEmpty = resolveMagnifierToolbarState('select', [], 'without-focus');
+    expect(stateEmpty.showMagnifierControls).toBe(false);
   });
 });
