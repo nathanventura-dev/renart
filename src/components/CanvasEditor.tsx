@@ -35,6 +35,10 @@ import {
   calculateFitToScreenScale,
   calculateCropBounds,
   CropBox,
+  getTransformedPointerPosition,
+  getTransformedDragBound,
+  toLocalBoundingBox,
+  toAbsoluteBoundingBox,
 } from '../utils/zoomAndCrop';
 
 interface CanvasEditorProps {
@@ -849,7 +853,8 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
     }
 
     const stage = e.target.getStage();
-    const pos = stage?.getPointerPosition();
+    const rawPos = stage?.getPointerPosition();
+    const pos = rawPos ? getTransformedPointerPosition(rawPos, zoomLevel) : null;
     if (!pos) return;
 
     // Se a ferramenta de ponteiro ('select') está ativa, clicar e arrastar na área vazia inicia a Caixa de Multiseleção!
@@ -995,7 +1000,8 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
     const isStageTarget = e.target === e.target.getStage();
 
     const stage = e.target.getStage();
-    const pos = stage?.getPointerPosition();
+    const rawPos = stage?.getPointerPosition();
+    const pos = rawPos ? getTransformedPointerPosition(rawPos, zoomLevel) : null;
 
     // Se estiver arrastando o ponto focal da lupa, atualiza em tempo real dentro dos limites da imagem
     if (focusDrag && pos) {
@@ -1423,16 +1429,18 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                     x={ann.x}
                     y={ann.y}
                     draggable={!isLocked && !focusDrag}
-                    dragBoundFunc={(pos) => {
-                      const clamped = clampMagnifierToImageBounds(
-                        pos.x,
-                        pos.y,
-                        ann.radius,
-                        canvasWidth,
-                        canvasHeight
-                      );
-                      return { x: clamped.x, y: clamped.y };
-                    }}
+                    dragBoundFunc={(pos) =>
+                      getTransformedDragBound(pos, zoomLevel, (localX, localY) => {
+                        const clamped = clampMagnifierToImageBounds(
+                          localX,
+                          localY,
+                          ann.radius,
+                          canvasWidth,
+                          canvasHeight
+                        );
+                        return { x: clamped.x, y: clamped.y };
+                      })
+                    }
                     onMouseEnter={handleBlockMouseEnter}
                     onMouseMove={handleBlockMouseEnter}
                     onMouseLeave={handleBlockMouseLeave}
@@ -1978,10 +1986,12 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                   strokeWidth={2}
                   dash={[6, 4]}
                   draggable
-                  dragBoundFunc={(pos) => ({
-                    x: Math.max(0, Math.min(pos.x, canvasWidth - cropRect.width)),
-                    y: Math.max(0, Math.min(pos.y, canvasHeight - cropRect.height)),
-                  })}
+                  dragBoundFunc={(pos) =>
+                    getTransformedDragBound(pos, zoomLevel, (localX, localY) => ({
+                      x: Math.max(0, Math.min(localX, canvasWidth - cropRect.width)),
+                      y: Math.max(0, Math.min(localY, canvasHeight - cropRect.height)),
+                    }))
+                  }
                   onDragMove={(e) => {
                     const nextX = Math.round(e.target.x());
                     const nextY = Math.round(e.target.y());
@@ -2042,29 +2052,35 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                       : undefined
               }
               boundBoxFunc={(oldBox, newBox) => {
+                const localNewBox = toLocalBoundingBox(newBox, zoomLevel);
+                const localOldBox = toLocalBoundingBox(oldBox, zoomLevel);
+
                 if (activeTool === 'crop' || isCropping) {
                   const minW = 20;
                   const minH = 20;
-                  const clampedX = Math.max(0, Math.min(newBox.x, canvasWidth - minW));
-                  const clampedY = Math.max(0, Math.min(newBox.y, canvasHeight - minH));
-                  const clampedW = Math.max(minW, Math.min(newBox.width, canvasWidth - clampedX));
-                  const clampedH = Math.max(minH, Math.min(newBox.height, canvasHeight - clampedY));
-                  return {
-                    ...newBox,
-                    x: clampedX,
-                    y: clampedY,
-                    width: clampedW,
-                    height: clampedH,
-                  };
+                  const clampedX = Math.max(0, Math.min(localNewBox.x, canvasWidth - minW));
+                  const clampedY = Math.max(0, Math.min(localNewBox.y, canvasHeight - minH));
+                  const clampedW = Math.max(minW, Math.min(localNewBox.width, canvasWidth - clampedX));
+                  const clampedH = Math.max(minH, Math.min(localNewBox.height, canvasHeight - clampedY));
+                  return toAbsoluteBoundingBox(
+                    {
+                      x: clampedX,
+                      y: clampedY,
+                      width: clampedW,
+                      height: clampedH,
+                      rotation: newBox.rotation,
+                    },
+                    zoomLevel
+                  );
                 }
                 if (hasSelectedMagnifier) {
                   if (
-                    newBox.width < 48 ||
-                    newBox.height < 48 ||
-                    newBox.x < 0 ||
-                    newBox.y < 0 ||
-                    newBox.x + newBox.width > canvasWidth ||
-                    newBox.y + newBox.height > canvasHeight
+                    localNewBox.width < 48 ||
+                    localNewBox.height < 48 ||
+                    localNewBox.x < 0 ||
+                    localNewBox.y < 0 ||
+                    localNewBox.x + localNewBox.width > canvasWidth ||
+                    localNewBox.y + localNewBox.height > canvasHeight
                   ) {
                     return oldBox;
                   }
@@ -2075,12 +2091,19 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                     const node = nodes[0];
                     const ann = annotations.find((a) => a.id === node.id());
                     if (ann?.type === 'text') {
-                      return clampTextResizeBox(
-                        oldBox,
-                        newBox,
+                      const clampedLocal = clampTextResizeBox(
+                        localOldBox,
+                        localNewBox,
                         ann.fontSize,
                         node.width(),
                         node.height()
+                      );
+                      return toAbsoluteBoundingBox(
+                        {
+                          ...clampedLocal,
+                          rotation: newBox.rotation,
+                        },
+                        zoomLevel
                       );
                     }
                   }

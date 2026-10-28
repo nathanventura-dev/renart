@@ -277,3 +277,84 @@ export function adjustAnnotationsForCrop(
 
   return adjustedList;
 }
+
+/**
+ * Converte coordenadas absolutas de tela/ponteiro da janela do Stage para
+ * coordenadas reais não-escaladas do canvas da imagem, com precisão em qualquer nível de zoom.
+ */
+export function getTransformedPointerPosition(
+  rawPointer: { x: number; y: number },
+  zoomLevel: number
+): { x: number; y: number } {
+  const safeZoom = zoomLevel > 0 ? zoomLevel : 1.0;
+  return {
+    x: rawPointer.x / safeZoom,
+    y: rawPointer.y / safeZoom,
+  };
+}
+
+/**
+ * Converte a posição absoluta do nó fornecida pelo `dragBoundFunc` do Konva para o espaço
+ * de pixels da imagem original, executa o clamping nos limites reais da imagem, e retorna
+ * as coordenadas absolutas exigidas pelo Konva multiplicadas de volta pelo `zoomLevel`.
+ *
+ * Isso garante que o elemento (lupa, recorte, etc.) possa se movimentar por 100% da área útil
+ * da imagem sem travar quando o zoom estiver acima ou abaixo de 100%.
+ */
+export function getTransformedDragBound(
+  absolutePos: { x: number; y: number },
+  zoomLevel: number,
+  clampFn: (localX: number, localY: number) => { x: number; y: number }
+): { x: number; y: number } {
+  const safeZoom = zoomLevel > 0 ? zoomLevel : 1.0;
+  const localX = absolutePos.x / safeZoom;
+  const localY = absolutePos.y / safeZoom;
+  const clampedLocal = clampFn(localX, localY);
+  return {
+    x: clampedLocal.x * safeZoom,
+    y: clampedLocal.y * safeZoom,
+  };
+}
+
+export interface TransformerBoundBox {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  rotation: number;
+}
+
+/**
+ * Converte uma caixa delimitadora em coordenadas absolutas do Stage (como fornecida pelo `boundBoxFunc` do Transformer)
+ * para coordenadas locais da imagem.
+ */
+export function toLocalBoundingBox(
+  absoluteBox: TransformerBoundBox,
+  zoomLevel: number
+): TransformerBoundBox {
+  const safeZoom = zoomLevel > 0 ? zoomLevel : 1.0;
+  return {
+    x: absoluteBox.x / safeZoom,
+    y: absoluteBox.y / safeZoom,
+    width: absoluteBox.width / safeZoom,
+    height: absoluteBox.height / safeZoom,
+    rotation: absoluteBox.rotation,
+  };
+}
+
+/**
+ * Converte uma caixa delimitadora em coordenadas locais da imagem de volta para coordenadas absolutas do Stage.
+ */
+export function toAbsoluteBoundingBox(
+  localBox: TransformerBoundBox,
+  zoomLevel: number
+): TransformerBoundBox {
+  const safeZoom = zoomLevel > 0 ? zoomLevel : 1.0;
+  return {
+    x: localBox.x * safeZoom,
+    y: localBox.y * safeZoom,
+    width: localBox.width * safeZoom,
+    height: localBox.height * safeZoom,
+    rotation: localBox.rotation,
+  };
+}

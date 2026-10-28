@@ -8,6 +8,8 @@ import {
   ZOOM_PRESETS,
   formatZoomPercentage,
   isZoomShortcut,
+  getTransformedPointerPosition,
+  getTransformedDragBound,
 } from '../src/utils/zoomAndCrop';
 import { Annotation } from '../src/state/editorStore';
 
@@ -132,5 +134,62 @@ describe('Crop Geometry and Annotation Adjustment', () => {
     expect(t1.y).toBe(50); // 150 - 100
 
     expect(adjusted.find((a) => a.id === 'r-fora')).toBeUndefined();
+  });
+});
+
+describe('Pointer and Drag Coordinate Transformations Under Zoom', () => {
+  it('converts raw pointer screen coordinates into accurate image canvas coordinates at any zoom level', () => {
+    // 100% zoom: coordenadas 1:1
+    expect(getTransformedPointerPosition({ x: 300, y: 200 }, 1.0)).toEqual({ x: 300, y: 200 });
+
+    // 150% zoom: ponteiro na tela em (450, 300) deve corresponder a (300, 200) na imagem original
+    expect(getTransformedPointerPosition({ x: 450, y: 300 }, 1.5)).toEqual({ x: 300, y: 200 });
+
+    // 200% zoom: ponteiro na tela em (600, 400) corresponde a (300, 200)
+    expect(getTransformedPointerPosition({ x: 600, y: 400 }, 2.0)).toEqual({ x: 300, y: 200 });
+
+    // 50% zoom: ponteiro na tela em (150, 100) corresponde a (300, 200)
+    expect(getTransformedPointerPosition({ x: 150, y: 100 }, 0.5)).toEqual({ x: 300, y: 200 });
+  });
+
+  it('clamps drag bounds across 100% of the image area when zoomed in or out without restricting to 100% viewport', () => {
+    const imgWidth = 1920;
+    const imgHeight = 1080;
+    const radius = 65;
+    const zoomLevel = 1.5;
+
+    const clampMagnifier = (x: number, y: number) => ({
+      x: Math.max(radius, Math.min(x, imgWidth - radius)),
+      y: Math.max(radius, Math.min(y, imgHeight - radius)),
+    });
+
+    // Arrastando a lupa para perto da borda direita da imagem (x: 1800, y: 1000):
+    // Na tela em zoom 1.5x, o ponteiro absoluto está em (2700, 1500)
+    const boundInArea = getTransformedDragBound(
+      { x: 2700, y: 1500 },
+      zoomLevel,
+      clampMagnifier
+    );
+    // Deve permitir posicionar a lupa livremente nos pixels reais da imagem
+    expect(boundInArea.x).toBeCloseTo(2700, 1);
+    expect(boundInArea.y).toBeCloseTo(1500, 1);
+
+    // Arrastando além da borda direita (pos absoluto 3000):
+    // Deve travar no limite real da imagem (1855 * 1.5 = 2782.5)
+    const boundBeyondRight = getTransformedDragBound(
+      { x: 3000, y: 1500 },
+      zoomLevel,
+      clampMagnifier
+    );
+    expect(boundBeyondRight.x).toBeCloseTo(1855 * 1.5, 1);
+
+    // Arrastando além da borda esquerda (pos absoluto 30):
+    // Deve travar no raio mínimo (65 * 1.5 = 97.5)
+    const boundBeyondLeft = getTransformedDragBound(
+      { x: 30, y: 1500 },
+      zoomLevel,
+      clampMagnifier
+    );
+    expect(boundBeyondLeft.x).toBeCloseTo(65 * 1.5, 1);
   });
 });
