@@ -28,6 +28,8 @@ import {
   getMagnifierVisibleAnnotations,
   calculateMagnifierFocusGeometry,
   clampFocusPointToImageBounds,
+  calculateResizedFontSize,
+  clampTextResizeBox,
 } from '../utils/magnifierAndHover';
 
 interface CanvasEditorProps {
@@ -238,6 +240,14 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
     [effectiveSelectedIds, annotations]
   );
 
+  const hasSelectedText = useMemo(
+    () =>
+      effectiveSelectedIds.some(
+        (id) => annotations.find((a) => a.id === id)?.type === 'text'
+      ),
+    [effectiveSelectedIds, annotations]
+  );
+
   const applySelectionIds = (ids: string[]) => {
     if (onSelectIds) {
       onSelectIds(ids);
@@ -353,6 +363,7 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
         }
       }
       transformerRef.current.nodes(nodes);
+      transformerRef.current.forceUpdate();
       transformerRef.current.getLayer()?.batchDraw();
     } else {
       transformerRef.current.nodes([]);
@@ -580,11 +591,17 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
             y: -targetFocusY * effectiveZoomY,
           });
         }
+      } else if (ann?.type === 'text') {
+        const rawScale = Math.max(Math.abs(node.scaleX() || 1), Math.abs(node.scaleY() || 1));
+        const nextFontSize = calculateResizedFontSize(ann.fontSize, rawScale);
+        const steppedScale = nextFontSize / ann.fontSize;
+        node.scaleX(steppedScale);
+        node.scaleY(steppedScale);
       }
     }
   };
 
-  // Salva redimensionamento / rotação feito pelo Transformer (simples ou multiseleção, incluindo raio da lupa)
+  // Salva redimensionamento / rotação feito pelo Transformer (simples ou multiseleção, incluindo raio da lupa e tamanho da fonte do texto)
   const handleTransformEnd = () => {
     if (!transformerRef.current) return;
     const nodes = transformerRef.current.nodes();
@@ -595,6 +612,21 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
 
     const computeNodeTransformUpdate = (node: Konva.Node): Partial<Annotation> => {
       const ann = annotations.find((a) => a.id === node.id());
+      if (ann?.type === 'text') {
+        const rawScale = Math.max(Math.abs(node.scaleX() || 1), Math.abs(node.scaleY() || 1));
+        const nextFontSize = calculateResizedFontSize(ann.fontSize, rawScale);
+        (node as Konva.Text).fontSize(nextFontSize);
+        node.scaleX(1);
+        node.scaleY(1);
+        return {
+          x: node.x(),
+          y: node.y(),
+          fontSize: nextFontSize,
+          scaleX: 1,
+          scaleY: 1,
+          rotation: node.rotation(),
+        };
+      }
       if (ann?.type === 'magnifier') {
         const scale = Math.max(Math.abs(node.scaleX()), Math.abs(node.scaleY()));
         const nextRadius = ann.radius * scale;
@@ -653,7 +685,9 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
 
     if (nodes.length === 1) {
       const node = nodes[0];
-      onUpdateAnnotation(node.id(), computeNodeTransformUpdate(node));
+      const updates = computeNodeTransformUpdate(node);
+      transformerRef.current.forceUpdate();
+      onUpdateAnnotation(node.id(), updates);
       return;
     }
 
@@ -662,6 +696,7 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
       for (const node of nodes) {
         updatesById[node.id()] = computeNodeTransformUpdate(node);
       }
+      transformerRef.current.forceUpdate();
       onUpdateAnnotations(updatesById);
     }
   };
@@ -1765,25 +1800,28 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
               />
             )}
 
-            {/* Transformer de Redimensionamento (Simples, Multiseleção e Lupa) */}
+            {/* Transformer de Redimensionamento (Simples, Multiseleção, Texto Sem Distorção 12..48 e Lupa) */}
             <Transformer
               ref={transformerRef}
               onTransform={handleTransform}
               onTransformEnd={handleTransformEnd}
+              flipEnabled={false}
               rotateEnabled={!hasSelectedMagnifier}
-              keepRatio={hasSelectedMagnifier}
+              keepRatio={hasSelectedMagnifier || hasSelectedText}
               enabledAnchors={
-                hasSelectedMagnifier
-                  ? [
-                      'top-left',
-                      'top-right',
-                      'bottom-left',
-                      'bottom-right',
-                      'middle-left',
-                      'middle-right',
-                      'top-center',
-                    ]
-                  : undefined
+                hasSelectedText
+                  ? ['top-left', 'top-right', 'bottom-left', 'bottom-right']
+                  : hasSelectedMagnifier
+                    ? [
+                        'top-left',
+                        'top-right',
+                        'bottom-left',
+                        'bottom-right',
+                        'middle-left',
+                        'middle-right',
+                        'top-center',
+                      ]
+                    : undefined
               }
               boundBoxFunc={(oldBox, newBox) => {
                 if (hasSelectedMagnifier) {
@@ -1796,6 +1834,22 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                     newBox.y + newBox.height > canvasHeight
                   ) {
                     return oldBox;
+                  }
+                }
+                if (hasSelectedText && transformerRef.current) {
+                  const nodes = transformerRef.current.nodes();
+                  if (nodes.length === 1) {
+                    const node = nodes[0];
+                    const ann = annotations.find((a) => a.id === node.id());
+                    if (ann?.type === 'text') {
+                      return clampTextResizeBox(
+                        oldBox,
+                        newBox,
+                        ann.fontSize,
+                        node.width(),
+                        node.height()
+                      );
+                    }
                   }
                 }
                 return newBox;

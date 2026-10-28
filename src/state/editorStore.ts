@@ -434,11 +434,14 @@ export function createEditorStore(initialState?: Partial<EditorState>) {
     updateAnnotation: (id: string, updates: Partial<Annotation>) => {
       undoStack.push([...state.annotations]);
       redoStack.length = 0;
+      const nextAnnotations = state.annotations.map((a) =>
+        a.id === id ? ({ ...a, ...updates } as Annotation) : a
+      );
+      const synced = syncToolbarWithSelection(state.selectedIds, nextAnnotations);
       state = {
         ...state,
-        annotations: state.annotations.map((a) =>
-          a.id === id ? ({ ...a, ...updates } as Annotation) : a
-        ),
+        ...synced,
+        annotations: nextAnnotations,
         isLocked: false,
       };
       notify();
@@ -449,11 +452,14 @@ export function createEditorStore(initialState?: Partial<EditorState>) {
       if (ids.length === 0) return;
       undoStack.push([...state.annotations]);
       redoStack.length = 0;
+      const nextAnnotations = state.annotations.map((a) =>
+        updatesById[a.id] ? ({ ...a, ...updatesById[a.id] } as Annotation) : a
+      );
+      const synced = syncToolbarWithSelection(state.selectedIds, nextAnnotations);
       state = {
         ...state,
-        annotations: state.annotations.map((a) =>
-          updatesById[a.id] ? ({ ...a, ...updatesById[a.id] } as Annotation) : a
-        ),
+        ...synced,
+        annotations: nextAnnotations,
         isLocked: false,
       };
       notify();

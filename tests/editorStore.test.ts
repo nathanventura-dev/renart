@@ -374,5 +374,11 @@ describe('Editor Store', () => {
     store.undo();
     const t1AfterUndoFont = store.getState().annotations.find((a) => a.id === 'txt-1')!;
     expect(t1AfterUndoFont.type === 'text' && t1AfterUndoFont.fontFamily).toBe('Arial');
+
+    // Quando o bloco de texto é redimensionado no canvas (updateAnnotation altera fontSize e reseta scaleX/scaleY),
+    // o estado fontSize da barra superior sincroniza automaticamente com o novo tamanho
+    store.setSelectedIds(['txt-1']);
+    store.updateAnnotation('txt-1', { fontSize: 36, scaleX: 1, scaleY: 1 });
+    expect(store.getState().fontSize).toBe(36);
   });
 });

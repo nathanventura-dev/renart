@@ -17,6 +17,11 @@ import {
   getMagnifierVisibleAnnotations,
   calculateMagnifierFocusGeometry,
   clampFocusPointToImageBounds,
+  MIN_FONT_SIZE,
+  MAX_FONT_SIZE,
+  snapToFontSizeStep,
+  calculateResizedFontSize,
+  clampTextResizeBox,
 } from '../src/utils/magnifierAndHover';
 
 describe('Magnifier Zoom & Rotating Crown (Coroa Giratória)', () => {
@@ -267,5 +272,81 @@ describe('Smart Hover & Drag-and-Drop Pointer Recognition', () => {
     });
 
     expect(selected).toEqual(['r1', 'l1', 'a1']);
+  });
+});
+
+describe('Text Block Stepped Font-Size Resizing (12..48 Sem Distorção)', () => {
+  it('snaps arbitrary font sizes to FONT_SIZES steps and clamps strictly between 12 and 48', () => {
+    expect(MIN_FONT_SIZE).toBe(12);
+    expect(MAX_FONT_SIZE).toBe(48);
+
+    expect(snapToFontSizeStep(6)).toBe(12);
+    expect(snapToFontSizeStep(12)).toBe(12);
+    expect(snapToFontSizeStep(13.5)).toBe(14);
+    expect(snapToFontSizeStep(18)).toBe(18);
+    expect(snapToFontSizeStep(23)).toBe(24);
+    expect(snapToFontSizeStep(35)).toBe(36);
+    expect(snapToFontSizeStep(48)).toBe(48);
+    expect(snapToFontSizeStep(96)).toBe(48);
+  });
+
+  it('scales text fontSize in discrete steps from 12 up to 48 and down to 12 when resizing', () => {
+    // Bloco criado com tamanho 12: cresce em degraus até travar em 48 e não diminui abaixo de 12
+    expect(calculateResizedFontSize(12, 0.5)).toBe(12);
+    expect(calculateResizedFontSize(12, 1.0)).toBe(12);
+    expect(calculateResizedFontSize(12, 14 / 12)).toBe(14);
+    expect(calculateResizedFontSize(12, 18 / 12)).toBe(18);
+    expect(calculateResizedFontSize(12, 2.0)).toBe(24);
+    expect(calculateResizedFontSize(12, 3.0)).toBe(36);
+    expect(calculateResizedFontSize(12, 4.0)).toBe(48);
+    expect(calculateResizedFontSize(12, 6.0)).toBe(48);
+
+    // Bloco com tamanho 48: diminui em degraus até travar em 12 e não cresce acima de 48
+    expect(calculateResizedFontSize(48, 1.5)).toBe(48);
+    expect(calculateResizedFontSize(48, 0.75)).toBe(36);
+    expect(calculateResizedFontSize(48, 0.5)).toBe(24);
+    expect(calculateResizedFontSize(48, 0.25)).toBe(12);
+    expect(calculateResizedFontSize(48, 0.1)).toBe(12);
+  });
+
+  it('locks the Transformer bounding box at minimum 12 and maximum 48 while stepping proportionally without distortion', () => {
+    const baseBoxAt12 = { x: 100, y: 100, width: 120, height: 16, rotation: 0 };
+
+    // Tentar diminuir abaixo de 12 trava o bloco (retorna oldBox)
+    const shrinkAttempt = clampTextResizeBox(
+      baseBoxAt12,
+      { x: 100, y: 100, width: 90, height: 12, rotation: 0 },
+      12,
+      120,
+      16
+    );
+    expect(shrinkAttempt).toEqual(baseBoxAt12);
+
+    // Aumentar de 12 para 24 (2x) ajusta largura e altura na mesma proporção exata (sem distorcer)
+    const growTo24 = clampTextResizeBox(
+      baseBoxAt12,
+      { x: 100, y: 100, width: 242, height: 32.26, rotation: 0 },
+      12,
+      120,
+      16
+    );
+    expect(growTo24).toEqual({
+      x: 100,
+      y: 100,
+      width: 240,
+      height: 32,
+      rotation: 0,
+    });
+
+    // Já em 48 (4x do tamanho 12 => width 480, height 64): tentar aumentar mais trava o bloco em 48
+    const boxAt48 = { x: 100, y: 100, width: 480, height: 64, rotation: 0 };
+    const overMaxAttempt = clampTextResizeBox(
+      boxAt48,
+      { x: 100, y: 100, width: 560, height: 74.6, rotation: 0 },
+      12,
+      120,
+      16
+    );
+    expect(overMaxAttempt).toEqual(boxAt48);
   });
 });

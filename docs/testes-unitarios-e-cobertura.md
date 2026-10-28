@@ -99,6 +99,7 @@ Para garantir robustez, estabilidade e manutenibilidade sem regressões, os test
   - Exibição condicional da barra de zoom na parte inferior (`shouldShowZoomBar`) restrita exclusivamente ao momento em que o usuário está movimentando a coroa para alterar o zoom, e cálculo da barra de progresso (`calculateZoomBarProgress`).
   - Redimensionamento livre da lupa pelo `Transformer` (`shouldAttachTransformer('magnifier') === true`) com restrição automática de raio e posição aos limites da imagem (`clampMagnifierToImageBounds`).
   - Ordenação de camadas garantindo que a lupa permaneça sempre acima de todos os elementos (`sortAnnotationsWithMagnifiersOnTop`) e exposição de todos os blocos adicionados (`rect`, `ellipse`, `line`, `arrow`, `text`, `image`) para ampliação dentro da lente (`getMagnifierVisibleAnnotations`).
+  - Redimensionamento proporcional de blocos de texto sem distorção em degraus de `FONT_SIZES` (`snapToFontSizeStep`, `calculateResizedFontSize`, `clampTextResizeBox`), travando estritamente nos limites mínimo (`12`) e máximo (`48`).
   - Reconhecimento automático de hover sobre blocos existentes (`cursor: 'move'` e ação `move-existing`) versus área livre do canvas (`cursor: 'crosshair'` e ação `create-new`) quando ferramentas de criação estão selecionadas.
 - **Comando:** `cmd.exe /c npm test tests/magnifierAndHover.test.ts`
 

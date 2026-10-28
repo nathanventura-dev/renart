@@ -1,4 +1,88 @@
-import { Annotation, ToolType } from '../state/editorStore';
+import { Annotation, FONT_SIZES, ToolType } from '../state/editorStore';
+
+export const MIN_FONT_SIZE = FONT_SIZES[0]; // 12
+export const MAX_FONT_SIZE = FONT_SIZES[FONT_SIZES.length - 1]; // 48
+
+/**
+ * Arredonda qualquer tamanho de fonte para o passo mais próximo em FONT_SIZES [12..48],
+ * travando estritamente nos limites mínimo (12) e máximo (48).
+ */
+export function snapToFontSizeStep(value: number): number {
+  const clamped = Math.max(MIN_FONT_SIZE, Math.min(MAX_FONT_SIZE, value));
+  let closest: number = FONT_SIZES[0];
+  let minDiff = Math.abs(clamped - closest);
+  for (const step of FONT_SIZES) {
+    const diff = Math.abs(clamped - step);
+    if (diff < minDiff) {
+      minDiff = diff;
+      closest = step;
+    }
+  }
+  return closest;
+}
+
+/**
+ * Calcula o novo tamanho de fonte em degraus de FONT_SIZES [12..48] ao redimensionar um bloco de texto,
+ * respeitando a trava mínima em 12 e a trava máxima em 48.
+ */
+export function calculateResizedFontSize(baseFontSize: number, scaleFactor: number): number {
+  const safeScale = Math.max(0.01, Math.abs(scaleFactor));
+  const rawFontSize = baseFontSize * safeScale;
+  return snapToFontSizeStep(rawFontSize);
+}
+
+export interface TransformerBoundBox {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  rotation: number;
+}
+
+/**
+ * Ajusta a caixa delimitadora do Transformer para blocos de texto em degraus proporcionais
+ * de tamanho de fonte [12..48], impedindo distorção e travando quando atinge 12 (mínimo) ou 48 (máximo).
+ */
+export function clampTextResizeBox(
+  oldBox: TransformerBoundBox,
+  newBox: TransformerBoundBox,
+  baseFontSize: number,
+  baseWidth: number,
+  baseHeight: number
+): TransformerBoundBox {
+  if (Math.abs(newBox.rotation - oldBox.rotation) > 1e-4) {
+    return newBox;
+  }
+  if (baseWidth <= 0 || baseHeight <= 0 || newBox.width <= 1 || newBox.height <= 1) {
+    return oldBox;
+  }
+
+  const rawScale = newBox.width / baseWidth;
+  const snappedFontSize = calculateResizedFontSize(baseFontSize, rawScale);
+  const snappedScale = snappedFontSize / baseFontSize;
+  const snappedWidth = Number((baseWidth * snappedScale).toFixed(2));
+  const snappedHeight = Number((baseHeight * snappedScale).toFixed(2));
+
+  if (
+    Math.abs(snappedWidth - oldBox.width) < 0.01 &&
+    Math.abs(snappedHeight - oldBox.height) < 0.01
+  ) {
+    return oldBox;
+  }
+
+  const deltaWidth = newBox.width - oldBox.width;
+  const ratio = Math.abs(deltaWidth) > 1e-4 ? (snappedWidth - oldBox.width) / deltaWidth : 0;
+  const snappedX = Number((oldBox.x + (newBox.x - oldBox.x) * ratio).toFixed(2));
+  const snappedY = Number((oldBox.y + (newBox.y - oldBox.y) * ratio).toFixed(2));
+
+  return {
+    x: snappedX,
+    y: snappedY,
+    width: snappedWidth,
+    height: snappedHeight,
+    rotation: newBox.rotation,
+  };
+}
 
 export const ZOOM_STEPS = [1.0, 1.5, 2.0, 2.5, 3.0] as const;
 export type ZoomStep = (typeof ZOOM_STEPS)[number];
