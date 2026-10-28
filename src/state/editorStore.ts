@@ -127,14 +127,23 @@ export function shouldShowTextControls(
   return selectedAnnotations.some((ann) => ann.type === 'text');
 }
 
-interface CaptureEditorSession {
+export interface HistorySnapshot {
   annotations: Annotation[];
-  undoStack: Annotation[][];
-  redoStack: Annotation[][];
-  isLocked: boolean;
+  imageBase64?: string;
 }
 
-export function createEditorStore(initialState?: Partial<EditorState>) {
+interface CaptureEditorSession {
+  annotations: Annotation[];
+  undoStack: HistorySnapshot[];
+  redoStack: HistorySnapshot[];
+  isLocked: boolean;
+  imageBase64?: string;
+}
+
+export function createEditorStore(
+  initialState?: Partial<EditorState>,
+  onRestoreImageCallback?: (captureId: string, imageBase64: string) => void
+) {
   const initialSelectedId = initialState?.selectedId ?? null;
   const initialSelectedIds =
     initialState?.selectedIds ?? (initialSelectedId ? [initialSelectedId] : []);
@@ -154,20 +163,38 @@ export function createEditorStore(initialState?: Partial<EditorState>) {
   };
 
   let activeCaptureId: string = 'default';
+  let currentImageBase64: string = '';
+  let onRestoreImage: ((captureId: string, imageBase64: string) => void) | undefined =
+    onRestoreImageCallback;
   const sessions = new Map<string, CaptureEditorSession>();
 
-  const undoStack: Annotation[][] = [];
-  const redoStack: Annotation[][] = [];
+  const undoStack: HistorySnapshot[] = [];
+  const redoStack: HistorySnapshot[] = [];
   const listeners: Set<() => void> = new Set();
 
   const notify = () => listeners.forEach((l) => l());
 
+  const pushUndoSnapshot = () => {
+    undoStack.push({
+      annotations: [...state.annotations],
+      imageBase64: currentImageBase64,
+    });
+    redoStack.length = 0;
+  };
+
   const saveCurrentSession = () => {
     sessions.set(activeCaptureId, {
       annotations: [...state.annotations],
-      undoStack: undoStack.map((snap) => [...snap]),
-      redoStack: redoStack.map((snap) => [...snap]),
+      undoStack: undoStack.map((snap) => ({
+        annotations: [...snap.annotations],
+        imageBase64: snap.imageBase64,
+      })),
+      redoStack: redoStack.map((snap) => ({
+        annotations: [...snap.annotations],
+        imageBase64: snap.imageBase64,
+      })),
       isLocked: state.isLocked,
+      imageBase64: currentImageBase64,
     });
   };
 
@@ -202,12 +229,25 @@ export function createEditorStore(initialState?: Partial<EditorState>) {
       return () => listeners.delete(listener);
     },
 
+    setImageBase64: (image: string) => {
+      currentImageBase64 = image;
+    },
+
+    getCurrentImageBase64: () => currentImageBase64,
+
+    setOnRestoreImage: (callback: (captureId: string, imageBase64: string) => void) => {
+      onRestoreImage = callback;
+    },
+
     /**
      * Alterna o contexto de edição para outra captura da galeria,
      * mantendo os blocos, histórico Undo/Redo e bloqueio totalmente independentes por imagem.
      */
-    switchCapture: (captureId: string) => {
+    switchCapture: (captureId: string, initialImageBase64?: string) => {
       if (!captureId || captureId === activeCaptureId) {
+        if (initialImageBase64 && !currentImageBase64) {
+          currentImageBase64 = initialImageBase64;
+        }
         return;
       }
 
@@ -220,8 +260,19 @@ export function createEditorStore(initialState?: Partial<EditorState>) {
       redoStack.length = 0;
 
       if (targetSession) {
-        targetSession.undoStack.forEach((snap) => undoStack.push([...snap]));
-        targetSession.redoStack.forEach((snap) => redoStack.push([...snap]));
+        targetSession.undoStack.forEach((snap) =>
+          undoStack.push({
+            annotations: [...snap.annotations],
+            imageBase64: snap.imageBase64,
+          })
+        );
+        targetSession.redoStack.forEach((snap) =>
+          redoStack.push({
+            annotations: [...snap.annotations],
+            imageBase64: snap.imageBase64,
+          })
+        );
+        currentImageBase64 = targetSession.imageBase64 || initialImageBase64 || '';
         state = {
           ...state,
           annotations: [...targetSession.annotations],
@@ -230,6 +281,7 @@ export function createEditorStore(initialState?: Partial<EditorState>) {
           selectedIds: [],
         };
       } else {
+        currentImageBase64 = initialImageBase64 || '';
         state = {
           ...state,
           annotations: [],
@@ -294,8 +346,7 @@ export function createEditorStore(initialState?: Partial<EditorState>) {
     setStrokeColor: (color: string) => {
       if (state.selectedIds.length > 0 && !state.isLocked) {
         const selectedSet = new Set(state.selectedIds);
-        undoStack.push([...state.annotations]);
-        redoStack.length = 0;
+        pushUndoSnapshot();
         state = {
           ...state,
           strokeColor: color,
@@ -316,8 +367,7 @@ export function createEditorStore(initialState?: Partial<EditorState>) {
     setStrokeWidth: (width: number) => {
       if (state.selectedIds.length > 0 && !state.isLocked) {
         const selectedSet = new Set(state.selectedIds);
-        undoStack.push([...state.annotations]);
-        redoStack.length = 0;
+        pushUndoSnapshot();
         state = {
           ...state,
           strokeWidth: width,
@@ -340,8 +390,7 @@ export function createEditorStore(initialState?: Partial<EditorState>) {
     setAutoStrokeWidth: (auto: boolean) => {
       if (state.selectedIds.length > 0 && !state.isLocked) {
         const selectedSet = new Set(state.selectedIds);
-        undoStack.push([...state.annotations]);
-        redoStack.length = 0;
+        pushUndoSnapshot();
         state = {
           ...state,
           autoStrokeWidth: auto,
@@ -366,14 +415,18 @@ export function createEditorStore(initialState?: Partial<EditorState>) {
           (ann) => selectedSet.has(ann.id) && ann.type === 'text'
         );
         if (hasSelectedText) {
-          undoStack.push([...state.annotations]);
-          redoStack.length = 0;
+          pushUndoSnapshot();
           state = {
             ...state,
             fontSize: size,
             annotations: state.annotations.map((ann) => {
               if (!selectedSet.has(ann.id) || ann.type !== 'text') return ann;
-              return { ...ann, fontSize: size };
+              return {
+                ...ann,
+                fontSize: size,
+                scaleX: 1,
+                scaleY: 1,
+              };
             }),
           };
           notify();
@@ -384,28 +437,30 @@ export function createEditorStore(initialState?: Partial<EditorState>) {
       notify();
     },
 
-    setFontFamily: (fontFamily: string) => {
+    setFontFamily: (family: string) => {
       if (state.selectedIds.length > 0 && !state.isLocked) {
         const selectedSet = new Set(state.selectedIds);
         const hasSelectedText = state.annotations.some(
           (ann) => selectedSet.has(ann.id) && ann.type === 'text'
         );
         if (hasSelectedText) {
-          undoStack.push([...state.annotations]);
-          redoStack.length = 0;
+          pushUndoSnapshot();
           state = {
             ...state,
-            fontFamily,
+            fontFamily: family,
             annotations: state.annotations.map((ann) => {
               if (!selectedSet.has(ann.id) || ann.type !== 'text') return ann;
-              return { ...ann, fontFamily };
+              return {
+                ...ann,
+                fontFamily: family,
+              };
             }),
           };
           notify();
           return;
         }
       }
-      state = { ...state, fontFamily };
+      state = { ...state, fontFamily: family };
       notify();
     },
 
@@ -415,9 +470,24 @@ export function createEditorStore(initialState?: Partial<EditorState>) {
       notify();
     },
 
-    replaceAnnotations: (newAnnotations: Annotation[]) => {
-      undoStack.push([...state.annotations]);
-      redoStack.length = 0;
+    applyCrop: (newAnnotations: Annotation[], croppedImageBase64: string) => {
+      pushUndoSnapshot();
+      currentImageBase64 = croppedImageBase64;
+      state = {
+        ...state,
+        annotations: newAnnotations,
+        selectedId: null,
+        selectedIds: [],
+        isLocked: false,
+      };
+      notify();
+    },
+
+    replaceAnnotations: (newAnnotations: Annotation[], newImageBase64?: string) => {
+      pushUndoSnapshot();
+      if (newImageBase64) {
+        currentImageBase64 = newImageBase64;
+      }
       state = {
         ...state,
         annotations: newAnnotations,
@@ -429,8 +499,7 @@ export function createEditorStore(initialState?: Partial<EditorState>) {
     },
 
     addAnnotation: (annotation: Annotation) => {
-      undoStack.push([...state.annotations]);
-      redoStack.length = 0;
+      pushUndoSnapshot();
       const withDefaults: Annotation = {
         ...annotation,
         autoStrokeWidth: annotation.autoStrokeWidth ?? state.autoStrokeWidth,
@@ -446,8 +515,7 @@ export function createEditorStore(initialState?: Partial<EditorState>) {
     },
 
     updateAnnotation: (id: string, updates: Partial<Annotation>) => {
-      undoStack.push([...state.annotations]);
-      redoStack.length = 0;
+      pushUndoSnapshot();
       const nextAnnotations = state.annotations.map((a) =>
         a.id === id ? ({ ...a, ...updates } as Annotation) : a
       );
@@ -464,8 +532,7 @@ export function createEditorStore(initialState?: Partial<EditorState>) {
     updateAnnotations: (updatesById: Record<string, Partial<Annotation>>) => {
       const ids = Object.keys(updatesById);
       if (ids.length === 0) return;
-      undoStack.push([...state.annotations]);
-      redoStack.length = 0;
+      pushUndoSnapshot();
       const nextAnnotations = state.annotations.map((a) =>
         updatesById[a.id] ? ({ ...a, ...updatesById[a.id] } as Annotation) : a
       );
@@ -480,8 +547,7 @@ export function createEditorStore(initialState?: Partial<EditorState>) {
     },
 
     removeAnnotation: (id: string) => {
-      undoStack.push([...state.annotations]);
-      redoStack.length = 0;
+      pushUndoSnapshot();
       const nextSelectedIds = state.selectedIds.filter((item) => item !== id);
       state = {
         ...state,
@@ -507,8 +573,7 @@ export function createEditorStore(initialState?: Partial<EditorState>) {
       if (!exists) {
         return false;
       }
-      undoStack.push([...state.annotations]);
-      redoStack.length = 0;
+      pushUndoSnapshot();
       state = {
         ...state,
         annotations: state.annotations.filter((a) => !targetSet.has(a.id)),
@@ -524,17 +589,39 @@ export function createEditorStore(initialState?: Partial<EditorState>) {
 
     undo: () => {
       if (undoStack.length === 0) return;
-      redoStack.push([...state.annotations]);
+      redoStack.push({
+        annotations: [...state.annotations],
+        imageBase64: currentImageBase64,
+      });
       const prev = undoStack.pop()!;
-      state = { ...state, annotations: prev, selectedId: null, selectedIds: [] };
+      const prevImage = prev.imageBase64;
+      const imageChanged = Boolean(prevImage && prevImage !== currentImageBase64);
+      if (imageChanged && prevImage) {
+        currentImageBase64 = prevImage;
+        if (onRestoreImage) {
+          onRestoreImage(activeCaptureId, prevImage);
+        }
+      }
+      state = { ...state, annotations: prev.annotations, selectedId: null, selectedIds: [] };
       notify();
     },
 
     redo: () => {
       if (redoStack.length === 0) return;
-      undoStack.push([...state.annotations]);
+      undoStack.push({
+        annotations: [...state.annotations],
+        imageBase64: currentImageBase64,
+      });
       const next = redoStack.pop()!;
-      state = { ...state, annotations: next, selectedId: null, selectedIds: [] };
+      const nextImage = next.imageBase64;
+      const imageChanged = Boolean(nextImage && nextImage !== currentImageBase64);
+      if (imageChanged && nextImage) {
+        currentImageBase64 = nextImage;
+        if (onRestoreImage) {
+          onRestoreImage(activeCaptureId, nextImage);
+        }
+      }
+      state = { ...state, annotations: next.annotations, selectedId: null, selectedIds: [] };
       notify();
     },
   };

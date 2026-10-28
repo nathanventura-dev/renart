@@ -38,10 +38,21 @@ export const App: React.FC = () => {
   // Imagem ativa atual
   const activeCapture = galleryStore.getActiveCapture();
 
+  // Registra callback para atualizar a imagem na galeria quando Undo/Redo reverter um recorte
+  useEffect(() => {
+    editorStore.setOnRestoreImage((captureId, restoredImage) => {
+      galleryStore.updateCaptureDataUrl(captureId, restoredImage);
+    });
+  }, []);
+
   // Garante que cada imagem da galeria tenha seus próprios blocos, histórico Undo/Redo e trava isolados
   useEffect(() => {
     if (galleryState.activeId) {
-      editorStore.switchCapture(galleryState.activeId);
+      const cap = galleryStore.getActiveCapture();
+      editorStore.switchCapture(galleryState.activeId, cap?.dataUrl);
+      if (cap?.dataUrl) {
+        editorStore.setImageBase64(cap.dataUrl);
+      }
     }
   }, [galleryState.activeId]);
 
@@ -72,13 +83,15 @@ export const App: React.FC = () => {
       }
 
       const initialId = `cap-${Date.now()}`;
+      const welcomeDataUrl = canvas.toDataURL('image/png');
       galleryStore.addCapture({
         id: initialId,
         title: 'Boas-vindas',
-        dataUrl: canvas.toDataURL('image/png'),
+        dataUrl: welcomeDataUrl,
         createdAt: Date.now(),
       });
-      editorStore.switchCapture(initialId);
+      editorStore.switchCapture(initialId, welcomeDataUrl);
+      editorStore.setImageBase64(welcomeDataUrl);
     }
   }, []);
 
@@ -154,16 +167,18 @@ export const App: React.FC = () => {
 
     const croppedDataUrl = offCanvas.toDataURL('image/png');
 
-    // Atualiza a imagem na galeria
-    galleryStore.updateCaptureDataUrl(activeCapture.id, croppedDataUrl);
-
     // Translada e filtra anotações existentes dentro da área de recorte
     const adjusted = adjustAnnotationsForCrop(
       editorState.annotations,
       { x: bounds.x, y: bounds.y },
       { width: bounds.width, height: bounds.height }
     );
-    editorStore.replaceAnnotations(adjusted);
+
+    // Registra o recorte com a nova imagem e anotações no editorStore para suportar Undo/Redo completo
+    editorStore.applyCrop(adjusted, croppedDataUrl);
+
+    // Atualiza a imagem na galeria
+    galleryStore.updateCaptureDataUrl(activeCapture.id, croppedDataUrl);
 
     setCropRect(null);
     editorStore.setActiveTool('select');
@@ -285,7 +300,8 @@ export const App: React.FC = () => {
                   dataUrl: pastedDataUrl,
                   createdAt: Date.now(),
                 });
-                editorStore.switchCapture(newId);
+                editorStore.switchCapture(newId, pastedDataUrl);
+                editorStore.setImageBase64(pastedDataUrl);
               }
             };
             reader.readAsDataURL(file);
@@ -370,7 +386,8 @@ export const App: React.FC = () => {
       dataUrl,
       createdAt: Date.now(),
     });
-    editorStore.switchCapture(newCaptureId);
+    editorStore.switchCapture(newCaptureId, dataUrl);
+    editorStore.setImageBase64(dataUrl);
   };
 
   const handleInsertImage = (file: File) => {

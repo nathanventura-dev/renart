@@ -431,4 +431,54 @@ describe('Editor Store', () => {
     expect(store.getState().annotations).toHaveLength(1);
     expect(store.getState().annotations[0].x).toBe(0);
   });
+
+  it('restores previous background image when undoing crop and reapplies on redo', () => {
+    let restoredImage: string | null = null;
+    const store = createEditorStore(undefined, (_capId, img) => {
+      restoredImage = img;
+    });
+
+    const originalImage = 'data:image/png;base64,ORIGINAL_IMAGE_DATA';
+    const croppedImage = 'data:image/png;base64,CROPPED_IMAGE_DATA';
+
+    store.setImageBase64(originalImage);
+    store.addAnnotation({
+      id: 'ann-1',
+      type: 'rect',
+      x: 50,
+      y: 50,
+      width: 100,
+      height: 100,
+      stroke: '#ff0000',
+    });
+
+    // Aplica o recorte
+    const croppedAnnotations: Annotation[] = [
+      {
+        id: 'ann-1',
+        type: 'rect',
+        x: 10,
+        y: 10,
+        width: 100,
+        height: 100,
+        stroke: '#ff0000',
+      },
+    ];
+    store.applyCrop(croppedAnnotations, croppedImage);
+
+    expect(store.getState().annotations[0].x).toBe(10);
+    expect(store.getCurrentImageBase64()).toBe(croppedImage);
+
+    // Desfaz (Ctrl+Z): deve restaurar a imagem original E as anotações originais
+    store.undo();
+    expect(store.getState().annotations[0].x).toBe(50);
+    expect(store.getCurrentImageBase64()).toBe(originalImage);
+    expect(restoredImage).toBe(originalImage);
+
+    // Refaz (Ctrl+Shift+Z / Redo): deve reaplicar a imagem recortada E as anotações recortadas
+    store.redo();
+    expect(store.getState().annotations[0].x).toBe(10);
+    expect(store.getCurrentImageBase64()).toBe(croppedImage);
+    expect(restoredImage).toBe(croppedImage);
+  });
 });
