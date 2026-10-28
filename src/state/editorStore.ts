@@ -75,6 +75,8 @@ export interface MagnifierAnnotation extends BaseAnnotation {
   y: number;
   radius: number;
   zoomLevel: number; // ex: 2.0x
+  focusX?: number; // Coordenada X do ponto focal (quando desacoplado do centro da lente)
+  focusY?: number; // Coordenada Y do ponto focal (quando desacoplado do centro da lente)
 }
 
 export type Annotation =

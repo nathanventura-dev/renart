@@ -26,6 +26,8 @@ import {
   clampMagnifierToImageBounds,
   sortAnnotationsWithMagnifiersOnTop,
   getMagnifierVisibleAnnotations,
+  calculateMagnifierFocusGeometry,
+  clampFocusPointToImageBounds,
 } from '../utils/magnifierAndHover';
 
 interface CanvasEditorProps {
@@ -39,6 +41,7 @@ interface CanvasEditorProps {
   autoStrokeWidth?: boolean;
   fontSize: number;
   isLocked?: boolean;
+  magnifierMode?: 'v1-handle' | 'v2-callout';
   onSelectId: (id: string | null) => void;
   onSelectIds?: (ids: string[]) => void;
   onToggleSelectId?: (id: string) => void;
@@ -62,6 +65,14 @@ interface CrownDragState {
   startX: number;
   initialZoom: number;
   currentZoom: number;
+}
+
+interface FocusDragState {
+  id: string;
+  initialFocusX: number;
+  initialFocusY: number;
+  currentFocusX: number;
+  currentFocusY: number;
 }
 
 interface MarqueeSelectionState {
@@ -161,6 +172,7 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
   autoStrokeWidth = true,
   fontSize,
   isLocked = false,
+  magnifierMode = 'v1-handle',
   onSelectId,
   onSelectIds,
   onToggleSelectId,
@@ -176,11 +188,17 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
   const [editingText, setEditingText] = useState<InlineEditingText | null>(null);
   const [isHoveringBlock, setIsHoveringBlock] = useState(false);
   const [isHoveringCrown, setIsHoveringCrown] = useState(false);
+  const [isHoveringFocus, setIsHoveringFocus] = useState(false);
   const [crownDrag, setCrownDrag] = useState<CrownDragState | null>(null);
+  const [focusDrag, setFocusDrag] = useState<FocusDragState | null>(null);
+  const [liveLensDrag, setLiveLensDrag] = useState<{ id: string; x: number; y: number } | null>(
+    null
+  );
 
   const transformerRef = useRef<Konva.Transformer>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const crownDragRef = useRef<CrownDragState | null>(null);
+  const focusDragRef = useRef<FocusDragState | null>(null);
   const onUpdateAnnotationRef = useRef(onUpdateAnnotation);
   const multiDragStartRef = useRef<{
     draggedId: string;
@@ -188,6 +206,7 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
   } | null>(null);
 
   crownDragRef.current = crownDrag;
+  focusDragRef.current = focusDrag;
   onUpdateAnnotationRef.current = onUpdateAnnotation;
 
   // Lista normalizada de IDs selecionados (compatível com seleção única ou multiseleção)
@@ -236,12 +255,14 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
   useEffect(() => {
     setIsHoveringBlock(false);
     setIsHoveringCrown(false);
+    setIsHoveringFocus(false);
     setIsDrawing(false);
     setNewAnnotation(null);
     setMarqueeBox(null);
   }, [activeTool, imageBase64, annotations.length]);
 
   const isDraggingCrown = Boolean(crownDrag);
+  const isDraggingFocus = Boolean(focusDrag);
 
   // Gerencia o arraste horizontal da coroa minimalista inferior da lupa (esquerda diminui, direita aumenta de 0.5 em 0.5)
   useEffect(() => {
@@ -273,6 +294,32 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
       window.removeEventListener('mouseup', handleWindowMouseUp);
     };
   }, [isDraggingCrown]);
+
+  // Finaliza o arraste do ponto focal da lupa ao soltar o mouse em qualquer lugar da janela
+  useEffect(() => {
+    if (!isDraggingFocus) return;
+
+    const handleWindowMouseUp = () => {
+      const current = focusDragRef.current;
+      if (
+        current &&
+        (current.currentFocusX !== current.initialFocusX ||
+          current.currentFocusY !== current.initialFocusY)
+      ) {
+        onUpdateAnnotationRef.current(current.id, {
+          focusX: current.currentFocusX,
+          focusY: current.currentFocusY,
+        });
+      }
+      setFocusDrag(null);
+      setIsHoveringFocus(false);
+    };
+
+    window.addEventListener('mouseup', handleWindowMouseUp);
+    return () => {
+      window.removeEventListener('mouseup', handleWindowMouseUp);
+    };
+  }, [isDraggingFocus]);
 
   // Tecla ESC para desselecionar e fechar edição inline
   useEffect(() => {
@@ -310,12 +357,16 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
     }
   }, [effectiveSelectedIds, annotations, isLocked, stageRef]);
 
-  // Resolve o estilo do cursor dinamicamente conforme hover em blocos ou coroa da lupa
+  // Resolve o estilo do cursor dinamicamente conforme hover em blocos, alça de foco ou coroa da lupa
   const pointerBehavior = resolveCanvasPointerBehavior(activeTool, isHoveringBlock, isLocked);
   const currentCursor =
     crownDrag || isHoveringCrown
       ? 'ew-resize'
-      : pointerBehavior.cursor;
+      : focusDrag
+        ? 'grabbing'
+        : isHoveringFocus
+          ? 'grab'
+          : pointerBehavior.cursor;
 
   const handleBlockMouseEnter = () => {
     if (!isLocked) {
@@ -360,19 +411,36 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
     }
   };
 
-  // Movimento de arraste em tempo real (move todos os blocos da multiseleção juntos + atualiza lupa)
+  // Movimento de arraste em tempo real (move todos os blocos da multiseleção juntos + atualiza lupa e cone focal)
   const handleBlockDragMove = (id: string, e: Konva.KonvaEventObject<DragEvent>) => {
     const draggedNode = e.currentTarget;
 
-    // Se o próprio bloco arrastado for uma lupa, atualiza o conteúdo interno da lente (imagem + blocos)
+    // Se o próprio bloco arrastado for uma lupa, atualiza o conteúdo interno da lente e o cone de foco
     const draggedAnn = annotations.find((a) => a.id === id);
     if (draggedAnn?.type === 'magnifier') {
       const group = draggedNode as Konva.Group;
+      const hasDetachedFocus =
+        draggedAnn.focusX !== undefined &&
+        draggedAnn.focusY !== undefined &&
+        Math.hypot(draggedAnn.focusX - draggedAnn.x, draggedAnn.focusY - draggedAnn.y) > 4;
+
+      if (hasDetachedFocus) {
+        setLiveLensDrag({ id: draggedAnn.id, x: group.x(), y: group.y() });
+      }
+
       const lensContent = group.findOne('.magnifier-lens-content');
       if (lensContent) {
         const activeZoom =
           crownDrag && crownDrag.id === draggedAnn.id ? crownDrag.currentZoom : draggedAnn.zoomLevel;
-        const nextTransform = calculateMagnifierImageTransform(group.x(), group.y(), activeZoom);
+        const targetFocusX = hasDetachedFocus ? draggedAnn.focusX : group.x();
+        const targetFocusY = hasDetachedFocus ? draggedAnn.focusY : group.y();
+        const nextTransform = calculateMagnifierImageTransform(
+          group.x(),
+          group.y(),
+          activeZoom,
+          targetFocusX,
+          targetFocusY
+        );
         lensContent.position({ x: nextTransform.x, y: nextTransform.y });
       }
     }
@@ -398,10 +466,16 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
         if (otherAnn?.type === 'magnifier') {
           const lensContent = (otherNode as Konva.Group).findOne('.magnifier-lens-content');
           if (lensContent) {
+            const hasDetached =
+              otherAnn.focusX !== undefined &&
+              otherAnn.focusY !== undefined &&
+              Math.hypot(otherAnn.focusX - otherAnn.x, otherAnn.focusY - otherAnn.y) > 4;
             const nextTransform = calculateMagnifierImageTransform(
               nextX,
               nextY,
-              otherAnn.zoomLevel
+              otherAnn.zoomLevel,
+              hasDetached ? otherAnn.focusX : nextX,
+              hasDetached ? otherAnn.focusY : nextY
             );
             lensContent.position({ x: nextTransform.x, y: nextTransform.y });
           }
@@ -412,6 +486,7 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
 
   // Finalização do arraste (salva posição única ou de todos os blocos da multiseleção)
   const handleBlockDragEnd = (id: string, e: Konva.KonvaEventObject<DragEvent>) => {
+    setLiveLensDrag(null);
     const imgW = bgImage ? bgImage.width : 800;
     const imgH = bgImage ? bgImage.height : 600;
     const multi = multiDragStartRef.current;
@@ -430,7 +505,13 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
               imgH
             );
             node.position({ x: clamped.x, y: clamped.y });
-            updatesById[selId] = { x: clamped.x, y: clamped.y };
+            const hasDetached =
+              ann.focusX !== undefined &&
+              ann.focusY !== undefined &&
+              Math.hypot(ann.focusX - ann.x, ann.focusY - ann.y) > 4;
+            updatesById[selId] = hasDetached
+              ? { x: clamped.x, y: clamped.y }
+              : { x: clamped.x, y: clamped.y, focusX: clamped.x, focusY: clamped.y };
           } else {
             updatesById[selId] = { x: node.x(), y: node.y() };
           }
@@ -452,7 +533,16 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
         imgH
       );
       e.currentTarget.position({ x: clamped.x, y: clamped.y });
-      onUpdateAnnotation(id, { x: clamped.x, y: clamped.y });
+      const hasDetachedFocus =
+        draggedAnn.focusX !== undefined &&
+        draggedAnn.focusY !== undefined &&
+        Math.hypot(draggedAnn.focusX - draggedAnn.x, draggedAnn.focusY - draggedAnn.y) > 4;
+      onUpdateAnnotation(
+        id,
+        hasDetachedFocus
+          ? { x: clamped.x, y: clamped.y }
+          : { x: clamped.x, y: clamped.y, focusX: clamped.x, focusY: clamped.y }
+      );
       return;
     }
 
@@ -471,14 +561,20 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
       if (ann?.type === 'magnifier') {
         const sx = node.scaleX() || 1;
         const sy = node.scaleY() || 1;
+        const hasDetachedFocus =
+          ann.focusX !== undefined &&
+          ann.focusY !== undefined &&
+          Math.hypot(ann.focusX - ann.x, ann.focusY - ann.y) > 4;
+        const targetFocusX = hasDetachedFocus ? ann.focusX! : node.x();
+        const targetFocusY = hasDetachedFocus ? ann.focusY! : node.y();
         const lensContent = (node as Konva.Container).findOne('.magnifier-lens-content');
         if (lensContent) {
           const effectiveZoomX = ann.zoomLevel / sx;
           const effectiveZoomY = ann.zoomLevel / sy;
           lensContent.scale({ x: effectiveZoomX, y: effectiveZoomY });
           lensContent.position({
-            x: -node.x() * effectiveZoomX,
-            y: -node.y() * effectiveZoomY,
+            x: -targetFocusX * effectiveZoomX,
+            y: -targetFocusY * effectiveZoomY,
           });
         }
       }
@@ -510,21 +606,37 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
         node.scaleY(1);
         node.rotation(0);
         node.position({ x: clamped.x, y: clamped.y });
+        const hasDetachedFocus =
+          ann.focusX !== undefined &&
+          ann.focusY !== undefined &&
+          Math.hypot(ann.focusX - ann.x, ann.focusY - ann.y) > 4;
+        const targetFocusX = hasDetachedFocus ? ann.focusX! : clamped.x;
+        const targetFocusY = hasDetachedFocus ? ann.focusY! : clamped.y;
         const lensContent = (node as Konva.Container).findOne('.magnifier-lens-content');
         if (lensContent) {
           const nextTransform = calculateMagnifierImageTransform(
             clamped.x,
             clamped.y,
-            ann.zoomLevel
+            ann.zoomLevel,
+            targetFocusX,
+            targetFocusY
           );
           lensContent.scale({ x: nextTransform.scaleX, y: nextTransform.scaleY });
           lensContent.position({ x: nextTransform.x, y: nextTransform.y });
         }
-        return {
-          x: clamped.x,
-          y: clamped.y,
-          radius: clamped.radius,
-        };
+        return hasDetachedFocus
+          ? {
+              x: clamped.x,
+              y: clamped.y,
+              radius: clamped.radius,
+            }
+          : {
+              x: clamped.x,
+              y: clamped.y,
+              radius: clamped.radius,
+              focusX: clamped.x,
+              focusY: clamped.y,
+            };
       }
 
       return {
@@ -553,7 +665,7 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
 
   const handleMouseDown = (e: Konva.KonvaEventObject<MouseEvent>) => {
     const targetName = e.target.name();
-    if (targetName === 'magnifier-crown') {
+    if (targetName === 'magnifier-crown' || targetName === 'magnifier-focus') {
       return;
     }
 
@@ -634,6 +746,26 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
       const imgW = bgImage ? bgImage.width : 800;
       const imgH = bgImage ? bgImage.height : 600;
       const clamped = clampMagnifierToImageBounds(pos.x, pos.y, 65, imgW, imgH);
+      const clampedFocus = clampFocusPointToImageBounds(pos.x, pos.y, imgW, imgH);
+
+      if (magnifierMode === 'v2-callout') {
+        // Versão 2 (Estilo Callout Direto): O ponto clicado já é cravado como o Foco
+        // e arrastar o mouse posiciona o corpo da lupa no canto desejado com o rastro fosco!
+        setIsDrawing(true);
+        setNewAnnotation({
+          id,
+          type: 'magnifier',
+          x: clamped.x,
+          y: clamped.y,
+          radius: clamped.radius,
+          zoomLevel: 2.0,
+          focusX: clampedFocus.x,
+          focusY: clampedFocus.y,
+        });
+        return;
+      }
+
+      // Versão 1 (Alça de Foco): Cria a lupa com a alça de foco pronta para puxar para qualquer ponto
       onAddAnnotation({
         id,
         type: 'magnifier',
@@ -641,6 +773,8 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
         y: clamped.y,
         radius: clamped.radius,
         zoomLevel: 2.0,
+        focusX: clamped.x,
+        focusY: clamped.y,
       });
       applySelectionIds([id]);
       return;
@@ -701,12 +835,43 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
     const targetName = e.target.name();
     const isStageTarget = e.target === e.target.getStage();
 
+    const stage = e.target.getStage();
+    const pos = stage?.getPointerPosition();
+
+    // Se estiver arrastando o ponto focal da lupa, atualiza em tempo real dentro dos limites da imagem
+    if (focusDrag && pos) {
+      const imgW = bgImage ? bgImage.width : 800;
+      const imgH = bgImage ? bgImage.height : 600;
+      const clampedFocus = clampFocusPointToImageBounds(pos.x, pos.y, imgW, imgH);
+      if (
+        clampedFocus.x !== focusDrag.currentFocusX ||
+        clampedFocus.y !== focusDrag.currentFocusY
+      ) {
+        setFocusDrag((prev) =>
+          prev
+            ? {
+                ...prev,
+                currentFocusX: clampedFocus.x,
+                currentFocusY: clampedFocus.y,
+              }
+            : null
+        );
+      }
+      return;
+    }
+
     if (!isDrawing && !marqueeBox) {
       if (targetName === 'magnifier-crown') {
         if (!isHoveringCrown) setIsHoveringCrown(true);
+        if (isHoveringFocus) setIsHoveringFocus(false);
+        if (isHoveringBlock) setIsHoveringBlock(false);
+      } else if (targetName === 'magnifier-focus') {
+        if (!isHoveringFocus) setIsHoveringFocus(true);
+        if (isHoveringCrown) setIsHoveringCrown(false);
         if (isHoveringBlock) setIsHoveringBlock(false);
       } else {
         if (isHoveringCrown) setIsHoveringCrown(false);
+        if (isHoveringFocus) setIsHoveringFocus(false);
         const hoveringExisting = !isLocked && isTargetExistingAnnotation(targetName, isStageTarget);
         if (hoveringExisting !== isHoveringBlock) {
           setIsHoveringBlock(hoveringExisting);
@@ -714,8 +879,6 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
       }
     }
 
-    const stage = e.target.getStage();
-    const pos = stage?.getPointerPosition();
     if (!pos) return;
 
     // Atualização em tempo real da Caixa de Multiseleção (clique e arraste)
@@ -751,6 +914,15 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
     } else if (newAnnotation.type === 'arrow') {
       const p1 = newAnnotation.points;
       setNewAnnotation({ ...newAnnotation, points: [p1[0], p1[1], pos.x, pos.y] });
+    } else if (newAnnotation.type === 'magnifier') {
+      const imgW = bgImage ? bgImage.width : 800;
+      const imgH = bgImage ? bgImage.height : 600;
+      const clampedLens = clampMagnifierToImageBounds(pos.x, pos.y, newAnnotation.radius, imgW, imgH);
+      setNewAnnotation({
+        ...newAnnotation,
+        x: clampedLens.x,
+        y: clampedLens.y,
+      });
     }
   };
 
@@ -778,6 +950,30 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
       }
     } else if (newAnnotation.type === 'arrow') {
       onAddAnnotation(newAnnotation);
+    } else if (newAnnotation.type === 'magnifier') {
+      const imgW = bgImage ? bgImage.width : 800;
+      const imgH = bgImage ? bgImage.height : 600;
+      const fx = newAnnotation.focusX ?? newAnnotation.x;
+      const fy = newAnnotation.focusY ?? newAnnotation.y;
+      const dragDist = Math.hypot(newAnnotation.x - fx, newAnnotation.y - fy);
+      if (dragDist <= 10) {
+        // Se no modo V2 o usuário apenas clicou sem arrastar, destaca a lente diagonalmente para exibir o cone de foco imediato
+        const offsetLens = clampMagnifierToImageBounds(
+          fx + 110,
+          fy - 85,
+          newAnnotation.radius,
+          imgW,
+          imgH
+        );
+        onAddAnnotation({
+          ...newAnnotation,
+          x: offsetLens.x,
+          y: offsetLens.y,
+        });
+      } else {
+        onAddAnnotation(newAnnotation);
+      }
+      applySelectionIds([newAnnotation.id]);
     }
 
     setNewAnnotation(null);
@@ -997,11 +1193,59 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                 const activeZoom =
                   crownDrag && crownDrag.id === ann.id ? crownDrag.currentZoom : ann.zoomLevel;
 
-                const imgTransform = calculateMagnifierImageTransform(ann.x, ann.y, activeZoom);
+                const effectiveLensX =
+                  liveLensDrag && liveLensDrag.id === ann.id ? liveLensDrag.x : ann.x;
+                const effectiveLensY =
+                  liveLensDrag && liveLensDrag.id === ann.id ? liveLensDrag.y : ann.y;
+
+                const activeFocusX =
+                  focusDrag && focusDrag.id === ann.id
+                    ? focusDrag.currentFocusX
+                    : (ann.focusX ?? ann.x);
+                const activeFocusY =
+                  focusDrag && focusDrag.id === ann.id
+                    ? focusDrag.currentFocusY
+                    : (ann.focusY ?? ann.y);
+
+                const imgTransform = calculateMagnifierImageTransform(
+                  effectiveLensX,
+                  effectiveLensY,
+                  activeZoom,
+                  activeFocusX,
+                  activeFocusY
+                );
+                const focusGeo = calculateMagnifierFocusGeometry(
+                  effectiveLensX,
+                  effectiveLensY,
+                  ann.radius,
+                  activeFocusX,
+                  activeFocusY,
+                  activeZoom
+                );
                 const showZoomBar = shouldShowZoomBar(crownDrag ? crownDrag.id : null, ann.id);
                 const zoomProgress = calculateZoomBarProgress(activeZoom);
                 const isSelected = effectiveSelectedIds.includes(ann.id);
                 const grooveShift = (activeZoom - 2.0) * 4;
+                const ringColor = ann.stroke || (isSelected ? '#0071e3' : '#64748b');
+
+                const startFocusDrag = (e: Konva.KonvaEventObject<MouseEvent>) => {
+                  if (isLocked) return;
+                  e.cancelBubble = true;
+                  const parentGroup = stageRef.current?.findOne(`#${ann.id}`);
+                  if (parentGroup?.isDragging()) {
+                    parentGroup.stopDrag();
+                  }
+                  if (!effectiveSelectedIds.includes(ann.id)) {
+                    applySelectionIds([ann.id]);
+                  }
+                  setFocusDrag({
+                    id: ann.id,
+                    initialFocusX: activeFocusX,
+                    initialFocusY: activeFocusY,
+                    currentFocusX: activeFocusX,
+                    currentFocusY: activeFocusY,
+                  });
+                };
 
                 return (
                   <Group
@@ -1009,7 +1253,7 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                     id={ann.id}
                     x={ann.x}
                     y={ann.y}
-                    draggable={!isLocked}
+                    draggable={!isLocked && !focusDrag}
                     dragBoundFunc={(pos) => {
                       const clamped = clampMagnifierToImageBounds(
                         pos.x,
@@ -1028,6 +1272,93 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                     onDragMove={(e) => handleBlockDragMove(ann.id, e)}
                     onDragEnd={(e) => handleBlockDragEnd(ann.id, e)}
                   >
+                    {/* Cone/Rastro Levemente Fosco e Círculo Focal (Estilo Screenpresso) */}
+                    {focusGeo.hasOffsetFocus && (
+                      <Group
+                        ref={(node) => {
+                          if (node) {
+                            node.getClientRect = () => ({ x: 0, y: 0, width: 0, height: 0 });
+                          }
+                        }}
+                      >
+                        {/* Polígono do Rastro Levemente Fosco entre o Ponto Focal e a Lupa */}
+                        <Line
+                          points={focusGeo.conePoints}
+                          closed
+                          fill="rgba(255, 255, 255, 0.38)"
+                          stroke="rgba(255, 255, 255, 0.72)"
+                          strokeWidth={1}
+                          listening={false}
+                        />
+                        {/* Linhas Tangentes Laterais Sutis */}
+                        <Line
+                          points={[
+                            focusGeo.conePoints[0],
+                            focusGeo.conePoints[1],
+                            focusGeo.conePoints[6],
+                            focusGeo.conePoints[7],
+                          ]}
+                          stroke={ringColor}
+                          strokeWidth={1.2}
+                          opacity={0.5}
+                          dash={[4, 4]}
+                          listening={false}
+                        />
+                        <Line
+                          points={[
+                            focusGeo.conePoints[2],
+                            focusGeo.conePoints[3],
+                            focusGeo.conePoints[4],
+                            focusGeo.conePoints[5],
+                          ]}
+                          stroke={ringColor}
+                          strokeWidth={1.2}
+                          opacity={0.5}
+                          dash={[4, 4]}
+                          listening={false}
+                        />
+
+                        {/* Círculo do Ponto Focal (Região Ampliada) - Arrastável */}
+                        <Circle
+                          name="magnifier-focus"
+                          x={focusGeo.dx}
+                          y={focusGeo.dy}
+                          radius={focusGeo.focusRadius}
+                          fill="rgba(255, 255, 255, 0.18)"
+                          stroke="rgba(255, 255, 255, 0.9)"
+                          strokeWidth={2.5}
+                          onMouseEnter={() => setIsHoveringFocus(true)}
+                          onMouseLeave={() => setIsHoveringFocus(false)}
+                          onMouseDown={startFocusDrag}
+                          onDblClick={(e) => {
+                            e.cancelBubble = true;
+                            onUpdateAnnotation(ann.id, { focusX: ann.x, focusY: ann.y });
+                          }}
+                        />
+                        <Circle
+                          x={focusGeo.dx}
+                          y={focusGeo.dy}
+                          radius={focusGeo.focusRadius}
+                          stroke={ringColor}
+                          strokeWidth={1.5}
+                          listening={false}
+                        />
+                        {/* Ponto Central de Mira no Foco */}
+                        <Circle
+                          name="magnifier-focus"
+                          x={focusGeo.dx}
+                          y={focusGeo.dy}
+                          radius={5}
+                          fill={ringColor}
+                          stroke="#ffffff"
+                          strokeWidth={1.5}
+                          onMouseEnter={() => setIsHoveringFocus(true)}
+                          onMouseLeave={() => setIsHoveringFocus(false)}
+                          onMouseDown={startFocusDrag}
+                        />
+                      </Group>
+                    )}
+
                     {/* Lente Circular com Recorte e Ampliação Real da Imagem e dos Blocos Adicionados */}
                     <Group
                       ref={(node) => {
@@ -1172,10 +1503,12 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                       strokeWidth={2.5}
                       onMouseEnter={() => {
                         setIsHoveringCrown(false);
+                        setIsHoveringFocus(false);
                         handleBlockMouseEnter();
                       }}
                       onMouseMove={() => {
                         if (isHoveringCrown) setIsHoveringCrown(false);
+                        if (isHoveringFocus) setIsHoveringFocus(false);
                         handleBlockMouseEnter();
                       }}
                     />
@@ -1183,10 +1516,53 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                     {/* Aro Minimalista Discreto da Lupa (suporta cor customizada quando alterada pelo usuário) */}
                     <Circle
                       radius={ann.radius}
-                      stroke={ann.stroke || (isSelected ? '#0071e3' : '#64748b')}
+                      stroke={ringColor}
                       strokeWidth={ann.strokeWidth || (isSelected ? 2 : 1.5)}
                       listening={false}
                     />
+
+                    {/* Alça de Foco (Versão 1: Quando o foco ainda está acoplado ao centro, exibe pino para puxar o foco para fora) */}
+                    {!focusGeo.hasOffsetFocus && !isLocked && isSelected && (
+                      <Group
+                        ref={(node) => {
+                          if (node) {
+                            node.getClientRect = () => ({ x: 0, y: 0, width: 0, height: 0 });
+                          }
+                        }}
+                        onMouseEnter={() => setIsHoveringFocus(true)}
+                        onMouseLeave={() => setIsHoveringFocus(false)}
+                        onMouseDown={startFocusDrag}
+                      >
+                        <Rect
+                          name="magnifier-focus"
+                          x={-24}
+                          y={-11}
+                          width={48}
+                          height={22}
+                          cornerRadius={11}
+                          fill="rgba(15, 23, 42, 0.78)"
+                          stroke="#ffffff"
+                          strokeWidth={1.2}
+                        />
+                        <Circle
+                          name="magnifier-focus"
+                          x={-13}
+                          y={0}
+                          radius={3.5}
+                          fill="#38bdf8"
+                        />
+                        <Text
+                          name="magnifier-focus"
+                          x={-6}
+                          y={-5}
+                          width={26}
+                          text="Foco"
+                          fontSize={10}
+                          fontStyle="bold"
+                          fill="#f8fafc"
+                        />
+                      </Group>
+                    )}
 
                     {/* Detalhe Cosmético Minimalista na Parte de Baixo: Coroa Giratória Discreta */}
                     <Group
@@ -1353,6 +1729,73 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                     pointerWidth={10}
                   />
                 )}
+                {newAnnotation.type === 'magnifier' && (() => {
+                  const previewTransform = calculateMagnifierImageTransform(
+                    newAnnotation.x,
+                    newAnnotation.y,
+                    newAnnotation.zoomLevel,
+                    newAnnotation.focusX,
+                    newAnnotation.focusY
+                  );
+                  const previewFocusGeo = calculateMagnifierFocusGeometry(
+                    newAnnotation.x,
+                    newAnnotation.y,
+                    newAnnotation.radius,
+                    newAnnotation.focusX,
+                    newAnnotation.focusY,
+                    newAnnotation.zoomLevel
+                  );
+                  return (
+                    <Group x={newAnnotation.x} y={newAnnotation.y} listening={false}>
+                      {previewFocusGeo.hasOffsetFocus && (
+                        <>
+                          <Line
+                            points={previewFocusGeo.conePoints}
+                            closed
+                            fill="rgba(255, 255, 255, 0.38)"
+                            stroke="rgba(255, 255, 255, 0.72)"
+                            strokeWidth={1}
+                            listening={false}
+                          />
+                          <Circle
+                            x={previewFocusGeo.dx}
+                            y={previewFocusGeo.dy}
+                            radius={previewFocusGeo.focusRadius}
+                            fill="rgba(255, 255, 255, 0.18)"
+                            stroke="#0071e3"
+                            strokeWidth={1.5}
+                            listening={false}
+                          />
+                        </>
+                      )}
+                      <Group
+                        clipFunc={(ctx) => {
+                          ctx.arc(0, 0, newAnnotation.radius, 0, Math.PI * 2, false);
+                        }}
+                      >
+                        <Circle radius={newAnnotation.radius} fill="#ffffff" listening={false} />
+                        {bgImage && (
+                          <KonvaImage
+                            image={bgImage}
+                            width={canvasWidth}
+                            height={canvasHeight}
+                            x={previewTransform.x}
+                            y={previewTransform.y}
+                            scaleX={previewTransform.scaleX}
+                            scaleY={previewTransform.scaleY}
+                            listening={false}
+                          />
+                        )}
+                      </Group>
+                      <Circle
+                        radius={newAnnotation.radius}
+                        stroke="#0071e3"
+                        strokeWidth={2}
+                        listening={false}
+                      />
+                    </Group>
+                  );
+                })()}
               </>
             )}
 

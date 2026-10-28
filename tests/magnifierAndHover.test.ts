@@ -15,6 +15,8 @@ import {
   clampMagnifierToImageBounds,
   sortAnnotationsWithMagnifiersOnTop,
   getMagnifierVisibleAnnotations,
+  calculateMagnifierFocusGeometry,
+  clampFocusPointToImageBounds,
 } from '../src/utils/magnifierAndHover';
 
 describe('Magnifier Zoom & Rotating Crown (Coroa Giratória)', () => {
@@ -136,6 +138,43 @@ describe('Magnifier Zoom & Rotating Crown (Coroa Giratória)', () => {
     // A lente da lupa deve enxergar todos os blocos adicionados (exceto a própria lupa)
     const visibleInLens = getMagnifierVisibleAnnotations(list);
     expect(visibleInLens.map((a) => a.id)).toEqual(['rect-1', 'line-1', 'arrow-1', 'ellipse-1']);
+  });
+
+  it('magnifies remote focal point (focusX, focusY) when lens is placed in a corner away from focus', () => {
+    // Lupa no canto (650, 480), mas focada no detalhe em (200, 100) com zoom 2.0x
+    const remoteTransform = calculateMagnifierImageTransform(650, 480, 2.0, 200, 100);
+    expect(remoteTransform).toEqual({
+      x: -400,
+      y: -200,
+      scaleX: 2.0,
+      scaleY: 2.0,
+    });
+  });
+
+  it('calculates Screenpresso-style frosted trail cone and focal circle geometry between focus and lens', () => {
+    // Quando o foco está no mesmo centro da lupa, não há rastro esticado (hasOffsetFocus = false)
+    const centered = calculateMagnifierFocusGeometry(300, 200, 65, 300, 200, 2.0);
+    expect(centered.hasOffsetFocus).toBe(false);
+    expect(centered.conePoints).toEqual([]);
+
+    // Quando a lupa está no canto (500, 350) e o foco está em (200, 150), gera o cone tangente (8 coordenadas = 4 vértices)
+    const offset = calculateMagnifierFocusGeometry(500, 350, 80, 200, 150, 2.0);
+    expect(offset.hasOffsetFocus).toBe(true);
+    expect(offset.dx).toBe(-300);
+    expect(offset.dy).toBe(-200);
+    expect(offset.focusRadius).toBe(40); // 80 / 2.0
+    expect(offset.conePoints.length).toBe(8);
+  });
+
+  it('clamps remote focal point within image boundaries', () => {
+    expect(clampFocusPointToImageBounds(-50, 900, 800, 600, 14)).toEqual({
+      x: 14,
+      y: 586,
+    });
+    expect(clampFocusPointToImageBounds(320, 240, 800, 600, 14)).toEqual({
+      x: 320,
+      y: 240,
+    });
   });
 });
 

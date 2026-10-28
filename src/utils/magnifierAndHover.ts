@@ -40,12 +40,15 @@ export function calculateZoomFromCrownDrag(
 
 /**
  * Calcula a transformação da imagem interna da lupa para que o conteúdo
- * exatamente abaixo do centro (lensX, lensY) seja ampliado pelo fator zoomLevel.
+ * abaixo do ponto focal (focusX, focusY) — ou do próprio centro (lensX, lensY) quando acoplado —
+ * seja ampliado pelo fator zoomLevel dentro da lente.
  */
 export function calculateMagnifierImageTransform(
   lensX: number,
   lensY: number,
-  zoomLevel: number
+  zoomLevel: number,
+  focusX?: number,
+  focusY?: number
 ): {
   x: number;
   y: number;
@@ -53,11 +56,98 @@ export function calculateMagnifierImageTransform(
   scaleY: number;
 } {
   const zoom = snapToZoomStep(zoomLevel);
+  const targetX = focusX ?? lensX;
+  const targetY = focusY ?? lensY;
   return {
-    x: -lensX * zoom,
-    y: -lensY * zoom,
+    x: -targetX * zoom,
+    y: -targetY * zoom,
     scaleX: zoom,
     scaleY: zoom,
+  };
+}
+
+export interface MagnifierFocusGeometry {
+  hasOffsetFocus: boolean;
+  dx: number;
+  dy: number;
+  distance: number;
+  focusRadius: number;
+  conePoints: number[];
+}
+
+/**
+ * Calcula a geometria óptica do foco remoto e do cone/rastro levemente fosco (estilo Screenpresso)
+ * em coordenadas locais relativas ao centro da lupa (0, 0).
+ */
+export function calculateMagnifierFocusGeometry(
+  lensX: number,
+  lensY: number,
+  radius: number,
+  focusX?: number,
+  focusY?: number,
+  zoomLevel: number = 2.0
+): MagnifierFocusGeometry {
+  const targetX = focusX ?? lensX;
+  const targetY = focusY ?? lensY;
+  const dx = targetX - lensX;
+  const dy = targetY - lensY;
+  const distance = Math.hypot(dx, dy);
+  const zoom = snapToZoomStep(zoomLevel);
+  const focusRadius = Math.max(14, Math.min(Math.round(radius * 0.85), Math.round(radius / zoom)));
+
+  if (distance <= 4) {
+    return {
+      hasOffsetFocus: false,
+      dx,
+      dy,
+      distance,
+      focusRadius,
+      conePoints: [],
+    };
+  }
+
+  // Vetor unitário da lente (0,0) até o foco (dx, dy) e seu perpendicular
+  const ux = dx / distance;
+  const uy = dy / distance;
+  const px = -uy;
+  const py = ux;
+
+  // Polígono tangente conectando o círculo focal (raio focusRadius) à lente (raio radius)
+  const lensX1 = Number((px * radius).toFixed(2));
+  const lensY1 = Number((py * radius).toFixed(2));
+  const lensX2 = Number((-px * radius).toFixed(2));
+  const lensY2 = Number((-py * radius).toFixed(2));
+
+  const focusX1 = Number((dx - px * focusRadius).toFixed(2));
+  const focusY1 = Number((dy - py * focusRadius).toFixed(2));
+  const focusX2 = Number((dx + px * focusRadius).toFixed(2));
+  const focusY2 = Number((dy + py * focusRadius).toFixed(2));
+
+  return {
+    hasOffsetFocus: true,
+    dx,
+    dy,
+    distance,
+    focusRadius,
+    conePoints: [lensX1, lensY1, lensX2, lensY2, focusX1, focusY1, focusX2, focusY2],
+  };
+}
+
+/**
+ * Garante que o ponto focal (focusX, focusY) permaneça dentro dos limites da imagem.
+ */
+export function clampFocusPointToImageBounds(
+  focusX: number,
+  focusY: number,
+  imageWidth: number,
+  imageHeight: number,
+  padding: number = 14
+): { x: number; y: number } {
+  const safeW = Math.max(padding * 2, imageWidth);
+  const safeH = Math.max(padding * 2, imageHeight);
+  return {
+    x: Math.max(padding, Math.min(safeW - padding, Math.round(focusX))),
+    y: Math.max(padding, Math.min(safeH - padding, Math.round(focusY))),
   };
 }
 
@@ -160,6 +250,7 @@ export function isTargetExistingAnnotation(targetName: string, isStageTarget: bo
   if (
     targetName === 'bg-image' ||
     targetName === 'magnifier-crown' ||
+    targetName === 'magnifier-focus' ||
     targetName === 'marquee-selection-box'
   ) {
     return false;

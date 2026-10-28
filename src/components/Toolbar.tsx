@@ -81,6 +81,8 @@ interface ToolbarProps {
   onCopy: () => void;
   onExport: (format: 'png' | 'jpeg' | 'pdf') => void;
   onInsertImage: (file: File) => void;
+  magnifierMode?: 'v1-handle' | 'v2-callout';
+  onSelectMagnifierMode?: (mode: 'v1-handle' | 'v2-callout') => void;
 }
 
 const COLORS = ['#ff3b30', '#ff9f0a', '#34c759', '#0071e3', '#5856d6', '#000000', '#ffffff'];
@@ -102,6 +104,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   onCopy,
   onExport,
   onInsertImage,
+  magnifierMode = 'v1-handle',
+  onSelectMagnifierMode,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const exportMenuRef = useRef<HTMLDivElement>(null);
@@ -305,6 +309,58 @@ export const Toolbar: React.FC<ToolbarProps> = ({
         >
           <ZoomIn size={16} />
         </button>
+
+        {activeTool === 'magnifier' && (
+          <div
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              height: INNER_CONTROL_HEIGHT,
+              backgroundColor: '#e2e8f0',
+              borderRadius: '6px',
+              padding: '2px',
+              gap: '2px',
+              boxSizing: 'border-box',
+            }}
+          >
+            <button
+              type="button"
+              title="Versão 1: Cria a lupa e permite puxar a alça de foco para fora"
+              onClick={() => onSelectMagnifierMode?.('v1-handle')}
+              style={{
+                height: '24px',
+                padding: '0 7px',
+                fontSize: '11px',
+                fontWeight: 600,
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                backgroundColor: magnifierMode === 'v1-handle' ? '#0071e3' : 'transparent',
+                color: magnifierMode === 'v1-handle' ? '#ffffff' : '#334155',
+              }}
+            >
+              V1: Alça
+            </button>
+            <button
+              type="button"
+              title="Versão 2: Clica no ponto de foco e arrasta para posicionar a lupa no canto"
+              onClick={() => onSelectMagnifierMode?.('v2-callout')}
+              style={{
+                height: '24px',
+                padding: '0 7px',
+                fontSize: '11px',
+                fontWeight: 600,
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                backgroundColor: magnifierMode === 'v2-callout' ? '#0071e3' : 'transparent',
+                color: magnifierMode === 'v2-callout' ? '#ffffff' : '#334155',
+              }}
+            >
+              V2: Puxar
+            </button>
+          </div>
+        )}
 
         <div style={{ width: '1px', height: '20px', backgroundColor: '#d1d1d6', margin: '0 4px' }} />
 
