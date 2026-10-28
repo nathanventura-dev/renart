@@ -47,11 +47,11 @@
   - `calculateCropBounds(cropBox: { x: number; y: number; width: number; height: number }, imageWidth: number, imageHeight: number): { x: number; y: number; width: number; height: number }`
   - `adjustAnnotationsForCrop(annotations: Annotation[], cropOffset: { x: number; y: number }, cropSize: { width: number; height: number }): Annotation[]`
 
-- [ ] **Step 1: Escrever testes unitários em `tests/zoomAndCrop.test.ts` (RED)**
-- [ ] **Step 2: Executar testes para confirmar falha (`cmd.exe /c npm test tests/zoomAndCrop.test.ts`)**
-- [ ] **Step 3: Implementar funções em `src/utils/zoomAndCrop.ts` (GREEN)**
-- [ ] **Step 4: Executar testes para validar aprovação (`cmd.exe /c npm test tests/zoomAndCrop.test.ts`)**
-- [ ] **Step 5: Gravar alterações e realizar commit em português**
+- [x] **Step 1: Escrever testes unitários em `tests/zoomAndCrop.test.ts` (RED)**
+- [x] **Step 2: Executar testes para confirmar falha (`cmd.exe /c npm test tests/zoomAndCrop.test.ts`)**
+- [x] **Step 3: Implementar funções em `src/utils/zoomAndCrop.ts` (GREEN)**
+- [x] **Step 4: Executar testes para validar aprovação (`cmd.exe /c npm test tests/zoomAndCrop.test.ts`)**
+- [x] **Step 5: Gravar alterações e realizar commit em português**
 
 ---
 
