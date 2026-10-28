@@ -1,4 +1,4 @@
-import { Annotation, FONT_SIZES, ToolType } from '../state/editorStore';
+import { Annotation, FONT_SIZES, ToolType, ArrowStyle } from '../state/editorStore';
 
 export const MIN_FONT_SIZE = FONT_SIZES[0]; // 12
 export const MAX_FONT_SIZE = FONT_SIZES[FONT_SIZES.length - 1]; // 48
@@ -274,13 +274,7 @@ export function calculateZoomBarProgress(zoomLevel: number): number {
   return Number(((zoom - MIN_ZOOM) / (MAX_ZOOM - MIN_ZOOM)).toFixed(2));
 }
 
-/**
- * Define se o Transformer de redimensionamento do Konva deve ser acoplado ao tipo de bloco.
- * Todos os blocos de anotação (incluindo a lupa 'magnifier') suportam redimensionamento.
- */
-export function shouldAttachTransformer(annotationType: ToolType): boolean {
-  return annotationType !== 'select';
-}
+export { shouldAttachTransformer } from './zoomAndCrop';
 
 /**
  * Garante que o raio e a posição da lupa respeitem os limites da imagem ao redimensionar ou mover.

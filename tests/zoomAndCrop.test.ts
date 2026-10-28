@@ -25,6 +25,9 @@ import {
   calculateCurvedArrowPoints,
   invertCurvedArrowPoints,
   clampArrowResizeBox,
+  shouldAttachTransformer,
+  updateCurvedArrowAnchor,
+  getCurvedArrowAnchorPositions,
 } from '../src/utils/zoomAndCrop';
 import { Annotation } from '../src/state/editorStore';
 
@@ -525,6 +528,49 @@ describe('Pointer and Drag Coordinate Transformations Under Zoom', () => {
       const clampedMin = clampArrowResizeBox(oldBox, overShrunkBox, 4, 200, 100);
       expect(clampedMin.width).toBe(100);
       expect(clampedMin.height).toBe(50);
+    });
+
+    it('suppresses transformer for curved arrow while keeping it for other annotations', () => {
+      // Formas normais e flechas retas devem acoplar o Transformer
+      expect(shouldAttachTransformer('rect')).toBe(true);
+      expect(shouldAttachTransformer('ellipse')).toBe(true);
+      expect(shouldAttachTransformer('text')).toBe(true);
+      expect(shouldAttachTransformer('line')).toBe(true);
+      expect(shouldAttachTransformer('arrow', 'standard')).toBe(true);
+      expect(shouldAttachTransformer('arrow', 'thin')).toBe(true);
+      expect(shouldAttachTransformer('arrow', 'dashed')).toBe(true);
+
+      // Ferramenta select não acopla
+      expect(shouldAttachTransformer('select')).toBe(false);
+
+      // Flecha curva NÃO acopla o Transformer (usa as 3 âncoras dedicadas)
+      expect(shouldAttachTransformer('arrow', 'curved')).toBe(false);
+    });
+
+    it('extracts and updates curved arrow anchor positions respecting image bounds', () => {
+      const initialPoints = [100, 100, 200, 50, 300, 100];
+      const anchors = getCurvedArrowAnchorPositions(initialPoints);
+
+      expect(anchors.tail).toEqual({ x: 100, y: 100 });
+      expect(anchors.bend).toEqual({ x: 200, y: 50 });
+      expect(anchors.tip).toEqual({ x: 300, y: 100 });
+
+      // Atualiza âncora 0 (cauda)
+      const updatedTail = updateCurvedArrowAnchor(initialPoints, 0, 80, 120, 800, 600);
+      expect(updatedTail).toEqual([80, 120, 200, 50, 300, 100]);
+
+      // Atualiza âncora 1 (arco/meio)
+      const updatedBend = updateCurvedArrowAnchor(initialPoints, 1, 200, 180, 800, 600);
+      expect(updatedBend).toEqual([100, 100, 200, 180, 300, 100]);
+
+      // Atualiza âncora 2 (ponta)
+      const updatedTip = updateCurvedArrowAnchor(initialPoints, 2, 350, 90, 800, 600);
+      expect(updatedTip).toEqual([100, 100, 200, 50, 350, 90]);
+
+      // Clamping aos limites da imagem: tentar arrastar para fora da tela (ex: -50 ou 1000) trava em 0 e canvasLimit
+      const clampedOutOfBounds = updateCurvedArrowAnchor(initialPoints, 2, 1000, -20, 800, 600);
+      expect(clampedOutOfBounds[4]).toBe(800);
+      expect(clampedOutOfBounds[5]).toBe(0);
     });
   });
 });

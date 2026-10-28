@@ -1,4 +1,4 @@
-import { Annotation, ArrowStyle } from '../state/editorStore';
+import type { Annotation, ArrowStyle, ToolType } from '../state/editorStore';
 
 export const MIN_ZOOM_LEVEL = 0.25; // 25%
 export const MAX_ZOOM_LEVEL = 4.0; // 400%
@@ -775,4 +775,65 @@ export function clampArrowResizeBox(
     height: snappedHeight,
     rotation: newBox.rotation,
   };
+}
+
+/**
+ * Define se o Transformer de redimensionamento do Konva deve ser acoplado ao tipo de bloco.
+ * Todos os blocos de anotação suportam redimensionamento por Transformer, EXCETO a flecha
+ * curva ('curved'), que possui 3 âncoras dedicadas (cauda, arco e ponta) para ajuste manual.
+ */
+export function shouldAttachTransformer(
+  annotationType: ToolType,
+  arrowStyle?: ArrowStyle
+): boolean {
+  if (annotationType === 'select') return false;
+  if (annotationType === 'arrow' && arrowStyle === 'curved') return false;
+  return true;
+}
+
+export type CurvedArrowAnchorType = 'tail' | 'bend' | 'tip';
+
+/**
+ * Extrai as posições relativas das 3 âncoras da flecha curva:
+ * - tail: cauda / origem (x1, y1)
+ * - bend: ápice da curvatura (midX, midY)
+ * - tip: ponta / alvo (x2, y2)
+ */
+export function getCurvedArrowAnchorPositions(points: number[]): {
+  tail: { x: number; y: number };
+  bend: { x: number; y: number };
+  tip: { x: number; y: number };
+} {
+  return {
+    tail: { x: points[0] ?? 0, y: points[1] ?? 0 },
+    bend: { x: points[2] ?? 0, y: points[3] ?? 0 },
+    tip: { x: points[4] ?? 0, y: points[5] ?? 0 },
+  };
+}
+
+/**
+ * Atualiza uma âncora específica da flecha curva (0=cauda, 1=arco, 2=ponta),
+ * aplicando contenção rígida aos limites da imagem [0..canvasWidth, 0..canvasHeight].
+ */
+export function updateCurvedArrowAnchor(
+  points: number[],
+  anchorIndex: 0 | 1 | 2,
+  newX: number,
+  newY: number,
+  canvasWidth: number,
+  canvasHeight: number
+): number[] {
+  const clampedX = Math.round(Math.max(0, Math.min(newX, canvasWidth)));
+  const clampedY = Math.round(Math.max(0, Math.min(newY, canvasHeight)));
+
+  const result = [...points];
+  while (result.length < 6) {
+    result.push(0);
+  }
+
+  const offset = anchorIndex * 2;
+  result[offset] = clampedX;
+  result[offset + 1] = clampedY;
+
+  return result;
 }
