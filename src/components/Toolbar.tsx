@@ -21,6 +21,8 @@ interface ToolbarProps {
   onSelectColor: (color: string) => void;
   strokeWidth: number;
   onSelectStrokeWidth: (width: number) => void;
+  autoStrokeWidth?: boolean;
+  onToggleAutoStrokeWidth?: (auto: boolean) => void;
   canUndo: boolean;
   canRedo: boolean;
   onUndo: () => void;
@@ -40,6 +42,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   onSelectColor,
   strokeWidth,
   onSelectStrokeWidth,
+  autoStrokeWidth = true,
+  onToggleAutoStrokeWidth,
   canUndo,
   canRedo,
   onUndo,
@@ -107,7 +111,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
         }}
       >
         <button
-          title="Selecionar / Mover"
+          title="Selecionar / Multiseleção (Clique e arraste)"
           onClick={() => onSelectTool('select')}
           style={{
             backgroundColor: activeTool === 'select' ? '#ffffff' : 'transparent',
@@ -220,11 +224,12 @@ export const Toolbar: React.FC<ToolbarProps> = ({
 
         <div style={{ width: '1px', height: '18px', backgroundColor: '#d1d1d6', margin: '0 4px' }} />
 
-        {/* Cores */}
+        {/* Cores (aplica nos blocos selecionados ou define padrão para novos) */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
           {COLORS.map((c) => (
             <button
               key={c}
+              title={`Cor ${c}`}
               onClick={() => onSelectColor(c)}
               style={{
                 width: '18px',
@@ -239,17 +244,19 @@ export const Toolbar: React.FC<ToolbarProps> = ({
           ))}
         </div>
 
-        {/* Espessura do traço */}
+        {/* Espessura do traço em pixels */}
         <select
+          title="Espessura da linha (em pixels)"
           value={strokeWidth}
           onChange={(e) => onSelectStrokeWidth(Number(e.target.value))}
           style={{
             marginLeft: '4px',
             fontSize: '12px',
-            padding: '2px 4px',
+            padding: '3px 6px',
             borderRadius: '4px',
-            border: '1px solid #d1d1d6',
+            border: !autoStrokeWidth ? '1.5px solid #0071e3' : '1px solid #d1d1d6',
             backgroundColor: '#ffffff',
+            cursor: 'pointer',
           }}
         >
           <option value={2}>2px</option>
@@ -257,12 +264,33 @@ export const Toolbar: React.FC<ToolbarProps> = ({
           <option value={5}>5px</option>
           <option value={8}>8px</option>
         </select>
+
+        {/* Botão "Auto" ao lado da lista de pixels */}
+        <button
+          type="button"
+          title="Espessura automática ao redimensionar o bloco"
+          onClick={() => onToggleAutoStrokeWidth?.(!autoStrokeWidth)}
+          style={{
+            marginLeft: '2px',
+            fontSize: '11px',
+            fontWeight: 600,
+            padding: '3px 8px',
+            borderRadius: '4px',
+            border: autoStrokeWidth ? '1px solid #0071e3' : '1px solid #d1d1d6',
+            backgroundColor: autoStrokeWidth ? '#0071e3' : '#ffffff',
+            color: autoStrokeWidth ? '#ffffff' : '#334155',
+            cursor: 'pointer',
+            transition: 'all 0.15s ease',
+          }}
+        >
+          Auto
+        </button>
       </div>
 
       {/* Ações: Desfazer / Refazer / Copiar / Exportar */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
         <button
-          title="Desfazer"
+          title="Desfazer (Ctrl+Z)"
           disabled={!canUndo}
           onClick={onUndo}
           style={{
@@ -277,7 +305,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
         </button>
 
         <button
-          title="Refazer"
+          title="Refazer (Ctrl+Shift+Z)"
           disabled={!canRedo}
           onClick={onRedo}
           style={{

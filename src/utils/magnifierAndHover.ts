@@ -1,4 +1,4 @@
-import { ToolType } from '../state/editorStore';
+import { Annotation, ToolType } from '../state/editorStore';
 
 export const ZOOM_STEPS = [1.0, 1.5, 2.0, 2.5, 3.0] as const;
 export type ZoomStep = (typeof ZOOM_STEPS)[number];
@@ -110,8 +110,96 @@ export interface PointerBehavior {
  */
 export function isTargetExistingAnnotation(targetName: string, isStageTarget: boolean): boolean {
   if (isStageTarget) return false;
-  if (targetName === 'bg-image' || targetName === 'magnifier-crown') return false;
+  if (
+    targetName === 'bg-image' ||
+    targetName === 'magnifier-crown' ||
+    targetName === 'marquee-selection-box'
+  ) {
+    return false;
+  }
   return true;
+}
+
+export interface SelectionBoxBounds {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+/**
+ * Calcula a caixa delimitadora (bounding box) aproximada de uma anotação
+ * e verifica quais blocos se intersectam com a caixa de multiseleção (clique e arraste).
+ */
+export function getAnnotationsInSelectionBox(
+  annotations: Annotation[],
+  box: SelectionBoxBounds
+): string[] {
+  const boxLeft = Math.min(box.x, box.x + box.width);
+  const boxRight = Math.max(box.x, box.x + box.width);
+  const boxTop = Math.min(box.y, box.y + box.height);
+  const boxBottom = Math.max(box.y, box.y + box.height);
+
+  const selectedIds: string[] = [];
+
+  for (const ann of annotations) {
+    const sx = ann.scaleX ?? 1;
+    const sy = ann.scaleY ?? 1;
+    let minX = 0;
+    let maxX = 0;
+    let minY = 0;
+    let maxY = 0;
+
+    if (ann.type === 'rect' || ann.type === 'image') {
+      const x1 = ann.x;
+      const y1 = ann.y;
+      const x2 = ann.x + ann.width * sx;
+      const y2 = ann.y + ann.height * sy;
+      minX = Math.min(x1, x2);
+      maxX = Math.max(x1, x2);
+      minY = Math.min(y1, y2);
+      maxY = Math.max(y1, y2);
+    } else if (ann.type === 'ellipse') {
+      const rx = Math.abs(ann.radiusX * sx);
+      const ry = Math.abs(ann.radiusY * sy);
+      minX = ann.x - rx;
+      maxX = ann.x + rx;
+      minY = ann.y - ry;
+      maxY = ann.y + ry;
+    } else if (ann.type === 'arrow') {
+      const offsetX = ann.x || 0;
+      const offsetY = ann.y || 0;
+      const [p1x, p1y, p2x, p2y] = ann.points;
+      const x1 = offsetX + p1x * sx;
+      const y1 = offsetY + p1y * sy;
+      const x2 = offsetX + p2x * sx;
+      const y2 = offsetY + p2y * sy;
+      minX = Math.min(x1, x2);
+      maxX = Math.max(x1, x2);
+      minY = Math.min(y1, y2);
+      maxY = Math.max(y1, y2);
+    } else if (ann.type === 'text') {
+      const approxWidth = Math.max(40, ann.text.length * (ann.fontSize * 0.55) * Math.abs(sx));
+      const approxHeight = ann.fontSize * 1.3 * Math.abs(sy);
+      minX = ann.x;
+      maxX = ann.x + approxWidth;
+      minY = ann.y;
+      maxY = ann.y + approxHeight;
+    } else if (ann.type === 'magnifier') {
+      minX = ann.x - ann.radius;
+      maxX = ann.x + ann.radius;
+      minY = ann.y - ann.radius;
+      maxY = ann.y + ann.radius;
+    }
+
+    const intersects =
+      maxX >= boxLeft && minX <= boxRight && maxY >= boxTop && minY <= boxBottom;
+    if (intersects) {
+      selectedIds.push(ann.id);
+    }
+  }
+
+  return selectedIds;
 }
 
 /**

@@ -278,6 +278,8 @@ export const App: React.FC = () => {
         onSelectColor={(c: string) => editorStore.setStrokeColor(c)}
         strokeWidth={editorState.strokeWidth}
         onSelectStrokeWidth={(w: number) => editorStore.setStrokeWidth(w)}
+        autoStrokeWidth={editorState.autoStrokeWidth}
+        onToggleAutoStrokeWidth={(auto: boolean) => editorStore.setAutoStrokeWidth(auto)}
         canUndo={editorStore.canUndo()}
         canRedo={editorStore.canRedo()}
         onUndo={() => editorStore.undo()}
@@ -314,14 +316,21 @@ export const App: React.FC = () => {
             annotations={editorState.annotations}
             activeTool={editorState.activeTool}
             selectedId={editorState.selectedId}
+            selectedIds={editorState.selectedIds}
             strokeColor={editorState.strokeColor}
             strokeWidth={editorState.strokeWidth}
+            autoStrokeWidth={editorState.autoStrokeWidth}
             fontSize={editorState.fontSize}
             isLocked={editorState.isLocked}
             onSelectId={(id: string | null) => editorStore.setSelectedId(id)}
+            onSelectIds={(ids: string[]) => editorStore.setSelectedIds(ids)}
+            onToggleSelectId={(id: string) => editorStore.toggleSelectedId(id)}
             onAddAnnotation={(ann: Annotation) => editorStore.addAnnotation(ann)}
             onUpdateAnnotation={(id: string, updates: Partial<Annotation>) =>
               editorStore.updateAnnotation(id, updates)
+            }
+            onUpdateAnnotations={(updatesById: Record<string, Partial<Annotation>>) =>
+              editorStore.updateAnnotations(updatesById)
             }
             stageRef={stageRef}
           />

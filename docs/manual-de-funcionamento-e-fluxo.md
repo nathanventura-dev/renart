@@ -82,11 +82,18 @@ Se você desejar apontar, destacar ou enriquecer o print antes de salvar:
   - **Mouse dentro da área de um bloco existente:** O editor reconhece automaticamente o bloco sob o cursor, muda o ponteiro para movimentação (`move` / Drag-and-Drop) e permite clicar e arrastar o bloco existente imediatamente.
   - **Mouse fora da área dos blocos adicionados:** O ponteiro permanece no modo de criação (`crosshair`) e clicar na área livre adiciona mais um bloco normalmente.
 
-### 4.3. Controles de Estilo, Exclusão e Histórico
-- **Paleta de Cores:** Vermelho, Laranja, Verde, Azul, Roxo, Preto e Branco.
-- **Espessura do Traço:** 2px, 3px, 5px e 8px.
-- **Excluir Bloco Selecionado (`Delete`):** Ao selecionar qualquer bloco (retângulo, elipse, seta, texto, imagem ou lupa) e pressionar a tecla **`Delete`** (ou `Backspace` fora da edição de texto), o bloco selecionado é apagado imediatamente.
-- **Desfazer (Undo) e Refazer (Redo):** Atalhos `Ctrl+Z` (Desfazer, inclusive exclusões feitas com `Delete`) e `Ctrl+Shift+Z` / `Ctrl+Y` (Refazer) ou botões visuais na barra para reverter qualquer ação.
+### 4.3. Controles de Estilo por Bloco, Opção "Auto", Multiseleção e Histórico
+- **Alteração Independente de Cor e Espessura por Bloco:**
+  - Ao selecionar qualquer bloco já presente na imagem e clicar em uma cor da paleta (Vermelho, Laranja, Verde, Azul, Roxo, Preto, Branco) ou alterar a espessura em pixels (`2px`, `3px`, `5px`, `8px`), **somente o(s) bloco(s) selecionado(s)** terão sua cor ou espessura modificada, sem interferir nos demais blocos da imagem.
+- **Opção `"Auto"` ao Lado da Lista de Espessura (Pixels):**
+  - Ao lado do seletor de pixels (`2px`, `3px`, `5px`, `8px`), o botão **`Auto`** permite escolher entre espessura automática proporcional ao redimensionamento (`strokeScaleEnabled: true`) ou espessura fixa em pixels (`strokeScaleEnabled: false`).
+  - Se **`Auto`** estiver selecionado, todos os novos blocos adicionados recebem o ajuste automático de espessura ao redimensionar.
+  - Se o usuário alterar manualmente a espessura da linha em pixels com um ou mais blocos selecionados, somente os blocos selecionados passam a usar aquela espessura fixa.
+- **Multiseleção de Blocos (Clique e Arraste ou `Shift + Clique`):**
+  - Com a ferramenta de ponteiro selecionada, basta **clicar na área livre e arrastar** para desenhar uma caixa de seleção e capturar diversos blocos de uma só vez (ou usar `Shift + Clique` em cada bloco).
+  - Com múltiplos blocos selecionados, você pode **movimentar todos juntos**, **redimensionar o conjunto pelas âncoras**, **alterar cores e espessura de linha de todos de uma vez** ou **apagar todos com `Delete`**.
+- **Excluir Bloco Selecionado (`Delete`):** Ao selecionar um ou mais blocos e pressionar a tecla **`Delete`** (ou `Backspace` fora da edição de texto), os blocos selecionados são apagados imediatamente.
+- **Desfazer (Undo) e Refazer (Redo):** Atalhos `Ctrl+Z` (Desfazer) e `Ctrl+Shift+Z` / `Ctrl+Y` (Refazer) ou botões visuais na barra para reverter qualquer ação.
 - **Desselecionar (`ESC`) e Salvar (`Ctrl+S`):** Pressionar `ESC` desmarca qualquer bloco selecionado mantendo os blocos móveis até que o usuário salve a imagem com `Ctrl+S` ou pelo menu Salvar/Exportar.
 
 ---

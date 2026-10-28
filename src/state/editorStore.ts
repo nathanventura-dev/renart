@@ -7,6 +7,10 @@ export interface BaseAnnotation {
   y?: number;
   stroke?: string;
   strokeWidth?: number;
+  autoStrokeWidth?: boolean;
+  scaleX?: number;
+  scaleY?: number;
+  rotation?: number;
 }
 
 export interface RectAnnotation extends BaseAnnotation {
@@ -70,8 +74,10 @@ export interface EditorState {
   annotations: Annotation[];
   activeTool: ToolType;
   selectedId: string | null;
+  selectedIds: string[];
   strokeColor: string;
   strokeWidth: number;
+  autoStrokeWidth: boolean;
   fontSize: number;
   isLocked: boolean;
 }
@@ -84,12 +90,18 @@ interface CaptureEditorSession {
 }
 
 export function createEditorStore(initialState?: Partial<EditorState>) {
+  const initialSelectedId = initialState?.selectedId ?? null;
+  const initialSelectedIds =
+    initialState?.selectedIds ?? (initialSelectedId ? [initialSelectedId] : []);
+
   let state: EditorState = {
     annotations: [],
     activeTool: 'select',
-    selectedId: null,
+    selectedId: initialSelectedId,
+    selectedIds: initialSelectedIds,
     strokeColor: '#ff3b30',
     strokeWidth: 3,
+    autoStrokeWidth: true,
     fontSize: 16,
     isLocked: false,
     ...initialState,
@@ -113,6 +125,25 @@ export function createEditorStore(initialState?: Partial<EditorState>) {
     });
   };
 
+  const syncToolbarWithSelection = (ids: string[], annotations: Annotation[]) => {
+    if (ids.length === 0) return {};
+    const firstSelected = annotations.find((a) => a.id === ids[0]);
+    if (!firstSelected) return {};
+
+    const nextColor =
+      firstSelected.type === 'text'
+        ? firstSelected.fill || state.strokeColor
+        : firstSelected.stroke || state.strokeColor;
+    const nextWidth = firstSelected.strokeWidth ?? state.strokeWidth;
+    const nextAuto = firstSelected.autoStrokeWidth ?? state.autoStrokeWidth;
+
+    return {
+      strokeColor: nextColor,
+      strokeWidth: nextWidth,
+      autoStrokeWidth: nextAuto,
+    };
+  };
+
   return {
     getState: () => state,
     subscribe: (listener: () => void) => {
@@ -129,7 +160,6 @@ export function createEditorStore(initialState?: Partial<EditorState>) {
         return;
       }
 
-      // Salva o estado da imagem anterior
       saveCurrentSession();
 
       activeCaptureId = captureId;
@@ -146,6 +176,7 @@ export function createEditorStore(initialState?: Partial<EditorState>) {
           annotations: [...targetSession.annotations],
           isLocked: targetSession.isLocked,
           selectedId: null,
+          selectedIds: [],
         };
       } else {
         state = {
@@ -153,6 +184,7 @@ export function createEditorStore(initialState?: Partial<EditorState>) {
           annotations: [],
           isLocked: false,
           selectedId: null,
+          selectedIds: [],
         };
         saveCurrentSession();
       }
@@ -165,22 +197,114 @@ export function createEditorStore(initialState?: Partial<EditorState>) {
     },
 
     setActiveTool: (tool: ToolType) => {
-      state = { ...state, activeTool: tool, selectedId: null };
+      state = { ...state, activeTool: tool, selectedId: null, selectedIds: [] };
       notify();
     },
 
     setSelectedId: (id: string | null) => {
-      state = { ...state, selectedId: id };
+      const ids = id ? [id] : [];
+      const synced = syncToolbarWithSelection(ids, state.annotations);
+      state = {
+        ...state,
+        ...synced,
+        selectedId: id,
+        selectedIds: ids,
+      };
+      notify();
+    },
+
+    setSelectedIds: (ids: string[]) => {
+      const uniqueIds = Array.from(new Set(ids));
+      const synced = syncToolbarWithSelection(uniqueIds, state.annotations);
+      state = {
+        ...state,
+        ...synced,
+        selectedId: uniqueIds[0] ?? null,
+        selectedIds: uniqueIds,
+      };
+      notify();
+    },
+
+    toggleSelectedId: (id: string) => {
+      const exists = state.selectedIds.includes(id);
+      const nextIds = exists
+        ? state.selectedIds.filter((item) => item !== id)
+        : [...state.selectedIds, id];
+      const synced = syncToolbarWithSelection(nextIds, state.annotations);
+      state = {
+        ...state,
+        ...synced,
+        selectedId: nextIds[0] ?? null,
+        selectedIds: nextIds,
+      };
       notify();
     },
 
     setStrokeColor: (color: string) => {
-      state = { ...state, strokeColor: color };
+      if (state.selectedIds.length > 0 && !state.isLocked) {
+        const selectedSet = new Set(state.selectedIds);
+        undoStack.push([...state.annotations]);
+        redoStack.length = 0;
+        state = {
+          ...state,
+          strokeColor: color,
+          annotations: state.annotations.map((ann) => {
+            if (!selectedSet.has(ann.id)) return ann;
+            if (ann.type === 'text') {
+              return { ...ann, fill: color };
+            }
+            return { ...ann, stroke: color };
+          }),
+        };
+      } else {
+        state = { ...state, strokeColor: color };
+      }
       notify();
     },
 
     setStrokeWidth: (width: number) => {
-      state = { ...state, strokeWidth: width };
+      if (state.selectedIds.length > 0 && !state.isLocked) {
+        const selectedSet = new Set(state.selectedIds);
+        undoStack.push([...state.annotations]);
+        redoStack.length = 0;
+        state = {
+          ...state,
+          strokeWidth: width,
+          autoStrokeWidth: false,
+          annotations: state.annotations.map((ann) => {
+            if (!selectedSet.has(ann.id)) return ann;
+            return {
+              ...ann,
+              strokeWidth: width,
+              autoStrokeWidth: false,
+            };
+          }),
+        };
+      } else {
+        state = { ...state, strokeWidth: width };
+      }
+      notify();
+    },
+
+    setAutoStrokeWidth: (auto: boolean) => {
+      if (state.selectedIds.length > 0 && !state.isLocked) {
+        const selectedSet = new Set(state.selectedIds);
+        undoStack.push([...state.annotations]);
+        redoStack.length = 0;
+        state = {
+          ...state,
+          autoStrokeWidth: auto,
+          annotations: state.annotations.map((ann) => {
+            if (!selectedSet.has(ann.id)) return ann;
+            return {
+              ...ann,
+              autoStrokeWidth: auto,
+            };
+          }),
+        };
+      } else {
+        state = { ...state, autoStrokeWidth: auto };
+      }
       notify();
     },
 
@@ -197,12 +321,17 @@ export function createEditorStore(initialState?: Partial<EditorState>) {
 
     addAnnotation: (annotation: Annotation) => {
       undoStack.push([...state.annotations]);
-      redoStack.length = 0; // limpa o redo ao fazer uma nova ação
+      redoStack.length = 0;
+      const withDefaults: Annotation = {
+        ...annotation,
+        autoStrokeWidth: annotation.autoStrokeWidth ?? state.autoStrokeWidth,
+      };
       state = {
         ...state,
-        annotations: [...state.annotations, annotation],
-        selectedId: annotation.id,
-        isLocked: false, // nova edição desbloqueia o canvas para movimentação
+        annotations: [...state.annotations, withDefaults],
+        selectedId: withDefaults.id,
+        selectedIds: [withDefaults.id],
+        isLocked: false,
       };
       notify();
     },
@@ -212,7 +341,24 @@ export function createEditorStore(initialState?: Partial<EditorState>) {
       redoStack.length = 0;
       state = {
         ...state,
-        annotations: state.annotations.map((a) => (a.id === id ? ({ ...a, ...updates } as Annotation) : a)),
+        annotations: state.annotations.map((a) =>
+          a.id === id ? ({ ...a, ...updates } as Annotation) : a
+        ),
+        isLocked: false,
+      };
+      notify();
+    },
+
+    updateAnnotations: (updatesById: Record<string, Partial<Annotation>>) => {
+      const ids = Object.keys(updatesById);
+      if (ids.length === 0) return;
+      undoStack.push([...state.annotations]);
+      redoStack.length = 0;
+      state = {
+        ...state,
+        annotations: state.annotations.map((a) =>
+          updatesById[a.id] ? ({ ...a, ...updatesById[a.id] } as Annotation) : a
+        ),
         isLocked: false,
       };
       notify();
@@ -221,20 +367,28 @@ export function createEditorStore(initialState?: Partial<EditorState>) {
     removeAnnotation: (id: string) => {
       undoStack.push([...state.annotations]);
       redoStack.length = 0;
+      const nextSelectedIds = state.selectedIds.filter((item) => item !== id);
       state = {
         ...state,
         annotations: state.annotations.filter((a) => a.id !== id),
-        selectedId: state.selectedId === id ? null : state.selectedId,
+        selectedId: nextSelectedIds[0] ?? null,
+        selectedIds: nextSelectedIds,
       };
       notify();
     },
 
     removeSelectedAnnotation: (): boolean => {
-      if (!state.selectedId || state.isLocked) {
+      const targets =
+        state.selectedIds.length > 0
+          ? state.selectedIds
+          : state.selectedId
+            ? [state.selectedId]
+            : [];
+      if (targets.length === 0 || state.isLocked) {
         return false;
       }
-      const targetId = state.selectedId;
-      const exists = state.annotations.some((a) => a.id === targetId);
+      const targetSet = new Set(targets);
+      const exists = state.annotations.some((a) => targetSet.has(a.id));
       if (!exists) {
         return false;
       }
@@ -242,8 +396,9 @@ export function createEditorStore(initialState?: Partial<EditorState>) {
       redoStack.length = 0;
       state = {
         ...state,
-        annotations: state.annotations.filter((a) => a.id !== targetId),
+        annotations: state.annotations.filter((a) => !targetSet.has(a.id)),
         selectedId: null,
+        selectedIds: [],
       };
       notify();
       return true;
@@ -256,7 +411,7 @@ export function createEditorStore(initialState?: Partial<EditorState>) {
       if (undoStack.length === 0) return;
       redoStack.push([...state.annotations]);
       const prev = undoStack.pop()!;
-      state = { ...state, annotations: prev, selectedId: null };
+      state = { ...state, annotations: prev, selectedId: null, selectedIds: [] };
       notify();
     },
 
@@ -264,7 +419,7 @@ export function createEditorStore(initialState?: Partial<EditorState>) {
       if (redoStack.length === 0) return;
       undoStack.push([...state.annotations]);
       const next = redoStack.pop()!;
-      state = { ...state, annotations: next, selectedId: null };
+      state = { ...state, annotations: next, selectedId: null, selectedIds: [] };
       notify();
     },
   };

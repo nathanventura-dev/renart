@@ -11,6 +11,7 @@ import {
   calculateZoomBarProgress,
   shouldAttachTransformer,
   isTargetExistingAnnotation,
+  getAnnotationsInSelectionBox,
 } from '../src/utils/magnifierAndHover';
 
 describe('Magnifier Zoom & Rotating Crown (Coroa Giratória)', () => {
@@ -167,5 +168,22 @@ describe('Smart Hover & Drag-and-Drop Pointer Recognition', () => {
         clickAction: 'create-new',
       });
     }
+  });
+
+  it('identifies all annotations intersecting a marquee selection box when clicking and dragging', () => {
+    const annotations = [
+      { id: 'r1', type: 'rect' as const, x: 20, y: 20, width: 50, height: 40 },
+      { id: 'a1', type: 'arrow' as const, x: 0, y: 0, points: [80, 30, 140, 70] },
+      { id: 'e1', type: 'ellipse' as const, x: 400, y: 400, radiusX: 30, radiusY: 20 },
+    ];
+
+    const selected = getAnnotationsInSelectionBox(annotations, {
+      x: 10,
+      y: 10,
+      width: 150,
+      height: 90,
+    });
+
+    expect(selected).toEqual(['r1', 'a1']);
   });
 });

@@ -1,5 +1,17 @@
-import React, { useRef, useState, useEffect } from 'react';
-import { Stage, Layer, Image as KonvaImage, Rect, Ellipse, Arrow, Text, Transformer, Circle, Group, Line } from 'react-konva';
+import React, { useRef, useState, useEffect, useMemo } from 'react';
+import {
+  Stage,
+  Layer,
+  Image as KonvaImage,
+  Rect,
+  Ellipse,
+  Arrow,
+  Text,
+  Transformer,
+  Circle,
+  Group,
+  Line,
+} from 'react-konva';
 import Konva from 'konva';
 import { Annotation, ToolType, ImageAnnotation } from '../state/editorStore';
 import {
@@ -10,6 +22,7 @@ import {
   calculateZoomBarProgress,
   shouldAttachTransformer,
   isTargetExistingAnnotation,
+  getAnnotationsInSelectionBox,
 } from '../utils/magnifierAndHover';
 
 interface CanvasEditorProps {
@@ -17,13 +30,18 @@ interface CanvasEditorProps {
   annotations: Annotation[];
   activeTool: ToolType;
   selectedId: string | null;
+  selectedIds?: string[];
   strokeColor: string;
   strokeWidth: number;
+  autoStrokeWidth?: boolean;
   fontSize: number;
   isLocked?: boolean;
   onSelectId: (id: string | null) => void;
+  onSelectIds?: (ids: string[]) => void;
+  onToggleSelectId?: (id: string) => void;
   onAddAnnotation: (annotation: Annotation) => void;
   onUpdateAnnotation: (id: string, updates: Partial<Annotation>) => void;
+  onUpdateAnnotations?: (updatesById: Record<string, Partial<Annotation>>) => void;
   stageRef: React.RefObject<Konva.Stage | null>;
 }
 
@@ -43,14 +61,34 @@ interface CrownDragState {
   currentZoom: number;
 }
 
+interface MarqueeSelectionState {
+  startX: number;
+  startY: number;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
 const InsertedImageNode: React.FC<{
   ann: ImageAnnotation;
   canDrag: boolean;
-  onSelect: () => void;
+  onSelect: (e: Konva.KonvaEventObject<MouseEvent>) => void;
+  onDragStart: (e: Konva.KonvaEventObject<DragEvent>) => void;
+  onDragMove: (e: Konva.KonvaEventObject<DragEvent>) => void;
+  onDragEnd: (e: Konva.KonvaEventObject<DragEvent>) => void;
   onMouseEnter: () => void;
   onMouseLeave: () => void;
-  onDragEnd: (x: number, y: number) => void;
-}> = ({ ann, canDrag, onSelect, onMouseEnter, onMouseLeave, onDragEnd }) => {
+}> = ({
+  ann,
+  canDrag,
+  onSelect,
+  onDragStart,
+  onDragMove,
+  onDragEnd,
+  onMouseEnter,
+  onMouseLeave,
+}) => {
   const [img, setImg] = useState<HTMLImageElement | null>(null);
 
   useEffect(() => {
@@ -69,12 +107,16 @@ const InsertedImageNode: React.FC<{
       y={ann.y}
       width={ann.width}
       height={ann.height}
+      scaleX={ann.scaleX ?? 1}
+      scaleY={ann.scaleY ?? 1}
+      rotation={ann.rotation ?? 0}
       draggable={canDrag}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
       onClick={onSelect}
-      onDragStart={onSelect}
-      onDragEnd={(e) => onDragEnd(e.target.x(), e.target.y())}
+      onDragStart={onDragStart}
+      onDragMove={onDragMove}
+      onDragEnd={onDragEnd}
     />
   );
 };
@@ -84,18 +126,24 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
   annotations,
   activeTool,
   selectedId,
+  selectedIds,
   strokeColor,
   strokeWidth,
+  autoStrokeWidth = true,
   fontSize,
   isLocked = false,
   onSelectId,
+  onSelectIds,
+  onToggleSelectId,
   onAddAnnotation,
   onUpdateAnnotation,
+  onUpdateAnnotations,
   stageRef,
 }) => {
   const [bgImage, setBgImage] = useState<HTMLImageElement | null>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [newAnnotation, setNewAnnotation] = useState<Annotation | null>(null);
+  const [marqueeBox, setMarqueeBox] = useState<MarqueeSelectionState | null>(null);
   const [editingText, setEditingText] = useState<InlineEditingText | null>(null);
   const [isHoveringBlock, setIsHoveringBlock] = useState(false);
   const [isHoveringCrown, setIsHoveringCrown] = useState(false);
@@ -105,9 +153,27 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const crownDragRef = useRef<CrownDragState | null>(null);
   const onUpdateAnnotationRef = useRef(onUpdateAnnotation);
+  const multiDragStartRef = useRef<{
+    draggedId: string;
+    initialPositions: Record<string, { x: number; y: number }>;
+  } | null>(null);
 
   crownDragRef.current = crownDrag;
   onUpdateAnnotationRef.current = onUpdateAnnotation;
+
+  // Lista normalizada de IDs selecionados (compatível com seleção única ou multiseleção)
+  const effectiveSelectedIds = useMemo(() => {
+    if (selectedIds && selectedIds.length > 0) return selectedIds;
+    return selectedId ? [selectedId] : [];
+  }, [selectedIds, selectedId]);
+
+  const applySelectionIds = (ids: string[]) => {
+    if (onSelectIds) {
+      onSelectIds(ids);
+    } else {
+      onSelectId(ids[0] ?? null);
+    }
+  };
 
   useEffect(() => {
     if (!imageBase64) return;
@@ -123,6 +189,7 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
     setIsHoveringCrown(false);
     setIsDrawing(false);
     setNewAnnotation(null);
+    setMarqueeBox(null);
   }, [activeTool, imageBase64, annotations.length]);
 
   const isDraggingCrown = Boolean(crownDrag);
@@ -162,7 +229,7 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        onSelectId(null);
+        applySelectionIds([]);
         if (editingText) {
           setEditingText(null);
         }
@@ -170,23 +237,29 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onSelectId, editingText]);
+  }, [editingText]);
 
-  // Atualiza a seleção no Transformer do Konva (excluindo a lupa circular para manter movimentação livre)
+  // Atualiza a seleção simples ou múltipla no Transformer do Konva
   useEffect(() => {
     if (!transformerRef.current || !stageRef.current) return;
-    const selectedAnn = annotations.find((a) => a.id === selectedId);
-    if (selectedId && !isLocked && selectedAnn && shouldAttachTransformer(selectedAnn.type)) {
-      const selectedNode = stageRef.current.findOne(`#${selectedId}`);
-      if (selectedNode) {
-        transformerRef.current.nodes([selectedNode]);
-        transformerRef.current.getLayer()?.batchDraw();
+    if (effectiveSelectedIds.length > 0 && !isLocked) {
+      const nodes: Konva.Node[] = [];
+      for (const id of effectiveSelectedIds) {
+        const ann = annotations.find((a) => a.id === id);
+        if (ann && shouldAttachTransformer(ann.type)) {
+          const found = stageRef.current.findOne(`#${id}`);
+          if (found) {
+            nodes.push(found);
+          }
+        }
       }
+      transformerRef.current.nodes(nodes);
+      transformerRef.current.getLayer()?.batchDraw();
     } else {
       transformerRef.current.nodes([]);
       transformerRef.current.getLayer()?.batchDraw();
     }
-  }, [selectedId, annotations, isLocked, stageRef]);
+  }, [effectiveSelectedIds, annotations, isLocked, stageRef]);
 
   // Resolve o estilo do cursor dinamicamente conforme hover em blocos ou coroa da lupa
   const pointerBehavior = resolveCanvasPointerBehavior(activeTool, isHoveringBlock, isLocked);
@@ -205,35 +278,197 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
     setIsHoveringBlock(false);
   };
 
+  // Clique em um bloco: suporta Shift+Clique para adicionar/remover da multiseleção
+  const handleBlockClick = (id: string, e: Konva.KonvaEventObject<MouseEvent>) => {
+    if (e.evt.shiftKey && onToggleSelectId) {
+      onToggleSelectId(id);
+      return;
+    }
+    if (!effectiveSelectedIds.includes(id)) {
+      applySelectionIds([id]);
+    }
+  };
+
+  // Início do arraste de um bloco (suporta arrastar múltiplos blocos selecionados juntos)
+  const handleBlockDragStart = (id: string) => {
+    let activeIds = effectiveSelectedIds;
+    if (!activeIds.includes(id)) {
+      activeIds = [id];
+      applySelectionIds([id]);
+    }
+
+    if (activeIds.length > 1 && stageRef.current) {
+      const initialPositions: Record<string, { x: number; y: number }> = {};
+      for (const selId of activeIds) {
+        const node = stageRef.current.findOne(`#${selId}`);
+        if (node) {
+          initialPositions[selId] = { x: node.x(), y: node.y() };
+        }
+      }
+      multiDragStartRef.current = { draggedId: id, initialPositions };
+    } else {
+      multiDragStartRef.current = null;
+    }
+  };
+
+  // Movimento de arraste em tempo real (move todos os blocos da multiseleção juntos + atualiza lupa)
+  const handleBlockDragMove = (id: string, e: Konva.KonvaEventObject<DragEvent>) => {
+    const draggedNode = e.currentTarget;
+
+    // Se o próprio bloco arrastado for uma lupa, atualiza a imagem interna da lente
+    const draggedAnn = annotations.find((a) => a.id === id);
+    if (draggedAnn?.type === 'magnifier') {
+      const group = draggedNode as Konva.Group;
+      const lensImg = group.findOne('.magnifier-lens-image');
+      if (lensImg) {
+        const activeZoom =
+          crownDrag && crownDrag.id === draggedAnn.id ? crownDrag.currentZoom : draggedAnn.zoomLevel;
+        const nextTransform = calculateMagnifierImageTransform(group.x(), group.y(), activeZoom);
+        lensImg.position({ x: nextTransform.x, y: nextTransform.y });
+      }
+    }
+
+    const multi = multiDragStartRef.current;
+    if (!multi || multi.draggedId !== id || !stageRef.current) return;
+
+    const startPos = multi.initialPositions[id];
+    if (!startPos) return;
+
+    const dx = draggedNode.x() - startPos.x;
+    const dy = draggedNode.y() - startPos.y;
+
+    for (const [otherId, initPos] of Object.entries(multi.initialPositions)) {
+      if (otherId === id) continue;
+      const otherNode = stageRef.current.findOne(`#${otherId}`);
+      if (otherNode) {
+        const nextX = initPos.x + dx;
+        const nextY = initPos.y + dy;
+        otherNode.position({ x: nextX, y: nextY });
+
+        const otherAnn = annotations.find((a) => a.id === otherId);
+        if (otherAnn?.type === 'magnifier') {
+          const lensImg = (otherNode as Konva.Group).findOne('.magnifier-lens-image');
+          if (lensImg) {
+            const nextTransform = calculateMagnifierImageTransform(
+              nextX,
+              nextY,
+              otherAnn.zoomLevel
+            );
+            lensImg.position({ x: nextTransform.x, y: nextTransform.y });
+          }
+        }
+      }
+    }
+  };
+
+  // Finalização do arraste (salva posição única ou de todos os blocos da multiseleção)
+  const handleBlockDragEnd = (id: string, e: Konva.KonvaEventObject<DragEvent>) => {
+    const multi = multiDragStartRef.current;
+    if (multi && multi.draggedId === id && stageRef.current && onUpdateAnnotations) {
+      const updatesById: Record<string, Partial<Annotation>> = {};
+      for (const selId of Object.keys(multi.initialPositions)) {
+        const node = stageRef.current.findOne(`#${selId}`);
+        if (node) {
+          updatesById[selId] = { x: node.x(), y: node.y() };
+        }
+      }
+      multiDragStartRef.current = null;
+      onUpdateAnnotations(updatesById);
+      return;
+    }
+
+    multiDragStartRef.current = null;
+    onUpdateAnnotation(id, {
+      x: e.currentTarget.x(),
+      y: e.currentTarget.y(),
+    });
+  };
+
+  // Salva redimensionamento / rotação feito pelo Transformer (simples ou multiseleção)
+  const handleTransformEnd = () => {
+    if (!transformerRef.current) return;
+    const nodes = transformerRef.current.nodes();
+    if (nodes.length === 0) return;
+
+    if (nodes.length === 1) {
+      const node = nodes[0];
+      onUpdateAnnotation(node.id(), {
+        x: node.x(),
+        y: node.y(),
+        scaleX: node.scaleX(),
+        scaleY: node.scaleY(),
+        rotation: node.rotation(),
+      });
+      return;
+    }
+
+    if (onUpdateAnnotations) {
+      const updatesById: Record<string, Partial<Annotation>> = {};
+      for (const node of nodes) {
+        updatesById[node.id()] = {
+          x: node.x(),
+          y: node.y(),
+          scaleX: node.scaleX(),
+          scaleY: node.scaleY(),
+          rotation: node.rotation(),
+        };
+      }
+      onUpdateAnnotations(updatesById);
+    }
+  };
+
   const handleMouseDown = (e: Konva.KonvaEventObject<MouseEvent>) => {
     const targetName = e.target.name();
     if (targetName === 'magnifier-crown') {
       return;
     }
 
+    // Se clicou em uma âncora do Transformer, deixa o Transformer agir
+    const parentName = e.target.getParent()?.className;
+    if (parentName === 'Transformer') {
+      return;
+    }
+
     const isStageTarget = e.target === e.target.getStage();
     const clickedOnEmpty = !isTargetExistingAnnotation(targetName, isStageTarget);
 
-    // Se o usuário clicou dentro da área de um bloco já existente (ou âncora do Transformer),
+    // Se o usuário clicou dentro da área de um bloco já existente,
     // permite apenas selecionar/movimentar o bloco existente sem criar um novo.
     if (!clickedOnEmpty) {
       return;
     }
 
-    // Clicou na imagem de fundo ou Stage vazio: garante que o hover de bloco seja falso e limpa seleção
+    // Clicou na imagem de fundo ou Stage vazio: garante que o hover de bloco seja falso
     if (isHoveringBlock) {
       setIsHoveringBlock(false);
-    }
-    onSelectId(null);
-
-    const emptyClickBehavior = resolveCanvasPointerBehavior(activeTool, false, isLocked);
-    if (emptyClickBehavior.clickAction !== 'create-new') {
-      return;
     }
 
     const stage = e.target.getStage();
     const pos = stage?.getPointerPosition();
     if (!pos) return;
+
+    // Se a ferramenta de ponteiro ('select') está ativa, clicar e arrastar na área vazia inicia a Caixa de Multiseleção!
+    if (activeTool === 'select') {
+      applySelectionIds([]);
+      if (!isLocked) {
+        setMarqueeBox({
+          startX: pos.x,
+          startY: pos.y,
+          x: pos.x,
+          y: pos.y,
+          width: 0,
+          height: 0,
+        });
+      }
+      return;
+    }
+
+    applySelectionIds([]);
+
+    const emptyClickBehavior = resolveCanvasPointerBehavior(activeTool, false, isLocked);
+    if (emptyClickBehavior.clickAction !== 'create-new') {
+      return;
+    }
 
     const id = `ann-${Date.now()}`;
 
@@ -249,7 +484,7 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
         fill: strokeColor,
       };
       onAddAnnotation(textAnn);
-      onSelectId(id);
+      applySelectionIds([id]);
       setEditingText({
         id,
         x: pos.x,
@@ -285,6 +520,7 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
         height: 1,
         stroke: strokeColor,
         strokeWidth,
+        autoStrokeWidth,
       });
     } else if (activeTool === 'ellipse') {
       setNewAnnotation({
@@ -296,6 +532,7 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
         radiusY: 1,
         stroke: strokeColor,
         strokeWidth,
+        autoStrokeWidth,
       });
     } else if (activeTool === 'arrow') {
       setNewAnnotation({
@@ -306,6 +543,7 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
         points: [pos.x, pos.y, pos.x, pos.y],
         stroke: strokeColor,
         strokeWidth,
+        autoStrokeWidth,
       });
     }
   };
@@ -314,7 +552,7 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
     const targetName = e.target.name();
     const isStageTarget = e.target === e.target.getStage();
 
-    if (!isDrawing) {
+    if (!isDrawing && !marqueeBox) {
       if (targetName === 'magnifier-crown') {
         if (!isHoveringCrown) setIsHoveringCrown(true);
         if (isHoveringBlock) setIsHoveringBlock(false);
@@ -327,10 +565,28 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
       }
     }
 
-    if (!isDrawing || !newAnnotation) return;
     const stage = e.target.getStage();
     const pos = stage?.getPointerPosition();
     if (!pos) return;
+
+    // Atualização em tempo real da Caixa de Multiseleção (clique e arraste)
+    if (marqueeBox) {
+      const nextBox: MarqueeSelectionState = {
+        ...marqueeBox,
+        x: Math.min(marqueeBox.startX, pos.x),
+        y: Math.min(marqueeBox.startY, pos.y),
+        width: Math.abs(pos.x - marqueeBox.startX),
+        height: Math.abs(pos.y - marqueeBox.startY),
+      };
+      setMarqueeBox(nextBox);
+      if (nextBox.width > 3 || nextBox.height > 3) {
+        const hitIds = getAnnotationsInSelectionBox(annotations, nextBox);
+        applySelectionIds(hitIds);
+      }
+      return;
+    }
+
+    if (!isDrawing || !newAnnotation) return;
 
     if (newAnnotation.type === 'rect') {
       const width = pos.x - newAnnotation.x;
@@ -347,6 +603,15 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
   };
 
   const handleMouseUp = () => {
+    if (marqueeBox) {
+      if (marqueeBox.width > 3 || marqueeBox.height > 3) {
+        const hitIds = getAnnotationsInSelectionBox(annotations, marqueeBox);
+        applySelectionIds(hitIds);
+      }
+      setMarqueeBox(null);
+      return;
+    }
+
     if (!isDrawing || !newAnnotation) return;
     setIsDrawing(false);
 
@@ -408,6 +673,7 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
           <Layer>
             {annotations.map((ann) => {
               const canDrag = !isLocked && (!crownDrag || crownDrag.id !== ann.id);
+              const strokeScaleEnabled = ann.autoStrokeWidth ?? true;
 
               if (ann.type === 'rect') {
                 return (
@@ -418,15 +684,20 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                     y={ann.y}
                     width={ann.width}
                     height={ann.height}
+                    scaleX={ann.scaleX ?? 1}
+                    scaleY={ann.scaleY ?? 1}
+                    rotation={ann.rotation ?? 0}
                     fill="rgba(0, 0, 0, 0.001)"
                     stroke={ann.stroke}
                     strokeWidth={ann.strokeWidth}
+                    strokeScaleEnabled={strokeScaleEnabled}
                     draggable={canDrag}
                     onMouseEnter={handleBlockMouseEnter}
                     onMouseLeave={handleBlockMouseLeave}
-                    onClick={() => onSelectId(ann.id)}
-                    onDragStart={() => onSelectId(ann.id)}
-                    onDragEnd={(e) => onUpdateAnnotation(ann.id, { x: e.target.x(), y: e.target.y() })}
+                    onClick={(e) => handleBlockClick(ann.id, e)}
+                    onDragStart={() => handleBlockDragStart(ann.id)}
+                    onDragMove={(e) => handleBlockDragMove(ann.id, e)}
+                    onDragEnd={(e) => handleBlockDragEnd(ann.id, e)}
                   />
                 );
               }
@@ -440,15 +711,20 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                     y={ann.y}
                     radiusX={ann.radiusX}
                     radiusY={ann.radiusY}
+                    scaleX={ann.scaleX ?? 1}
+                    scaleY={ann.scaleY ?? 1}
+                    rotation={ann.rotation ?? 0}
                     fill="rgba(0, 0, 0, 0.001)"
                     stroke={ann.stroke}
                     strokeWidth={ann.strokeWidth}
+                    strokeScaleEnabled={strokeScaleEnabled}
                     draggable={canDrag}
                     onMouseEnter={handleBlockMouseEnter}
                     onMouseLeave={handleBlockMouseLeave}
-                    onClick={() => onSelectId(ann.id)}
-                    onDragStart={() => onSelectId(ann.id)}
-                    onDragEnd={(e) => onUpdateAnnotation(ann.id, { x: e.target.x(), y: e.target.y() })}
+                    onClick={(e) => handleBlockClick(ann.id, e)}
+                    onDragStart={() => handleBlockDragStart(ann.id)}
+                    onDragMove={(e) => handleBlockDragMove(ann.id, e)}
+                    onDragEnd={(e) => handleBlockDragEnd(ann.id, e)}
                   />
                 );
               }
@@ -461,8 +737,12 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                     x={ann.x || 0}
                     y={ann.y || 0}
                     points={ann.points}
+                    scaleX={ann.scaleX ?? 1}
+                    scaleY={ann.scaleY ?? 1}
+                    rotation={ann.rotation ?? 0}
                     stroke={ann.stroke}
                     strokeWidth={ann.strokeWidth}
+                    strokeScaleEnabled={strokeScaleEnabled}
                     hitStrokeWidth={20}
                     fill={ann.stroke}
                     pointerLength={10}
@@ -470,9 +750,10 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                     draggable={canDrag}
                     onMouseEnter={handleBlockMouseEnter}
                     onMouseLeave={handleBlockMouseLeave}
-                    onClick={() => onSelectId(ann.id)}
-                    onDragStart={() => onSelectId(ann.id)}
-                    onDragEnd={(e) => onUpdateAnnotation(ann.id, { x: e.target.x(), y: e.target.y() })}
+                    onClick={(e) => handleBlockClick(ann.id, e)}
+                    onDragStart={() => handleBlockDragStart(ann.id)}
+                    onDragMove={(e) => handleBlockDragMove(ann.id, e)}
+                    onDragEnd={(e) => handleBlockDragEnd(ann.id, e)}
                   />
                 );
               }
@@ -487,14 +768,18 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                     text={ann.text}
                     fontSize={ann.fontSize}
                     fill={ann.fill || '#000000'}
+                    scaleX={ann.scaleX ?? 1}
+                    scaleY={ann.scaleY ?? 1}
+                    rotation={ann.rotation ?? 0}
                     draggable={canDrag}
                     onMouseEnter={handleBlockMouseEnter}
                     onMouseLeave={handleBlockMouseLeave}
-                    onClick={() => onSelectId(ann.id)}
-                    onDragStart={() => onSelectId(ann.id)}
-                    onDragEnd={(e) => onUpdateAnnotation(ann.id, { x: e.target.x(), y: e.target.y() })}
+                    onClick={(e) => handleBlockClick(ann.id, e)}
+                    onDragStart={() => handleBlockDragStart(ann.id)}
+                    onDragMove={(e) => handleBlockDragMove(ann.id, e)}
+                    onDragEnd={(e) => handleBlockDragEnd(ann.id, e)}
                     onDblClick={() => {
-                      onSelectId(ann.id);
+                      applySelectionIds([ann.id]);
                       setEditingText({
                         id: ann.id,
                         x: ann.x,
@@ -514,10 +799,12 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                     key={ann.id}
                     ann={ann}
                     canDrag={canDrag}
-                    onSelect={() => onSelectId(ann.id)}
+                    onSelect={(e) => handleBlockClick(ann.id, e)}
                     onMouseEnter={handleBlockMouseEnter}
                     onMouseLeave={handleBlockMouseLeave}
-                    onDragEnd={(x, y) => onUpdateAnnotation(ann.id, { x, y })}
+                    onDragStart={() => handleBlockDragStart(ann.id)}
+                    onDragMove={(e) => handleBlockDragMove(ann.id, e)}
+                    onDragEnd={(e) => handleBlockDragEnd(ann.id, e)}
                   />
                 );
               }
@@ -529,8 +816,7 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                 const imgTransform = calculateMagnifierImageTransform(ann.x, ann.y, activeZoom);
                 const showZoomBar = shouldShowZoomBar(crownDrag ? crownDrag.id : null, ann.id);
                 const zoomProgress = calculateZoomBarProgress(activeZoom);
-                const isSelected = selectedId === ann.id;
-                // Deslocamento sutil das ranhuras da coroa minimalista conforme o giro [-4px .. +4px]
+                const isSelected = effectiveSelectedIds.includes(ann.id);
                 const grooveShift = (activeZoom - 2.0) * 4;
 
                 return (
@@ -543,30 +829,10 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                     onMouseEnter={handleBlockMouseEnter}
                     onMouseMove={handleBlockMouseEnter}
                     onMouseLeave={handleBlockMouseLeave}
-                    onClick={() => onSelectId(ann.id)}
-                    onDragStart={() => {
-                      if (selectedId !== ann.id) {
-                        onSelectId(ann.id);
-                      }
-                    }}
-                    onDragMove={(e) => {
-                      const group = e.currentTarget as Konva.Group;
-                      const lensImg = group.findOne('.magnifier-lens-image');
-                      if (lensImg) {
-                        const nextTransform = calculateMagnifierImageTransform(
-                          group.x(),
-                          group.y(),
-                          activeZoom
-                        );
-                        lensImg.position({ x: nextTransform.x, y: nextTransform.y });
-                      }
-                    }}
-                    onDragEnd={(e) => {
-                      onUpdateAnnotation(ann.id, {
-                        x: e.currentTarget.x(),
-                        y: e.currentTarget.y(),
-                      });
-                    }}
+                    onClick={(e) => handleBlockClick(ann.id, e)}
+                    onDragStart={() => handleBlockDragStart(ann.id)}
+                    onDragMove={(e) => handleBlockDragMove(ann.id, e)}
+                    onDragEnd={(e) => handleBlockDragEnd(ann.id, e)}
                   >
                     {/* Lente Circular com Recorte e Ampliação Real da Imagem */}
                     <Group
@@ -606,11 +872,11 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                       }}
                     />
 
-                    {/* Aro Minimalista Discreto da Lupa */}
+                    {/* Aro Minimalista Discreto da Lupa (suporta cor customizada quando alterada pelo usuário) */}
                     <Circle
                       radius={ann.radius}
-                      stroke={isSelected ? '#0071e3' : '#64748b'}
-                      strokeWidth={isSelected ? 2 : 1.5}
+                      stroke={ann.stroke || (isSelected ? '#0071e3' : '#64748b')}
+                      strokeWidth={ann.strokeWidth || (isSelected ? 2 : 1.5)}
                       listening={false}
                     />
 
@@ -629,8 +895,8 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                         if (parentGroup?.isDragging()) {
                           parentGroup.stopDrag();
                         }
-                        if (selectedId !== ann.id) {
-                          onSelectId(ann.id);
+                        if (!effectiveSelectedIds.includes(ann.id)) {
+                          applySelectionIds([ann.id]);
                         }
                         setCrownDrag({
                           id: ann.id,
@@ -640,7 +906,6 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                         });
                       }}
                     >
-                      {/* Área de toque confortável e invisível na parte de baixo */}
                       <Rect
                         name="magnifier-crown"
                         x={-20}
@@ -650,7 +915,6 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                         fill="rgba(0, 0, 0, 0.001)"
                       />
 
-                      {/* Cápsula minimalista da coroa giratória */}
                       <Rect
                         name="magnifier-crown"
                         x={-14}
@@ -663,7 +927,6 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                         strokeWidth={1}
                       />
 
-                      {/* Ranhuras minimalistas que acompanham o giro da coroa */}
                       {[-5, 0, 5].map((tickOffset) => (
                         <Line
                           key={tickOffset}
@@ -693,7 +956,6 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                           stroke="rgba(148, 163, 184, 0.4)"
                           strokeWidth={1}
                         />
-                        {/* Trilho de progresso minimalista */}
                         <Rect
                           x={-34}
                           y={9}
@@ -710,7 +972,6 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                           cornerRadius={2}
                           fill="#f8fafc"
                         />
-                        {/* Indicador numérico enxuto */}
                         <Text
                           x={10}
                           y={5}
@@ -766,8 +1027,24 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
               </>
             )}
 
-            {/* Transformer de Redimensionamento */}
-            <Transformer ref={transformerRef} />
+            {/* Caixa de Multiseleção (Clique e Arraste com o Ponteiro) */}
+            {marqueeBox && (marqueeBox.width > 2 || marqueeBox.height > 2) && (
+              <Rect
+                name="marquee-selection-box"
+                x={marqueeBox.x}
+                y={marqueeBox.y}
+                width={marqueeBox.width}
+                height={marqueeBox.height}
+                fill="rgba(0, 113, 227, 0.12)"
+                stroke="#0071e3"
+                strokeWidth={1.5}
+                dash={[4, 4]}
+                listening={false}
+              />
+            )}
+
+            {/* Transformer de Redimensionamento (Simples e Multiseleção) */}
+            <Transformer ref={transformerRef} onTransformEnd={handleTransformEnd} />
           </Layer>
         </Stage>
 

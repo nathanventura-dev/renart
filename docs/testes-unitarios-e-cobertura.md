@@ -54,13 +54,14 @@ Para garantir robustez, estabilidade e manutenibilidade sem regressões, os test
   - Arraste horizontal ou vertical invertido.
 - **Comando:** `cmd.exe /c npm test tests/geometry.test.ts`
 
-### 2.5. `tests/editorStore.test.ts` (Anotações e Histórico Undo/Redo)
-- **Objetivo:** Testar a integridade da lista de anotações no Canvas e a fidelidade do histórico.
+### 2.5. `tests/editorStore.test.ts` (Anotações, Estilo por Bloco, Modo Auto, Multiseleção e Undo/Redo)
+- **Objetivo:** Testar a integridade da lista de anotações no Canvas, a customização independente por bloco, o modo `"Auto"` de espessura ao redimensionar, a multiseleção de blocos e a fidelidade do histórico.
 - **Cenários Cobertos:**
   - Inserção de retângulo, círculo, flecha, texto e lupa.
-  - Modificação de cor e espessura.
-  - Execução de `undo` revertendo o estado anterior com precisão.
-  - Execução de `redo` reaplicando a ação desfeita.
+  - Modificação independente de cor e espessura da linha apenas nos blocos selecionados (sem afetar os demais blocos da imagem).
+  - Opção `"Auto"` de espessura de linha por bloco (`autoStrokeWidth`) e aplicação automática para novos blocos adicionados quando `"Auto"` está ativo.
+  - Multiseleção de blocos (`setSelectedIds`, `toggleSelectedId`, `updateAnnotations`) permitindo movimentar, redimensionar, excluir ou alterar cores e espessuras de vários blocos simultaneamente.
+  - Execução de `undo` e `redo` revertendo e reaplicando ações individuais ou em lote com precisão.
 - **Comando:** `cmd.exe /c npm test tests/editorStore.test.ts`
 
 ### 2.6. `tests/galleryStore.test.ts` (Galeria de 10 Capturas e FIFO)
