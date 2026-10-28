@@ -358,3 +358,137 @@ export function toAbsoluteBoundingBox(
     rotation: localBox.rotation,
   };
 }
+
+/**
+ * Restringe as coordenadas (x, y) de um retângulo ou imagem aos limites da imagem de fundo [0, canvas].
+ */
+export function clampRectToBounds(
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  canvasWidth: number,
+  canvasHeight: number
+): { x: number; y: number } {
+  const safeW = Math.max(0, width);
+  const safeH = Math.max(0, height);
+  const maxX = Math.max(0, canvasWidth - safeW);
+  const maxY = Math.max(0, canvasHeight - safeH);
+
+  return {
+    x: Math.max(0, Math.min(x, maxX)),
+    y: Math.max(0, Math.min(y, maxY)),
+  };
+}
+
+/**
+ * Restringe o centro (x, y) de uma elipse aos limites da imagem com base nos seus raios.
+ */
+export function clampEllipseToBounds(
+  x: number,
+  y: number,
+  radiusX: number,
+  radiusY: number,
+  canvasWidth: number,
+  canvasHeight: number
+): { x: number; y: number } {
+  const rx = Math.max(0, radiusX);
+  const ry = Math.max(0, radiusY);
+  const minX = Math.min(rx, canvasWidth / 2);
+  const maxX = Math.max(rx, canvasWidth - rx);
+  const minY = Math.min(ry, canvasHeight / 2);
+  const maxY = Math.max(ry, canvasHeight - ry);
+
+  return {
+    x: Math.max(minX, Math.min(x, maxX)),
+    y: Math.max(minY, Math.min(y, maxY)),
+  };
+}
+
+/**
+ * Restringe o deslocamento (x, y) de uma linha ou seta para que todos os seus vértices (points)
+ * permaneçam estritamente dentro da área visível da imagem.
+ */
+export function clampLinePointsToBounds(
+  x: number,
+  y: number,
+  points: number[],
+  canvasWidth: number,
+  canvasHeight: number
+): { x: number; y: number } {
+  if (!points || points.length === 0) {
+    return {
+      x: Math.max(0, Math.min(x, canvasWidth)),
+      y: Math.max(0, Math.min(y, canvasHeight)),
+    };
+  }
+
+  let minPtX = Infinity;
+  let maxPtX = -Infinity;
+  let minPtY = Infinity;
+  let maxPtY = -Infinity;
+
+  for (let i = 0; i < points.length; i += 2) {
+    const px = points[i];
+    const py = points[i + 1];
+    if (px < minPtX) minPtX = px;
+    if (px > maxPtX) maxPtX = px;
+    if (py < minPtY) minPtY = py;
+    if (py > maxPtY) maxPtY = py;
+  }
+
+  const minX = -minPtX;
+  const maxX = canvasWidth - maxPtX;
+  const minY = -minPtY;
+  const maxY = canvasHeight - maxPtY;
+
+  const clampedX = maxX >= minX ? Math.max(minX, Math.min(x, maxX)) : minX;
+  const clampedY = maxY >= minY ? Math.max(minY, Math.min(y, maxY)) : minY;
+
+  return {
+    x: clampedX,
+    y: clampedY,
+  };
+}
+
+/**
+ * Despachante universal para restringir qualquer tipo de anotação aos limites da imagem de fundo.
+ */
+export function clampAnnotationPositionToBounds(
+  ann: Annotation,
+  x: number,
+  y: number,
+  canvasWidth: number,
+  canvasHeight: number,
+  nodeWidth?: number,
+  nodeHeight?: number
+): { x: number; y: number } {
+  switch (ann.type) {
+    case 'rect':
+      return clampRectToBounds(x, y, ann.width, ann.height, canvasWidth, canvasHeight);
+    case 'image':
+      return clampRectToBounds(x, y, ann.width, ann.height, canvasWidth, canvasHeight);
+    case 'ellipse':
+      return clampEllipseToBounds(x, y, ann.radiusX, ann.radiusY, canvasWidth, canvasHeight);
+    case 'line':
+    case 'arrow':
+      return clampLinePointsToBounds(x, y, ann.points, canvasWidth, canvasHeight);
+    case 'text': {
+      const w = nodeWidth ?? 120;
+      const h = nodeHeight ?? 30;
+      return clampRectToBounds(x, y, w, h, canvasWidth, canvasHeight);
+    }
+    case 'magnifier': {
+      const r = ann.radius;
+      return {
+        x: Math.max(r, Math.min(x, canvasWidth - r)),
+        y: Math.max(r, Math.min(y, canvasHeight - r)),
+      };
+    }
+    default:
+      return {
+        x: Math.max(0, Math.min(x, canvasWidth)),
+        y: Math.max(0, Math.min(y, canvasHeight)),
+      };
+  }
+}

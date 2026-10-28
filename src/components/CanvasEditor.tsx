@@ -39,6 +39,10 @@ import {
   getTransformedDragBound,
   toLocalBoundingBox,
   toAbsoluteBoundingBox,
+  clampRectToBounds,
+  clampEllipseToBounds,
+  clampLinePointsToBounds,
+  clampAnnotationPositionToBounds,
 } from '../utils/zoomAndCrop';
 
 interface CanvasEditorProps {
@@ -132,6 +136,9 @@ const PassiveImageNode: React.FC<{ ann: ImageAnnotation }> = ({ ann }) => {
 const InsertedImageNode: React.FC<{
   ann: ImageAnnotation;
   canDrag: boolean;
+  canvasWidth: number;
+  canvasHeight: number;
+  zoomLevel: number;
   onSelect: (e: Konva.KonvaEventObject<MouseEvent>) => void;
   onDragStart: (e: Konva.KonvaEventObject<DragEvent>) => void;
   onDragMove: (e: Konva.KonvaEventObject<DragEvent>) => void;
@@ -141,6 +148,9 @@ const InsertedImageNode: React.FC<{
 }> = ({
   ann,
   canDrag,
+  canvasWidth,
+  canvasHeight,
+  zoomLevel,
   onSelect,
   onDragStart,
   onDragMove,
@@ -170,6 +180,18 @@ const InsertedImageNode: React.FC<{
       scaleY={ann.scaleY ?? 1}
       rotation={ann.rotation ?? 0}
       draggable={canDrag}
+      dragBoundFunc={(pos) =>
+        getTransformedDragBound(pos, zoomLevel, (localX, localY) =>
+          clampRectToBounds(
+            localX,
+            localY,
+            ann.width * Math.abs(ann.scaleX ?? 1),
+            ann.height * Math.abs(ann.scaleY ?? 1),
+            canvasWidth,
+            canvasHeight
+          )
+        )
+      }
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
       onClick={onSelect}
@@ -549,11 +571,26 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
       if (otherId === id) continue;
       const otherNode = stageRef.current.findOne(`#${otherId}`);
       if (otherNode) {
-        const nextX = initPos.x + dx;
-        const nextY = initPos.y + dy;
+        const rawNextX = initPos.x + dx;
+        const rawNextY = initPos.y + dy;
+        const otherAnn = annotations.find((a) => a.id === otherId);
+        let nextX = rawNextX;
+        let nextY = rawNextY;
+        if (otherAnn) {
+          const clamped = clampAnnotationPositionToBounds(
+            otherAnn,
+            rawNextX,
+            rawNextY,
+            canvasWidth,
+            canvasHeight,
+            otherNode.width?.(),
+            otherNode.height?.()
+          );
+          nextX = clamped.x;
+          nextY = clamped.y;
+        }
         otherNode.position({ x: nextX, y: nextY });
 
-        const otherAnn = annotations.find((a) => a.id === otherId);
         if (otherAnn?.type === 'magnifier') {
           const lensContent = (otherNode as Konva.Group).findOne('.magnifier-lens-content');
           if (lensContent) {
@@ -604,7 +641,17 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
               ? { x: clamped.x, y: clamped.y }
               : { x: clamped.x, y: clamped.y, focusX: clamped.x, focusY: clamped.y };
           } else {
-            updatesById[selId] = { x: node.x(), y: node.y() };
+            const clamped = clampAnnotationPositionToBounds(
+              ann,
+              node.x(),
+              node.y(),
+              imgW,
+              imgH,
+              node.width?.(),
+              node.height?.()
+            );
+            node.position({ x: clamped.x, y: clamped.y });
+            updatesById[selId] = { x: clamped.x, y: clamped.y };
           }
         }
       }
@@ -637,10 +684,27 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
       return;
     }
 
-    onUpdateAnnotation(id, {
-      x: e.currentTarget.x(),
-      y: e.currentTarget.y(),
-    });
+    if (draggedAnn) {
+      const clamped = clampAnnotationPositionToBounds(
+        draggedAnn,
+        e.currentTarget.x(),
+        e.currentTarget.y(),
+        imgW,
+        imgH,
+        e.currentTarget.width?.(),
+        e.currentTarget.height?.()
+      );
+      e.currentTarget.position({ x: clamped.x, y: clamped.y });
+      onUpdateAnnotation(id, {
+        x: clamped.x,
+        y: clamped.y,
+      });
+    } else {
+      onUpdateAnnotation(id, {
+        x: Math.max(0, Math.min(e.currentTarget.x(), imgW)),
+        y: Math.max(0, Math.min(e.currentTarget.y(), imgH)),
+      });
+    }
   };
 
   // Mantém a ampliação da lente íntegra em tempo real enquanto o usuário redimensiona a lupa ou o quadro de recorte
@@ -795,6 +859,26 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
             };
       }
 
+      if (ann) {
+        const clamped = clampAnnotationPositionToBounds(
+          ann,
+          node.x(),
+          node.y(),
+          imgW,
+          imgH,
+          node.width?.(),
+          node.height?.()
+        );
+        node.position({ x: clamped.x, y: clamped.y });
+        return {
+          x: clamped.x,
+          y: clamped.y,
+          scaleX: node.scaleX(),
+          scaleY: node.scaleY(),
+          rotation: node.rotation(),
+        };
+      }
+
       return {
         x: node.x(),
         y: node.y(),
@@ -881,14 +965,20 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
     }
 
     const id = `ann-${Date.now()}`;
+    const imgW = bgImage ? bgImage.width : 800;
+    const imgH = bgImage ? bgImage.height : 600;
+    const clampedStartX = Math.max(0, Math.min(pos.x, imgW));
+    const clampedStartY = Math.max(0, Math.min(pos.y, imgH));
 
     if (activeTool === 'text') {
       const initialText = 'Digite seu texto aqui';
+      const textX = Math.max(0, Math.min(pos.x, imgW - 150));
+      const textY = Math.max(0, Math.min(pos.y, imgH - 30));
       const textAnn: Annotation = {
         id,
         type: 'text',
-        x: pos.x,
-        y: pos.y,
+        x: textX,
+        y: textY,
         text: initialText,
         fontSize,
         fontFamily,
@@ -898,8 +988,8 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
       applySelectionIds([id]);
       setEditingText({
         id,
-        x: pos.x,
-        y: pos.y,
+        x: textX,
+        y: textY,
         text: initialText,
         fontSize,
         fontFamily,
@@ -909,8 +999,6 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
     }
 
     if (activeTool === 'magnifier') {
-      const imgW = bgImage ? bgImage.width : 800;
-      const imgH = bgImage ? bgImage.height : 600;
       const clamped = clampMagnifierToImageBounds(pos.x, pos.y, 65, imgW, imgH);
       const clampedFocus = clampFocusPointToImageBounds(pos.x, pos.y, imgW, imgH);
 
@@ -950,8 +1038,8 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
       setNewAnnotation({
         id,
         type: 'rect',
-        x: pos.x,
-        y: pos.y,
+        x: clampedStartX,
+        y: clampedStartY,
         width: 1,
         height: 1,
         stroke: strokeColor,
@@ -962,8 +1050,8 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
       setNewAnnotation({
         id,
         type: 'ellipse',
-        x: pos.x,
-        y: pos.y,
+        x: clampedStartX,
+        y: clampedStartY,
         radiusX: 1,
         radiusY: 1,
         stroke: strokeColor,
@@ -976,7 +1064,7 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
         type: 'line',
         x: 0,
         y: 0,
-        points: [pos.x, pos.y, pos.x, pos.y],
+        points: [clampedStartX, clampedStartY, clampedStartX, clampedStartY],
         stroke: strokeColor,
         strokeWidth,
         autoStrokeWidth,
@@ -987,7 +1075,7 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
         type: 'arrow',
         x: 0,
         y: 0,
-        points: [pos.x, pos.y, pos.x, pos.y],
+        points: [clampedStartX, clampedStartY, clampedStartX, clampedStartY],
         stroke: strokeColor,
         strokeWidth,
         autoStrokeWidth,
@@ -1065,23 +1153,26 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
 
     if (!isDrawing || !newAnnotation) return;
 
+    const imgW = bgImage ? bgImage.width : 800;
+    const imgH = bgImage ? bgImage.height : 600;
+    const clampedDrawingX = Math.max(0, Math.min(pos.x, imgW));
+    const clampedDrawingY = Math.max(0, Math.min(pos.y, imgH));
+
     if (newAnnotation.type === 'rect') {
-      const width = pos.x - newAnnotation.x;
-      const height = pos.y - newAnnotation.y;
+      const width = clampedDrawingX - newAnnotation.x;
+      const height = clampedDrawingY - newAnnotation.y;
       setNewAnnotation({ ...newAnnotation, width, height });
     } else if (newAnnotation.type === 'ellipse') {
-      const radiusX = Math.abs(pos.x - newAnnotation.x);
-      const radiusY = Math.abs(pos.y - newAnnotation.y);
+      const radiusX = Math.abs(clampedDrawingX - newAnnotation.x);
+      const radiusY = Math.abs(clampedDrawingY - newAnnotation.y);
       setNewAnnotation({ ...newAnnotation, radiusX, radiusY });
     } else if (newAnnotation.type === 'line') {
       const p1 = newAnnotation.points;
-      setNewAnnotation({ ...newAnnotation, points: [p1[0], p1[1], pos.x, pos.y] });
+      setNewAnnotation({ ...newAnnotation, points: [p1[0], p1[1], clampedDrawingX, clampedDrawingY] });
     } else if (newAnnotation.type === 'arrow') {
       const p1 = newAnnotation.points;
-      setNewAnnotation({ ...newAnnotation, points: [p1[0], p1[1], pos.x, pos.y] });
+      setNewAnnotation({ ...newAnnotation, points: [p1[0], p1[1], clampedDrawingX, clampedDrawingY] });
     } else if (newAnnotation.type === 'magnifier') {
-      const imgW = bgImage ? bgImage.width : 800;
-      const imgH = bgImage ? bgImage.height : 600;
       const clampedLens = clampMagnifierToImageBounds(pos.x, pos.y, newAnnotation.radius, imgW, imgH);
       setNewAnnotation({
         ...newAnnotation,
@@ -1104,20 +1195,54 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
     if (!isDrawing || !newAnnotation) return;
     setIsDrawing(false);
 
+    const imgW = bgImage ? bgImage.width : 800;
+    const imgH = bgImage ? bgImage.height : 600;
+
     if (newAnnotation.type === 'rect' && Math.abs(newAnnotation.width) > 5 && Math.abs(newAnnotation.height) > 5) {
-      onAddAnnotation(newAnnotation);
+      const rawX = newAnnotation.width < 0 ? newAnnotation.x + newAnnotation.width : newAnnotation.x;
+      const rawY = newAnnotation.height < 0 ? newAnnotation.y + newAnnotation.height : newAnnotation.y;
+      const w = Math.abs(newAnnotation.width);
+      const h = Math.abs(newAnnotation.height);
+      const clamped = clampRectToBounds(rawX, rawY, w, h, imgW, imgH);
+      onAddAnnotation({
+        ...newAnnotation,
+        x: clamped.x,
+        y: clamped.y,
+        width: Math.min(w, imgW - clamped.x),
+        height: Math.min(h, imgH - clamped.y),
+      });
+      applySelectionIds([newAnnotation.id]);
     } else if (newAnnotation.type === 'ellipse' && newAnnotation.radiusX > 5 && newAnnotation.radiusY > 5) {
-      onAddAnnotation(newAnnotation);
+      const clamped = clampEllipseToBounds(newAnnotation.x, newAnnotation.y, newAnnotation.radiusX, newAnnotation.radiusY, imgW, imgH);
+      onAddAnnotation({
+        ...newAnnotation,
+        x: clamped.x,
+        y: clamped.y,
+      });
+      applySelectionIds([newAnnotation.id]);
     } else if (newAnnotation.type === 'line') {
       const [x1, y1, x2, y2] = newAnnotation.points;
       if (Math.hypot(x2 - x1, y2 - y1) > 3) {
-        onAddAnnotation(newAnnotation);
+        const clampedP = [
+          Math.max(0, Math.min(x1, imgW)),
+          Math.max(0, Math.min(y1, imgH)),
+          Math.max(0, Math.min(x2, imgW)),
+          Math.max(0, Math.min(y2, imgH)),
+        ];
+        onAddAnnotation({ ...newAnnotation, points: clampedP });
+        applySelectionIds([newAnnotation.id]);
       }
     } else if (newAnnotation.type === 'arrow') {
-      onAddAnnotation(newAnnotation);
+      const [x1, y1, x2, y2] = newAnnotation.points;
+      const clampedP = [
+        Math.max(0, Math.min(x1, imgW)),
+        Math.max(0, Math.min(y1, imgH)),
+        Math.max(0, Math.min(x2, imgW)),
+        Math.max(0, Math.min(y2, imgH)),
+      ];
+      onAddAnnotation({ ...newAnnotation, points: clampedP });
+      applySelectionIds([newAnnotation.id]);
     } else if (newAnnotation.type === 'magnifier') {
-      const imgW = bgImage ? bgImage.width : 800;
-      const imgH = bgImage ? bgImage.height : 600;
       const fx = newAnnotation.focusX ?? newAnnotation.x;
       const fy = newAnnotation.focusY ?? newAnnotation.y;
       const dragDist = Math.hypot(newAnnotation.x - fx, newAnnotation.y - fy);
@@ -1155,27 +1280,37 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
       style={{
         flex: 1,
         overflow: 'auto',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
         backgroundColor: '#e5e5e7',
-        padding: '24px',
         position: 'relative',
+        width: '100%',
+        height: '100%',
       }}
     >
       <div
         style={{
-          width: `${visualWidth}px`,
-          height: `${visualHeight}px`,
-          minWidth: `${visualWidth}px`,
-          minHeight: `${visualHeight}px`,
-          position: 'relative',
-          boxShadow: '0 4px 24px rgba(0,0,0,0.15)',
-          borderRadius: '4px',
-          overflow: 'hidden',
-          cursor: currentCursor,
+          minWidth: '100%',
+          minHeight: '100%',
+          width: 'max-content',
+          height: 'max-content',
+          padding: '24px',
+          boxSizing: 'border-box',
+          display: 'flex',
         }}
       >
+        <div
+          style={{
+            margin: 'auto',
+            width: `${visualWidth}px`,
+            height: `${visualHeight}px`,
+            minWidth: `${visualWidth}px`,
+            minHeight: `${visualHeight}px`,
+            position: 'relative',
+            boxShadow: '0 4px 24px rgba(0,0,0,0.15)',
+            borderRadius: '4px',
+            overflow: 'hidden',
+            cursor: currentCursor,
+          }}
+        >
         <Stage
           ref={stageRef as React.RefObject<Konva.Stage>}
           width={visualWidth}
@@ -1218,6 +1353,18 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                     strokeWidth={ann.strokeWidth}
                     strokeScaleEnabled={strokeScaleEnabled}
                     draggable={canDrag}
+                    dragBoundFunc={(pos) =>
+                      getTransformedDragBound(pos, zoomLevel, (localX, localY) =>
+                        clampRectToBounds(
+                          localX,
+                          localY,
+                          ann.width * Math.abs(ann.scaleX ?? 1),
+                          ann.height * Math.abs(ann.scaleY ?? 1),
+                          canvasWidth,
+                          canvasHeight
+                        )
+                      )
+                    }
                     onMouseEnter={handleBlockMouseEnter}
                     onMouseLeave={handleBlockMouseLeave}
                     onClick={(e) => handleBlockClick(ann.id, e)}
@@ -1245,6 +1392,18 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                     strokeWidth={ann.strokeWidth}
                     strokeScaleEnabled={strokeScaleEnabled}
                     draggable={canDrag}
+                    dragBoundFunc={(pos) =>
+                      getTransformedDragBound(pos, zoomLevel, (localX, localY) =>
+                        clampEllipseToBounds(
+                          localX,
+                          localY,
+                          ann.radiusX * Math.abs(ann.scaleX ?? 1),
+                          ann.radiusY * Math.abs(ann.scaleY ?? 1),
+                          canvasWidth,
+                          canvasHeight
+                        )
+                      )
+                    }
                     onMouseEnter={handleBlockMouseEnter}
                     onMouseLeave={handleBlockMouseLeave}
                     onClick={(e) => handleBlockClick(ann.id, e)}
@@ -1272,6 +1431,17 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                     lineCap="round"
                     hitStrokeWidth={20}
                     draggable={canDrag}
+                    dragBoundFunc={(pos) =>
+                      getTransformedDragBound(pos, zoomLevel, (localX, localY) =>
+                        clampLinePointsToBounds(
+                          localX,
+                          localY,
+                          ann.points,
+                          canvasWidth,
+                          canvasHeight
+                        )
+                      )
+                    }
                     onMouseEnter={handleBlockMouseEnter}
                     onMouseLeave={handleBlockMouseLeave}
                     onClick={(e) => handleBlockClick(ann.id, e)}
@@ -1301,6 +1471,17 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                     pointerLength={10}
                     pointerWidth={10}
                     draggable={canDrag}
+                    dragBoundFunc={(pos) =>
+                      getTransformedDragBound(pos, zoomLevel, (localX, localY) =>
+                        clampLinePointsToBounds(
+                          localX,
+                          localY,
+                          ann.points,
+                          canvasWidth,
+                          canvasHeight
+                        )
+                      )
+                    }
                     onMouseEnter={handleBlockMouseEnter}
                     onMouseLeave={handleBlockMouseLeave}
                     onClick={(e) => handleBlockClick(ann.id, e)}
@@ -1326,6 +1507,14 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                     scaleY={ann.scaleY ?? 1}
                     rotation={ann.rotation ?? 0}
                     draggable={canDrag}
+                    dragBoundFunc={(pos) => {
+                      const textNode = stageRef.current?.findOne(`#${ann.id}`) as Konva.Text | undefined;
+                      const w = (textNode ? textNode.width() : 120) * Math.abs(ann.scaleX ?? 1);
+                      const h = (textNode ? textNode.height() : 30) * Math.abs(ann.scaleY ?? 1);
+                      return getTransformedDragBound(pos, zoomLevel, (localX, localY) =>
+                        clampRectToBounds(localX, localY, w, h, canvasWidth, canvasHeight)
+                      );
+                    }}
                     onMouseEnter={handleBlockMouseEnter}
                     onMouseLeave={handleBlockMouseLeave}
                     onClick={(e) => handleBlockClick(ann.id, e)}
@@ -1354,6 +1543,9 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                     key={ann.id}
                     ann={ann}
                     canDrag={canDrag}
+                    canvasWidth={canvasWidth}
+                    canvasHeight={canvasHeight}
+                    zoomLevel={zoomLevel}
                     onSelect={(e) => handleBlockClick(ann.id, e)}
                     onMouseEnter={handleBlockMouseEnter}
                     onMouseLeave={handleBlockMouseLeave}
@@ -2098,6 +2290,14 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                         node.width(),
                         node.height()
                       );
+                      if (
+                        clampedLocal.x < 0 ||
+                        clampedLocal.y < 0 ||
+                        clampedLocal.x + clampedLocal.width > canvasWidth ||
+                        clampedLocal.y + clampedLocal.height > canvasHeight
+                      ) {
+                        return oldBox;
+                      }
                       return toAbsoluteBoundingBox(
                         {
                           ...clampedLocal,
@@ -2107,6 +2307,15 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                       );
                     }
                   }
+                }
+                // Limita qualquer outro elemento (retângulo, elipse, imagem inserida, etc.) aos limites da imagem
+                if (
+                  localNewBox.x < 0 ||
+                  localNewBox.y < 0 ||
+                  localNewBox.x + localNewBox.width > canvasWidth ||
+                  localNewBox.y + localNewBox.height > canvasHeight
+                ) {
+                  return oldBox;
                 }
                 return newBox;
               }}
@@ -2160,5 +2369,6 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
         )}
       </div>
     </div>
-  );
+  </div>
+);
 };

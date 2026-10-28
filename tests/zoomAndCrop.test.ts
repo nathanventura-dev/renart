@@ -10,6 +10,12 @@ import {
   isZoomShortcut,
   getTransformedPointerPosition,
   getTransformedDragBound,
+  clampRectToBounds,
+  clampEllipseToBounds,
+  clampLinePointsToBounds,
+  clampAnnotationPositionToBounds,
+  toLocalBoundingBox,
+  toAbsoluteBoundingBox,
 } from '../src/utils/zoomAndCrop';
 import { Annotation } from '../src/state/editorStore';
 
@@ -191,5 +197,149 @@ describe('Pointer and Drag Coordinate Transformations Under Zoom', () => {
       clampMagnifier
     );
     expect(boundBeyondLeft.x).toBeCloseTo(65 * 1.5, 1);
+  });
+
+  describe('Image Boundary Barriers for All Toolbar Elements', () => {
+    const canvasWidth = 800;
+    const canvasHeight = 600;
+
+    it('clamps rectangle/image positions strictly within [0, canvas - dimension]', () => {
+      // Normal inside canvas
+      expect(clampRectToBounds(50, 60, 100, 80, canvasWidth, canvasHeight)).toEqual({
+        x: 50,
+        y: 60,
+      });
+
+      // Drags beyond left/top
+      expect(clampRectToBounds(-25, -40, 100, 80, canvasWidth, canvasHeight)).toEqual({
+        x: 0,
+        y: 0,
+      });
+
+      // Drags beyond right/bottom
+      expect(clampRectToBounds(750, 550, 100, 80, canvasWidth, canvasHeight)).toEqual({
+        x: 700,
+        y: 520,
+      });
+
+      // Element wider than canvas stays at x: 0
+      expect(clampRectToBounds(50, 50, 1000, 800, canvasWidth, canvasHeight)).toEqual({
+        x: 0,
+        y: 0,
+      });
+    });
+
+    it('clamps ellipse positions strictly by radii from edges', () => {
+      const rx = 50;
+      const ry = 40;
+
+      // Inside
+      expect(clampEllipseToBounds(200, 200, rx, ry, canvasWidth, canvasHeight)).toEqual({
+        x: 200,
+        y: 200,
+      });
+
+      // Beyond left/top
+      expect(clampEllipseToBounds(20, 10, rx, ry, canvasWidth, canvasHeight)).toEqual({
+        x: 50,
+        y: 40,
+      });
+
+      // Beyond right/bottom
+      expect(clampEllipseToBounds(780, 590, rx, ry, canvasWidth, canvasHeight)).toEqual({
+        x: 750,
+        y: 560,
+      });
+    });
+
+    it('clamps line and arrow point offsets so all vertices remain on-canvas', () => {
+      // Line from (100, 50) to (300, 250)
+      const points = [100, 50, 300, 250];
+
+      // With offset (0, 0), minX=100, maxX=300, minY=50, maxY=250 -> valid
+      expect(clampLinePointsToBounds(0, 0, points, canvasWidth, canvasHeight)).toEqual({
+        x: 0,
+        y: 0,
+      });
+
+      // Dragging line to the left beyond edge (x offset -150 => minX would be -50)
+      // Clamped x offset should be -100 so minX is exactly 0
+      expect(clampLinePointsToBounds(-150, 0, points, canvasWidth, canvasHeight)).toEqual({
+        x: -100,
+        y: 0,
+      });
+
+      // Dragging line to the right beyond edge (x offset 600 => maxX would be 900 > 800)
+      // Clamped x offset should be 800 - 300 = 500
+      expect(clampLinePointsToBounds(600, 0, points, canvasWidth, canvasHeight)).toEqual({
+        x: 500,
+        y: 0,
+      });
+
+      // Dragging line up beyond edge (y offset -100 => minY would be -50)
+      // Clamped y offset should be -50
+      expect(clampLinePointsToBounds(0, -100, points, canvasWidth, canvasHeight)).toEqual({
+        x: 0,
+        y: -50,
+      });
+
+      // Dragging line down beyond edge (y offset 400 => maxY would be 650 > 600)
+      // Clamped y offset should be 600 - 250 = 350
+      expect(clampLinePointsToBounds(0, 400, points, canvasWidth, canvasHeight)).toEqual({
+        x: 0,
+        y: 350,
+      });
+    });
+
+    it('clamps annotations dynamically through clampAnnotationPositionToBounds', () => {
+      const rectAnn: Annotation = {
+        id: '1',
+        type: 'rect',
+        x: 10,
+        y: 10,
+        width: 120,
+        height: 80,
+        stroke: '#ff0000',
+        strokeWidth: 2,
+      };
+      expect(
+        clampAnnotationPositionToBounds(rectAnn, 900, 800, canvasWidth, canvasHeight)
+      ).toEqual({
+        x: 800 - 120,
+        y: 600 - 80,
+      });
+
+      const textAnn: Annotation = {
+        id: '2',
+        type: 'text',
+        x: 50,
+        y: 50,
+        text: 'Teste',
+        fontSize: 16,
+        fill: '#000000',
+      };
+      // Measured node size 140x30
+      expect(
+        clampAnnotationPositionToBounds(textAnn, 750, 590, canvasWidth, canvasHeight, 140, 30)
+      ).toEqual({
+        x: 800 - 140,
+        y: 600 - 30,
+      });
+    });
+
+    it('transforms bounding boxes between local image coordinates and stage coordinates under zoom', () => {
+      const zoom = 1.5;
+      const absBox = { x: 150, y: 300, width: 450, height: 600, rotation: 15 };
+      const localBox = toLocalBoundingBox(absBox, zoom);
+
+      expect(localBox.x).toBe(100);
+      expect(localBox.y).toBe(200);
+      expect(localBox.width).toBe(300);
+      expect(localBox.height).toBe(400);
+      expect(localBox.rotation).toBe(15);
+
+      const convertedBack = toAbsoluteBoundingBox(localBox, zoom);
+      expect(convertedBack).toEqual(absBox);
+    });
   });
 });
