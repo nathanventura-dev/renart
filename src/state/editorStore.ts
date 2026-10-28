@@ -45,11 +45,16 @@ export interface LineAnnotation extends BaseAnnotation {
   points: number[]; // [x1, y1, x2, y2]
 }
 
+export type ArrowStyle = 'standard' | 'thin' | 'dashed' | 'curved';
+export type ArrowCurveDirection = 'left' | 'right';
+
 export interface ArrowAnnotation extends BaseAnnotation {
   type: 'arrow';
   x?: number;
   y?: number;
-  points: number[]; // [x1, y1, x2, y2]
+  points: number[]; // [x1, y1, x2, y2] ou [x1, y1, midX, midY, x2, y2]
+  arrowStyle?: ArrowStyle;
+  curveDirection?: ArrowCurveDirection;
 }
 
 export const FONT_FAMILIES = [
@@ -112,6 +117,8 @@ export interface EditorState {
   autoStrokeWidth: boolean;
   fontSize: number;
   fontFamily: string;
+  arrowStyle: ArrowStyle;
+  arrowCurveDirection: ArrowCurveDirection;
   isLocked: boolean;
 }
 
@@ -125,6 +132,18 @@ export function shouldShowTextControls(
 ): boolean {
   if (activeTool === 'text') return true;
   return selectedAnnotations.some((ann) => ann.type === 'text');
+}
+
+/**
+ * Determina se a barra superior deve exibir o seletor contextual de estilo de flecha
+ * (quando a ferramenta 'arrow' está ativa ou há blocos 'arrow' selecionados).
+ */
+export function shouldShowArrowControls(
+  activeTool: ToolType,
+  selectedAnnotations: Annotation[]
+): boolean {
+  if (activeTool === 'arrow') return true;
+  return selectedAnnotations.some((ann) => ann.type === 'arrow');
 }
 
 export interface HistorySnapshot {
@@ -158,6 +177,8 @@ export function createEditorStore(
     autoStrokeWidth: true,
     fontSize: 18,
     fontFamily: 'Arial',
+    arrowStyle: 'standard',
+    arrowCurveDirection: 'right',
     isLocked: false,
     ...initialState,
   };
@@ -212,6 +233,9 @@ export function createEditorStore(
     const firstText = annotations.find((a) => ids.includes(a.id) && a.type === 'text') as
       | TextAnnotation
       | undefined;
+    const firstArrow = annotations.find((a) => ids.includes(a.id) && a.type === 'arrow') as
+      | ArrowAnnotation
+      | undefined;
 
     return {
       strokeColor: nextColor,
@@ -219,6 +243,8 @@ export function createEditorStore(
       autoStrokeWidth: nextAuto,
       fontSize: firstText ? firstText.fontSize : state.fontSize,
       fontFamily: firstText ? firstText.fontFamily || 'Arial' : state.fontFamily,
+      arrowStyle: firstArrow ? firstArrow.arrowStyle || 'standard' : state.arrowStyle,
+      arrowCurveDirection: firstArrow ? firstArrow.curveDirection || 'right' : state.arrowCurveDirection,
     };
   };
 
@@ -461,6 +487,74 @@ export function createEditorStore(
         }
       }
       state = { ...state, fontFamily: family };
+      notify();
+    },
+
+    setArrowStyle: (style: ArrowStyle) => {
+      if (state.selectedIds.length > 0 && !state.isLocked) {
+        const selectedSet = new Set(state.selectedIds);
+        const hasSelectedArrow = state.annotations.some(
+          (ann) => selectedSet.has(ann.id) && ann.type === 'arrow'
+        );
+        if (hasSelectedArrow) {
+          pushUndoSnapshot();
+          state = {
+            ...state,
+            arrowStyle: style,
+            annotations: state.annotations.map((ann) => {
+              if (!selectedSet.has(ann.id) || ann.type !== 'arrow') return ann;
+              return {
+                ...ann,
+                arrowStyle: style,
+                curveDirection:
+                  style === 'curved'
+                    ? ann.curveDirection || state.arrowCurveDirection || 'right'
+                    : ann.curveDirection,
+              };
+            }),
+          };
+          notify();
+          return;
+        }
+      }
+      state = { ...state, arrowStyle: style };
+      notify();
+    },
+
+    toggleArrowCurveDirection: (targetId?: string) => {
+      const targetArrowId =
+        targetId ||
+        state.selectedIds.find((id) => {
+          const ann = state.annotations.find((a) => a.id === id);
+          return ann?.type === 'arrow';
+        });
+
+      const nextGlobalDir: ArrowCurveDirection =
+        state.arrowCurveDirection === 'left' ? 'right' : 'left';
+
+      if (targetArrowId && !state.isLocked) {
+        const ann = state.annotations.find((a) => a.id === targetArrowId);
+        if (ann && ann.type === 'arrow') {
+          const currentDir = ann.curveDirection || state.arrowCurveDirection || 'right';
+          const flippedDir: ArrowCurveDirection = currentDir === 'left' ? 'right' : 'left';
+          pushUndoSnapshot();
+          state = {
+            ...state,
+            arrowCurveDirection: flippedDir,
+            annotations: state.annotations.map((a) => {
+              if (a.id !== targetArrowId || a.type !== 'arrow') return a;
+              return {
+                ...a,
+                curveDirection: flippedDir,
+              };
+            }),
+          };
+          notify();
+          return;
+        }
+      }
+
+      state = { ...state, arrowCurveDirection: nextGlobalDir };
       notify();
     },
 

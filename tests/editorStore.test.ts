@@ -1,6 +1,12 @@
 // tests/editorStore.test.ts
 import { describe, it, expect } from 'vitest';
-import { createEditorStore, Annotation, shouldShowTextControls } from '../src/state/editorStore';
+import {
+  createEditorStore,
+  Annotation,
+  shouldShowTextControls,
+  shouldShowArrowControls,
+  ArrowStyle,
+} from '../src/state/editorStore';
 
 describe('Editor Store', () => {
   it('adds an annotation and supports undo/redo stack', () => {
@@ -480,5 +486,78 @@ describe('Editor Store', () => {
     expect(store.getState().annotations[0].x).toBe(10);
     expect(store.getCurrentImageBase64()).toBe(croppedImage);
     expect(restoredImage).toBe(croppedImage);
+  });
+
+  it('manages arrow styles and arrow curve direction with undo/redo', () => {
+    const store = createEditorStore();
+    expect(store.getState().arrowStyle).toBe('standard');
+    expect(store.getState().arrowCurveDirection).toBe('right');
+
+    // Mudar estilo padrão de flecha
+    store.setArrowStyle('curved');
+    expect(store.getState().arrowStyle).toBe('curved');
+
+    // Adicionar flecha e selecionar
+    store.addAnnotation({
+      id: 'arrow-1',
+      type: 'arrow',
+      points: [10, 20, 100, 120],
+      stroke: '#ff3b30',
+      strokeWidth: 4,
+      arrowStyle: 'standard',
+    });
+    store.setSelectedIds(['arrow-1']);
+
+    // Alterar estilo da flecha selecionada
+    store.setArrowStyle('dashed');
+    const ann1 = store.getState().annotations.find((a) => a.id === 'arrow-1');
+    expect(ann1?.type === 'arrow' && ann1.arrowStyle).toBe('dashed');
+
+    // Undo restaura para standard
+    store.undo();
+    const ann1Undo = store.getState().annotations.find((a) => a.id === 'arrow-1');
+    expect(ann1Undo?.type === 'arrow' && ann1Undo.arrowStyle).toBe('standard');
+
+    // Redo reaplica dashed
+    store.redo();
+    const ann1Redo = store.getState().annotations.find((a) => a.id === 'arrow-1');
+    expect(ann1Redo?.type === 'arrow' && ann1Redo.arrowStyle).toBe('dashed');
+
+    // Alternar direção da curvatura com elemento selecionado
+    store.setSelectedIds(['arrow-1']);
+    store.setArrowStyle('curved');
+    expect(store.getState().arrowCurveDirection).toBe('right');
+    store.toggleArrowCurveDirection('arrow-1');
+    const ann1Curved = store.getState().annotations.find((a) => a.id === 'arrow-1');
+    expect(ann1Curved?.type === 'arrow' && ann1Curved.curveDirection).toBe('left');
+
+    // Undo alterna de volta para right
+    store.undo();
+    const ann1CurvedUndo = store.getState().annotations.find((a) => a.id === 'arrow-1');
+    expect(ann1CurvedUndo?.type === 'arrow' && ann1CurvedUndo.curveDirection).toBe('right');
+  });
+
+  it('determines when arrow controls should be shown in toolbar', () => {
+    expect(shouldShowArrowControls('arrow', [])).toBe(true);
+    expect(shouldShowArrowControls('select', [])).toBe(false);
+
+    const arrowAnn: Annotation = {
+      id: 'arrow-2',
+      type: 'arrow',
+      points: [0, 0, 50, 50],
+      stroke: '#0071e3',
+    };
+    const rectAnn: Annotation = {
+      id: 'rect-2',
+      type: 'rect',
+      x: 0,
+      y: 0,
+      width: 50,
+      height: 50,
+      stroke: '#0071e3',
+    };
+
+    expect(shouldShowArrowControls('select', [arrowAnn])).toBe(true);
+    expect(shouldShowArrowControls('select', [rectAnn])).toBe(false);
   });
 });
