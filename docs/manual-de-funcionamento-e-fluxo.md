@@ -142,3 +142,21 @@ Na extrema direita da barra superior, ficam localizados dois ícones minimalista
 - Ao salvar um arquivo ou fechar uma captura, **a aplicação se mantém aberta em segundo plano**, pronta para o próximo print.
 - É possível ter no máximo **2 janelas da aplicação abertas simultaneamente** (por exemplo, uma no monitor principal e outra no monitor secundário).
 - Se o usuário tentar abrir uma 3ª janela, o sistema operacional foca automaticamente uma das janelas existentes e encerra o novo processo, evitando o acúmulo de processos redundantes na barra de tarefas.
+
+---
+
+## 8. Distribuição e Empacotamento: Versões Instalável e Portátil (Portable)
+
+A aplicação suporta distribuição em duas modalidades oficiais para atender a todos os perfis de usuário:
+
+### 8.1. Modalidade Portátil (Portable - Sem Instalação)
+Ideal para usuários que buscam praticidade máxima, uso corporativo sem privilégios de administrador ou execução a partir de pendrives e pastas em nuvem (Google Drive, OneDrive):
+- **Windows (`.exe` avulso ou `.zip` portátil):** O binário nativo compilado pelo Tauri (`src-tauri/target/release/Ferramenta de Captura.exe`) é um executável autônomo. Basta dar dois cliques para abrir instantaneamente, sem exigir telas de instalação (*Avançar > Concluir*), sem permissão de Administrador e sem criar entradas no Registro do Windows.
+- **Linux (`.AppImage`):** Formato portátil oficial de Linux. O usuário apenas baixa o arquivo `.AppImage`, concede permissão de execução (`chmod +x`) e roda diretamente em distribuições como Ubuntu, Debian, Fedora e Mint.
+- **macOS (`.app` em `.zip`):** O pacote de aplicativo `.app` pode ser compactado em `.zip` e executado de qualquer pasta local ou mídia externa sem necessidade de instalação no diretório `/Applications`.
+
+### 8.2. Modalidade Instalador Padrão (Installer)
+Para quem prefere a experiência tradicional com atalho automático no Menu Iniciar, na Área de Trabalho e desinstalador no Painel de Controle:
+- **Windows:** Instalador executável via NSIS ou pacote `.msi`.
+- **macOS:** Imagem de disco `.dmg` com atalho de arrastar para `/Applications`.
+- **Linux:** Pacote `.deb` para distribuições Debian/Ubuntu.
