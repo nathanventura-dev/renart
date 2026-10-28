@@ -23,6 +23,9 @@ import {
   shouldAttachTransformer,
   isTargetExistingAnnotation,
   getAnnotationsInSelectionBox,
+  clampMagnifierToImageBounds,
+  sortAnnotationsWithMagnifiersOnTop,
+  getMagnifierVisibleAnnotations,
 } from '../utils/magnifierAndHover';
 
 interface CanvasEditorProps {
@@ -69,6 +72,32 @@ interface MarqueeSelectionState {
   width: number;
   height: number;
 }
+
+const PassiveImageNode: React.FC<{ ann: ImageAnnotation }> = ({ ann }) => {
+  const [img, setImg] = useState<HTMLImageElement | null>(null);
+
+  useEffect(() => {
+    const imageObj = new window.Image();
+    imageObj.src = ann.src;
+    imageObj.onload = () => setImg(imageObj);
+  }, [ann.src]);
+
+  if (!img) return null;
+
+  return (
+    <KonvaImage
+      image={img}
+      x={ann.x}
+      y={ann.y}
+      width={ann.width}
+      height={ann.height}
+      scaleX={ann.scaleX ?? 1}
+      scaleY={ann.scaleY ?? 1}
+      rotation={ann.rotation ?? 0}
+      listening={false}
+    />
+  );
+};
 
 const InsertedImageNode: React.FC<{
   ann: ImageAnnotation;
@@ -166,6 +195,26 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
     if (selectedIds && selectedIds.length > 0) return selectedIds;
     return selectedId ? [selectedId] : [];
   }, [selectedIds, selectedId]);
+
+  // Ordena todas as anotações mantendo as lupas sempre acima de todos os demais blocos
+  const orderedAnnotations = useMemo(
+    () => sortAnnotationsWithMagnifiersOnTop(annotations),
+    [annotations]
+  );
+
+  // Todos os blocos (formas, linhas, setas, textos, imagens) visíveis dentro da lente da lupa
+  const visibleInLensAnnotations = useMemo(
+    () => getMagnifierVisibleAnnotations(annotations),
+    [annotations]
+  );
+
+  const hasSelectedMagnifier = useMemo(
+    () =>
+      effectiveSelectedIds.some(
+        (id) => annotations.find((a) => a.id === id)?.type === 'magnifier'
+      ),
+    [effectiveSelectedIds, annotations]
+  );
 
   const applySelectionIds = (ids: string[]) => {
     if (onSelectIds) {
@@ -315,16 +364,16 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
   const handleBlockDragMove = (id: string, e: Konva.KonvaEventObject<DragEvent>) => {
     const draggedNode = e.currentTarget;
 
-    // Se o próprio bloco arrastado for uma lupa, atualiza a imagem interna da lente
+    // Se o próprio bloco arrastado for uma lupa, atualiza o conteúdo interno da lente (imagem + blocos)
     const draggedAnn = annotations.find((a) => a.id === id);
     if (draggedAnn?.type === 'magnifier') {
       const group = draggedNode as Konva.Group;
-      const lensImg = group.findOne('.magnifier-lens-image');
-      if (lensImg) {
+      const lensContent = group.findOne('.magnifier-lens-content');
+      if (lensContent) {
         const activeZoom =
           crownDrag && crownDrag.id === draggedAnn.id ? crownDrag.currentZoom : draggedAnn.zoomLevel;
         const nextTransform = calculateMagnifierImageTransform(group.x(), group.y(), activeZoom);
-        lensImg.position({ x: nextTransform.x, y: nextTransform.y });
+        lensContent.position({ x: nextTransform.x, y: nextTransform.y });
       }
     }
 
@@ -347,14 +396,14 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
 
         const otherAnn = annotations.find((a) => a.id === otherId);
         if (otherAnn?.type === 'magnifier') {
-          const lensImg = (otherNode as Konva.Group).findOne('.magnifier-lens-image');
-          if (lensImg) {
+          const lensContent = (otherNode as Konva.Group).findOne('.magnifier-lens-content');
+          if (lensContent) {
             const nextTransform = calculateMagnifierImageTransform(
               nextX,
               nextY,
               otherAnn.zoomLevel
             );
-            lensImg.position({ x: nextTransform.x, y: nextTransform.y });
+            lensContent.position({ x: nextTransform.x, y: nextTransform.y });
           }
         }
       }
@@ -363,13 +412,28 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
 
   // Finalização do arraste (salva posição única ou de todos os blocos da multiseleção)
   const handleBlockDragEnd = (id: string, e: Konva.KonvaEventObject<DragEvent>) => {
+    const imgW = bgImage ? bgImage.width : 800;
+    const imgH = bgImage ? bgImage.height : 600;
     const multi = multiDragStartRef.current;
     if (multi && multi.draggedId === id && stageRef.current && onUpdateAnnotations) {
       const updatesById: Record<string, Partial<Annotation>> = {};
       for (const selId of Object.keys(multi.initialPositions)) {
         const node = stageRef.current.findOne(`#${selId}`);
-        if (node) {
-          updatesById[selId] = { x: node.x(), y: node.y() };
+        const ann = annotations.find((a) => a.id === selId);
+        if (node && ann) {
+          if (ann.type === 'magnifier') {
+            const clamped = clampMagnifierToImageBounds(
+              node.x(),
+              node.y(),
+              ann.radius,
+              imgW,
+              imgH
+            );
+            node.position({ x: clamped.x, y: clamped.y });
+            updatesById[selId] = { x: clamped.x, y: clamped.y };
+          } else {
+            updatesById[selId] = { x: node.x(), y: node.y() };
+          }
         }
       }
       multiDragStartRef.current = null;
@@ -378,40 +442,110 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
     }
 
     multiDragStartRef.current = null;
+    const draggedAnn = annotations.find((a) => a.id === id);
+    if (draggedAnn?.type === 'magnifier') {
+      const clamped = clampMagnifierToImageBounds(
+        e.currentTarget.x(),
+        e.currentTarget.y(),
+        draggedAnn.radius,
+        imgW,
+        imgH
+      );
+      e.currentTarget.position({ x: clamped.x, y: clamped.y });
+      onUpdateAnnotation(id, { x: clamped.x, y: clamped.y });
+      return;
+    }
+
     onUpdateAnnotation(id, {
       x: e.currentTarget.x(),
       y: e.currentTarget.y(),
     });
   };
 
-  // Salva redimensionamento / rotação feito pelo Transformer (simples ou multiseleção)
+  // Mantém a ampliação da lente íntegra em tempo real enquanto o usuário redimensiona a lupa
+  const handleTransform = () => {
+    if (!transformerRef.current) return;
+    const nodes = transformerRef.current.nodes();
+    for (const node of nodes) {
+      const ann = annotations.find((a) => a.id === node.id());
+      if (ann?.type === 'magnifier') {
+        const sx = node.scaleX() || 1;
+        const sy = node.scaleY() || 1;
+        const lensContent = (node as Konva.Container).findOne('.magnifier-lens-content');
+        if (lensContent) {
+          const effectiveZoomX = ann.zoomLevel / sx;
+          const effectiveZoomY = ann.zoomLevel / sy;
+          lensContent.scale({ x: effectiveZoomX, y: effectiveZoomY });
+          lensContent.position({
+            x: -node.x() * effectiveZoomX,
+            y: -node.y() * effectiveZoomY,
+          });
+        }
+      }
+    }
+  };
+
+  // Salva redimensionamento / rotação feito pelo Transformer (simples ou multiseleção, incluindo raio da lupa)
   const handleTransformEnd = () => {
     if (!transformerRef.current) return;
     const nodes = transformerRef.current.nodes();
     if (nodes.length === 0) return;
 
-    if (nodes.length === 1) {
-      const node = nodes[0];
-      onUpdateAnnotation(node.id(), {
+    const imgW = bgImage ? bgImage.width : 800;
+    const imgH = bgImage ? bgImage.height : 600;
+
+    const computeNodeTransformUpdate = (node: Konva.Node): Partial<Annotation> => {
+      const ann = annotations.find((a) => a.id === node.id());
+      if (ann?.type === 'magnifier') {
+        const scale = Math.max(Math.abs(node.scaleX()), Math.abs(node.scaleY()));
+        const nextRadius = ann.radius * scale;
+        const clamped = clampMagnifierToImageBounds(
+          node.x(),
+          node.y(),
+          nextRadius,
+          imgW,
+          imgH
+        );
+        node.scaleX(1);
+        node.scaleY(1);
+        node.rotation(0);
+        node.position({ x: clamped.x, y: clamped.y });
+        const lensContent = (node as Konva.Container).findOne('.magnifier-lens-content');
+        if (lensContent) {
+          const nextTransform = calculateMagnifierImageTransform(
+            clamped.x,
+            clamped.y,
+            ann.zoomLevel
+          );
+          lensContent.scale({ x: nextTransform.scaleX, y: nextTransform.scaleY });
+          lensContent.position({ x: nextTransform.x, y: nextTransform.y });
+        }
+        return {
+          x: clamped.x,
+          y: clamped.y,
+          radius: clamped.radius,
+        };
+      }
+
+      return {
         x: node.x(),
         y: node.y(),
         scaleX: node.scaleX(),
         scaleY: node.scaleY(),
         rotation: node.rotation(),
-      });
+      };
+    };
+
+    if (nodes.length === 1) {
+      const node = nodes[0];
+      onUpdateAnnotation(node.id(), computeNodeTransformUpdate(node));
       return;
     }
 
     if (onUpdateAnnotations) {
       const updatesById: Record<string, Partial<Annotation>> = {};
       for (const node of nodes) {
-        updatesById[node.id()] = {
-          x: node.x(),
-          y: node.y(),
-          scaleX: node.scaleX(),
-          scaleY: node.scaleY(),
-          rotation: node.rotation(),
-        };
+        updatesById[node.id()] = computeNodeTransformUpdate(node);
       }
       onUpdateAnnotations(updatesById);
     }
@@ -497,14 +631,18 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
     }
 
     if (activeTool === 'magnifier') {
+      const imgW = bgImage ? bgImage.width : 800;
+      const imgH = bgImage ? bgImage.height : 600;
+      const clamped = clampMagnifierToImageBounds(pos.x, pos.y, 65, imgW, imgH);
       onAddAnnotation({
         id,
         type: 'magnifier',
-        x: pos.x,
-        y: pos.y,
-        radius: 65,
+        x: clamped.x,
+        y: clamped.y,
+        radius: clamped.radius,
         zoomLevel: 2.0,
       });
+      applySelectionIds([id]);
       return;
     }
 
@@ -688,9 +826,9 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
             {bgImage && <KonvaImage image={bgImage} width={canvasWidth} height={canvasHeight} name="bg-image" />}
           </Layer>
 
-          {/* Camada de Vetores e Anotações */}
+          {/* Camada de Vetores e Anotações (Lupas sempre no topo) */}
           <Layer>
-            {annotations.map((ann) => {
+            {orderedAnnotations.map((ann) => {
               const canDrag = !isLocked && (!crownDrag || crownDrag.id !== ann.id);
               const strokeScaleEnabled = ann.autoStrokeWidth ?? true;
 
@@ -872,6 +1010,16 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                     x={ann.x}
                     y={ann.y}
                     draggable={!isLocked}
+                    dragBoundFunc={(pos) => {
+                      const clamped = clampMagnifierToImageBounds(
+                        pos.x,
+                        pos.y,
+                        ann.radius,
+                        canvasWidth,
+                        canvasHeight
+                      );
+                      return { x: clamped.x, y: clamped.y };
+                    }}
                     onMouseEnter={handleBlockMouseEnter}
                     onMouseMove={handleBlockMouseEnter}
                     onMouseLeave={handleBlockMouseLeave}
@@ -880,26 +1028,140 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                     onDragMove={(e) => handleBlockDragMove(ann.id, e)}
                     onDragEnd={(e) => handleBlockDragEnd(ann.id, e)}
                   >
-                    {/* Lente Circular com Recorte e Ampliação Real da Imagem */}
+                    {/* Lente Circular com Recorte e Ampliação Real da Imagem e dos Blocos Adicionados */}
                     <Group
+                      ref={(node) => {
+                        if (node) {
+                          node.getClientRect = () => ({ x: 0, y: 0, width: 0, height: 0 });
+                        }
+                      }}
                       clipFunc={(ctx) => {
                         ctx.arc(0, 0, ann.radius, 0, Math.PI * 2, false);
                       }}
                     >
                       <Circle radius={ann.radius} fill="#ffffff" listening={false} />
-                      {bgImage && (
-                        <KonvaImage
-                          name="magnifier-lens-image"
-                          image={bgImage}
-                          width={canvasWidth}
-                          height={canvasHeight}
-                          x={imgTransform.x}
-                          y={imgTransform.y}
-                          scaleX={imgTransform.scaleX}
-                          scaleY={imgTransform.scaleY}
-                          listening={false}
-                        />
-                      )}
+                      <Group
+                        name="magnifier-lens-content"
+                        x={imgTransform.x}
+                        y={imgTransform.y}
+                        scaleX={imgTransform.scaleX}
+                        scaleY={imgTransform.scaleY}
+                        listening={false}
+                      >
+                        {bgImage && (
+                          <KonvaImage
+                            name="magnifier-lens-image"
+                            image={bgImage}
+                            width={canvasWidth}
+                            height={canvasHeight}
+                            listening={false}
+                          />
+                        )}
+                        {visibleInLensAnnotations.map((item) => {
+                          const itemStrokeScale = item.autoStrokeWidth ?? true;
+                          if (item.type === 'rect') {
+                            return (
+                              <Rect
+                                key={`lens-${ann.id}-${item.id}`}
+                                x={item.x}
+                                y={item.y}
+                                width={item.width}
+                                height={item.height}
+                                scaleX={item.scaleX ?? 1}
+                                scaleY={item.scaleY ?? 1}
+                                rotation={item.rotation ?? 0}
+                                fill="rgba(0, 0, 0, 0.001)"
+                                stroke={item.stroke}
+                                strokeWidth={item.strokeWidth}
+                                strokeScaleEnabled={itemStrokeScale}
+                                listening={false}
+                              />
+                            );
+                          }
+                          if (item.type === 'ellipse') {
+                            return (
+                              <Ellipse
+                                key={`lens-${ann.id}-${item.id}`}
+                                x={item.x}
+                                y={item.y}
+                                radiusX={item.radiusX}
+                                radiusY={item.radiusY}
+                                scaleX={item.scaleX ?? 1}
+                                scaleY={item.scaleY ?? 1}
+                                rotation={item.rotation ?? 0}
+                                fill="rgba(0, 0, 0, 0.001)"
+                                stroke={item.stroke}
+                                strokeWidth={item.strokeWidth}
+                                strokeScaleEnabled={itemStrokeScale}
+                                listening={false}
+                              />
+                            );
+                          }
+                          if (item.type === 'line') {
+                            return (
+                              <Line
+                                key={`lens-${ann.id}-${item.id}`}
+                                x={item.x || 0}
+                                y={item.y || 0}
+                                points={item.points}
+                                scaleX={item.scaleX ?? 1}
+                                scaleY={item.scaleY ?? 1}
+                                rotation={item.rotation ?? 0}
+                                stroke={item.stroke}
+                                strokeWidth={item.strokeWidth}
+                                strokeScaleEnabled={itemStrokeScale}
+                                lineCap="round"
+                                listening={false}
+                              />
+                            );
+                          }
+                          if (item.type === 'arrow') {
+                            return (
+                              <Arrow
+                                key={`lens-${ann.id}-${item.id}`}
+                                x={item.x || 0}
+                                y={item.y || 0}
+                                points={item.points}
+                                scaleX={item.scaleX ?? 1}
+                                scaleY={item.scaleY ?? 1}
+                                rotation={item.rotation ?? 0}
+                                stroke={item.stroke}
+                                strokeWidth={item.strokeWidth}
+                                strokeScaleEnabled={itemStrokeScale}
+                                fill={item.stroke}
+                                pointerLength={10}
+                                pointerWidth={10}
+                                listening={false}
+                              />
+                            );
+                          }
+                          if (item.type === 'text') {
+                            return (
+                              <Text
+                                key={`lens-${ann.id}-${item.id}`}
+                                x={item.x}
+                                y={item.y}
+                                text={item.text}
+                                fontSize={item.fontSize}
+                                fill={item.fill || '#000000'}
+                                scaleX={item.scaleX ?? 1}
+                                scaleY={item.scaleY ?? 1}
+                                rotation={item.rotation ?? 0}
+                                listening={false}
+                              />
+                            );
+                          }
+                          if (item.type === 'image') {
+                            return (
+                              <PassiveImageNode
+                                key={`lens-${ann.id}-${item.id}`}
+                                ann={item}
+                              />
+                            );
+                          }
+                          return null;
+                        })}
+                      </Group>
                     </Group>
 
                     {/* Superfície da Lente Clicável para Arraste Livre */}
@@ -928,6 +1190,11 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
 
                     {/* Detalhe Cosmético Minimalista na Parte de Baixo: Coroa Giratória Discreta */}
                     <Group
+                      ref={(node) => {
+                        if (node) {
+                          node.getClientRect = () => ({ x: 0, y: 0, width: 0, height: 0 });
+                        }
+                      }}
                       y={ann.radius}
                       onMouseEnter={() => {
                         setIsHoveringCrown(true);
@@ -991,7 +1258,15 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
 
                     {/* Barra Minimalista de Zoom na Parte de Baixo (Visível APENAS ao movimentar para fazer zoom) */}
                     {showZoomBar && (
-                      <Group y={ann.radius + 8} listening={false}>
+                      <Group
+                        ref={(node) => {
+                          if (node) {
+                            node.getClientRect = () => ({ x: 0, y: 0, width: 0, height: 0 });
+                          }
+                        }}
+                        y={ann.radius + 8}
+                        listening={false}
+                      >
                         <Rect
                           x={-44}
                           y={0}
@@ -1097,8 +1372,42 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
               />
             )}
 
-            {/* Transformer de Redimensionamento (Simples e Multiseleção) */}
-            <Transformer ref={transformerRef} onTransformEnd={handleTransformEnd} />
+            {/* Transformer de Redimensionamento (Simples, Multiseleção e Lupa) */}
+            <Transformer
+              ref={transformerRef}
+              onTransform={handleTransform}
+              onTransformEnd={handleTransformEnd}
+              rotateEnabled={!hasSelectedMagnifier}
+              keepRatio={hasSelectedMagnifier}
+              enabledAnchors={
+                hasSelectedMagnifier
+                  ? [
+                      'top-left',
+                      'top-right',
+                      'bottom-left',
+                      'bottom-right',
+                      'middle-left',
+                      'middle-right',
+                      'top-center',
+                    ]
+                  : undefined
+              }
+              boundBoxFunc={(oldBox, newBox) => {
+                if (hasSelectedMagnifier) {
+                  if (
+                    newBox.width < 48 ||
+                    newBox.height < 48 ||
+                    newBox.x < 0 ||
+                    newBox.y < 0 ||
+                    newBox.x + newBox.width > canvasWidth ||
+                    newBox.y + newBox.height > canvasHeight
+                  ) {
+                    return oldBox;
+                  }
+                }
+                return newBox;
+              }}
+            />
           </Layer>
         </Stage>
 

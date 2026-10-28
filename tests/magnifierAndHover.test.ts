@@ -12,6 +12,9 @@ import {
   shouldAttachTransformer,
   isTargetExistingAnnotation,
   getAnnotationsInSelectionBox,
+  clampMagnifierToImageBounds,
+  sortAnnotationsWithMagnifiersOnTop,
+  getMagnifierVisibleAnnotations,
 } from '../src/utils/magnifierAndHover';
 
 describe('Magnifier Zoom & Rotating Crown (Coroa Giratória)', () => {
@@ -91,13 +94,48 @@ describe('Magnifier Zoom & Rotating Crown (Coroa Giratória)', () => {
     expect(calculateZoomBarProgress(3.0)).toBe(1.0);
   });
 
-  it('excludes magnifier from rectangular Transformer so lens remains freely draggable after zooming', () => {
-    expect(shouldAttachTransformer('magnifier')).toBe(false);
+  it('allows attaching Transformer to magnifier as well as all other blocks for resizing', () => {
+    expect(shouldAttachTransformer('magnifier')).toBe(true);
     expect(shouldAttachTransformer('rect')).toBe(true);
     expect(shouldAttachTransformer('ellipse')).toBe(true);
+    expect(shouldAttachTransformer('line')).toBe(true);
     expect(shouldAttachTransformer('arrow')).toBe(true);
     expect(shouldAttachTransformer('text')).toBe(true);
     expect(shouldAttachTransformer('image')).toBe(true);
+  });
+
+  it('allows resizing magnifier radius freely while clamping radius and position to image boundaries', () => {
+    // Redimensionamento normal dentro da imagem (800x600)
+    const normal = clampMagnifierToImageBounds(300, 250, 120, 800, 600);
+    expect(normal).toEqual({ x: 300, y: 250, radius: 120 });
+
+    // Se o usuário esticar além da altura da imagem (600px -> raio máximo = 300px), respeita o limite da imagem
+    const clampedMax = clampMagnifierToImageBounds(400, 300, 500, 800, 600);
+    expect(clampedMax.radius).toBe(300);
+    expect(clampedMax.x).toBe(400);
+    expect(clampedMax.y).toBe(300);
+
+    // Se a lupa estiver próxima à borda esquerda/superior e for aumentada, mantém dentro dos limites da imagem
+    const clampedEdge = clampMagnifierToImageBounds(20, 30, 100, 800, 600);
+    expect(clampedEdge).toEqual({ x: 100, y: 100, radius: 100 });
+  });
+
+  it('keeps magnifier always above all other elements and exposes all non-magnifier blocks to the lens', () => {
+    const list = [
+      { id: 'mag-1', type: 'magnifier' as const, x: 100, y: 100, radius: 65, zoomLevel: 2.0 },
+      { id: 'rect-1', type: 'rect' as const, x: 20, y: 20, width: 100, height: 80 },
+      { id: 'line-1', type: 'line' as const, x: 0, y: 0, points: [10, 50, 150, 50] },
+      { id: 'arrow-1', type: 'arrow' as const, x: 0, y: 0, points: [20, 20, 90, 90] },
+      { id: 'ellipse-1', type: 'ellipse' as const, x: 80, y: 80, radiusX: 30, radiusY: 20 },
+    ];
+
+    // A lupa deve ficar sempre por último na ordem de renderização (acima de todos os elementos)
+    const sorted = sortAnnotationsWithMagnifiersOnTop(list);
+    expect(sorted.map((a) => a.id)).toEqual(['rect-1', 'line-1', 'arrow-1', 'ellipse-1', 'mag-1']);
+
+    // A lente da lupa deve enxergar todos os blocos adicionados (exceto a própria lupa)
+    const visibleInLens = getMagnifierVisibleAnnotations(list);
+    expect(visibleInLens.map((a) => a.id)).toEqual(['rect-1', 'line-1', 'arrow-1', 'ellipse-1']);
   });
 });
 

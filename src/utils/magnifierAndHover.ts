@@ -90,12 +90,59 @@ export function calculateZoomBarProgress(zoomLevel: number): number {
 }
 
 /**
- * Define se o Transformer retangular do Konva deve ser acoplado ao tipo de bloco.
- * A lupa ('magnifier') é excluída do Transformer retangular para que sua lente circular
- * e imagem interna recortada possam ser movimentadas livremente mesmo após aplicar zoom.
+ * Define se o Transformer de redimensionamento do Konva deve ser acoplado ao tipo de bloco.
+ * Todos os blocos de anotação (incluindo a lupa 'magnifier') suportam redimensionamento.
  */
 export function shouldAttachTransformer(annotationType: ToolType): boolean {
-  return annotationType !== 'magnifier';
+  return annotationType !== 'select';
+}
+
+/**
+ * Garante que o raio e a posição da lupa respeitem os limites da imagem ao redimensionar ou mover.
+ */
+export function clampMagnifierToImageBounds(
+  x: number,
+  y: number,
+  radius: number,
+  imageWidth: number,
+  imageHeight: number,
+  minRadius: number = 25
+): { x: number; y: number; radius: number } {
+  const safeW = Math.max(minRadius * 2, imageWidth);
+  const safeH = Math.max(minRadius * 2, imageHeight);
+  const maxRadius = Math.max(minRadius, Math.floor(Math.min(safeW, safeH) / 2));
+
+  const clampedRadius = Math.max(minRadius, Math.min(maxRadius, Math.round(radius)));
+  const clampedX = Math.max(clampedRadius, Math.min(safeW - clampedRadius, Math.round(x)));
+  const clampedY = Math.max(clampedRadius, Math.min(safeH - clampedRadius, Math.round(y)));
+
+  return {
+    x: clampedX,
+    y: clampedY,
+    radius: clampedRadius,
+  };
+}
+
+/**
+ * Ordena as anotações garantindo que todas as lupas ('magnifier') fiquem sempre
+ * no topo (acima de todos os demais blocos da imagem).
+ */
+export function sortAnnotationsWithMagnifiersOnTop<T extends { type: ToolType }>(
+  annotations: T[]
+): T[] {
+  const nonMagnifiers = annotations.filter((a) => a.type !== 'magnifier');
+  const magnifiers = annotations.filter((a) => a.type === 'magnifier');
+  return [...nonMagnifiers, ...magnifiers];
+}
+
+/**
+ * Retorna todos os blocos (formas, linhas, setas, textos, imagens) que devem ser
+ * visualizados e ampliados dentro da lente da lupa.
+ */
+export function getMagnifierVisibleAnnotations<T extends { type: ToolType }>(
+  annotations: T[]
+): T[] {
+  return annotations.filter((a) => a.type !== 'magnifier');
 }
 
 export interface PointerBehavior {
