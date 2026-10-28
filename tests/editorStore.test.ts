@@ -1,6 +1,6 @@
 // tests/editorStore.test.ts
 import { describe, it, expect } from 'vitest';
-import { createEditorStore, Annotation } from '../src/state/editorStore';
+import { createEditorStore, Annotation, shouldShowTextControls } from '../src/state/editorStore';
 
 describe('Editor Store', () => {
   it('adds an annotation and supports undo/redo stack', () => {
@@ -303,5 +303,76 @@ describe('Editor Store', () => {
     expect(updated.stroke).toBe('#0071e3');
     expect(updated.strokeWidth).toBe(5);
     expect(updated.autoStrokeWidth).toBe(false);
+  });
+
+  it('supports contextual fontFamily and fontSize selection per text block with undo/redo and mixed selection safety', () => {
+    const store = createEditorStore();
+    expect(store.getState().fontFamily).toBe('Arial');
+    expect(store.getState().fontSize).toBe(18);
+
+    // Contexto da barra: exibe controles de texto quando a ferramenta é 'text' ou há bloco 'text' selecionado
+    expect(shouldShowTextControls('text', [])).toBe(true);
+    expect(shouldShowTextControls('rect', [])).toBe(false);
+
+    store.addAnnotation({
+      id: 'txt-1',
+      type: 'text',
+      x: 40,
+      y: 40,
+      text: 'Título Principal',
+      fontSize: 18,
+      fontFamily: 'Arial',
+      fill: '#ff3b30',
+    });
+    store.addAnnotation({
+      id: 'txt-2',
+      type: 'text',
+      x: 40,
+      y: 90,
+      text: 'Subtítulo',
+      fontSize: 18,
+      fontFamily: 'Arial',
+      fill: '#ff3b30',
+    });
+    store.addAnnotation({
+      id: 'rect-mix',
+      type: 'rect',
+      x: 10,
+      y: 10,
+      width: 100,
+      height: 50,
+      stroke: '#ff3b30',
+      strokeWidth: 3,
+    });
+
+    // Quando selecionamos um bloco de texto com a ferramenta 'select', shouldShowTextControls deve retornar true
+    const selectedTextOnly = store.getState().annotations.filter((a) => a.id === 'txt-1');
+    expect(shouldShowTextControls('select', selectedTextOnly)).toBe(true);
+
+    // Seleciona apenas txt-1 (+ rect-mix em seleção mista) e altera a fonte para 'Georgia' e tamanho para 32
+    store.setSelectedIds(['txt-1', 'rect-mix']);
+    store.setFontFamily('Georgia');
+    store.setFontSize(32);
+
+    const t1 = store.getState().annotations.find((a) => a.id === 'txt-1')!;
+    const t2 = store.getState().annotations.find((a) => a.id === 'txt-2')!;
+    const rMix = store.getState().annotations.find((a) => a.id === 'rect-mix')!;
+
+    expect(t1.type === 'text' && t1.fontFamily).toBe('Georgia');
+    expect(t1.type === 'text' && t1.fontSize).toBe(32);
+    // txt-2 não estava selecionado e mantém 'Arial' 18
+    expect(t2.type === 'text' && t2.fontFamily).toBe('Arial');
+    expect(t2.type === 'text' && t2.fontSize).toBe(18);
+    // rect-mix permanece intacto
+    expect(rMix.type).toBe('rect');
+
+    // Undo reverte o tamanho (32 -> 18) e o próximo Undo reverte a fonte ('Georgia' -> 'Arial')
+    store.undo();
+    const t1AfterUndoSize = store.getState().annotations.find((a) => a.id === 'txt-1')!;
+    expect(t1AfterUndoSize.type === 'text' && t1AfterUndoSize.fontSize).toBe(18);
+
+    store.undo();
+    const t1AfterUndoFont = store.getState().annotations.find((a) => a.id === 'txt-1')!;
+    expect(t1AfterUndoFont.type === 'text' && t1AfterUndoFont.fontFamily).toBe('Arial');
   });
 });

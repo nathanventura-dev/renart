@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { ToolType } from '../state/editorStore';
+import { ToolType, FONT_FAMILIES, FONT_SIZES } from '../state/editorStore';
 import {
   MousePointer,
   Square,
@@ -83,6 +83,11 @@ interface ToolbarProps {
   onInsertImage: (file: File) => void;
   magnifierMode?: 'without-focus' | 'with-focus';
   onSelectMagnifierMode?: (mode: 'without-focus' | 'with-focus') => void;
+  showTextControls?: boolean;
+  fontFamily?: string;
+  onSelectFontFamily?: (fontFamily: string) => void;
+  fontSize?: number;
+  onSelectFontSize?: (fontSize: number) => void;
 }
 
 const COLORS = ['#ff3b30', '#ff9f0a', '#34c759', '#0071e3', '#5856d6', '#000000', '#ffffff'];
@@ -106,6 +111,11 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   onInsertImage,
   magnifierMode = 'without-focus',
   onSelectMagnifierMode,
+  showTextControls = false,
+  fontFamily = 'Arial',
+  onSelectFontFamily,
+  fontSize = 18,
+  onSelectFontSize,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const exportMenuRef = useRef<HTMLDivElement>(null);
@@ -386,54 +396,109 @@ export const Toolbar: React.FC<ToolbarProps> = ({
           ))}
         </div>
 
-        {/* Espessura do traço em pixels */}
-        <select
-          title="Espessura da linha (em pixels)"
-          value={strokeWidth}
-          onChange={(e) => onSelectStrokeWidth(Number(e.target.value))}
-          style={{
-            marginLeft: '4px',
-            height: INNER_CONTROL_HEIGHT,
-            boxSizing: 'border-box',
-            fontSize: '12px',
-            padding: '0 6px',
-            borderRadius: '6px',
-            border: !autoStrokeWidth ? '1.5px solid #0071e3' : '1px solid #d1d1d6',
-            backgroundColor: '#ffffff',
-            cursor: 'pointer',
-          }}
-        >
-          <option value={2}>2px</option>
-          <option value={3}>3px</option>
-          <option value={5}>5px</option>
-          <option value={8}>8px</option>
-        </select>
+        {showTextControls ? (
+          <>
+            {/* Seletor Contextual de Fonte (Estilo Microsoft Word) */}
+            <select
+              title="Família da fonte"
+              value={fontFamily}
+              onChange={(e) => onSelectFontFamily?.(e.target.value)}
+              style={{
+                marginLeft: '4px',
+                height: INNER_CONTROL_HEIGHT,
+                boxSizing: 'border-box',
+                fontSize: '12px',
+                fontFamily,
+                padding: '0 6px',
+                borderRadius: '6px',
+                border: '1px solid #d1d1d6',
+                backgroundColor: '#ffffff',
+                cursor: 'pointer',
+              }}
+            >
+              {FONT_FAMILIES.map((font) => (
+                <option key={font} value={font} style={{ fontFamily: font }}>
+                  {font}
+                </option>
+              ))}
+            </select>
 
-        {/* Botão "Auto" ao lado da lista de pixels */}
-        <button
-          type="button"
-          title="Espessura automática ao redimensionar o bloco"
-          onClick={() => onToggleAutoStrokeWidth?.(!autoStrokeWidth)}
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            height: INNER_CONTROL_HEIGHT,
-            boxSizing: 'border-box',
-            marginLeft: '2px',
-            fontSize: '11px',
-            fontWeight: 600,
-            padding: '0 8px',
-            borderRadius: '6px',
-            border: autoStrokeWidth ? '1px solid #0071e3' : '1px solid #d1d1d6',
-            backgroundColor: autoStrokeWidth ? '#0071e3' : '#ffffff',
-            color: autoStrokeWidth ? '#ffffff' : '#334155',
-            cursor: 'pointer',
-            transition: 'all 0.15s ease',
-          }}
-        >
-          Auto
-        </button>
+            {/* Seletor Contextual de Tamanho da Fonte */}
+            <select
+              title="Tamanho da fonte"
+              value={fontSize}
+              onChange={(e) => onSelectFontSize?.(Number(e.target.value))}
+              style={{
+                marginLeft: '2px',
+                height: INNER_CONTROL_HEIGHT,
+                boxSizing: 'border-box',
+                fontSize: '12px',
+                padding: '0 6px',
+                borderRadius: '6px',
+                border: '1px solid #d1d1d6',
+                backgroundColor: '#ffffff',
+                cursor: 'pointer',
+              }}
+            >
+              {FONT_SIZES.map((size) => (
+                <option key={size} value={size}>
+                  {size}
+                </option>
+              ))}
+            </select>
+          </>
+        ) : (
+          <>
+            {/* Espessura do traço em pixels */}
+            <select
+              title="Espessura da linha (em pixels)"
+              value={strokeWidth}
+              onChange={(e) => onSelectStrokeWidth(Number(e.target.value))}
+              style={{
+                marginLeft: '4px',
+                height: INNER_CONTROL_HEIGHT,
+                boxSizing: 'border-box',
+                fontSize: '12px',
+                padding: '0 6px',
+                borderRadius: '6px',
+                border: !autoStrokeWidth ? '1.5px solid #0071e3' : '1px solid #d1d1d6',
+                backgroundColor: '#ffffff',
+                cursor: 'pointer',
+              }}
+            >
+              <option value={2}>2px</option>
+              <option value={3}>3px</option>
+              <option value={5}>5px</option>
+              <option value={8}>8px</option>
+            </select>
+
+            {/* Botão "Auto" ao lado da lista de pixels */}
+            <button
+              type="button"
+              title="Espessura automática ao redimensionar o bloco"
+              onClick={() => onToggleAutoStrokeWidth?.(!autoStrokeWidth)}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                height: INNER_CONTROL_HEIGHT,
+                boxSizing: 'border-box',
+                marginLeft: '2px',
+                fontSize: '11px',
+                fontWeight: 600,
+                padding: '0 8px',
+                borderRadius: '6px',
+                border: autoStrokeWidth ? '1px solid #0071e3' : '1px solid #d1d1d6',
+                backgroundColor: autoStrokeWidth ? '#0071e3' : '#ffffff',
+                color: autoStrokeWidth ? '#ffffff' : '#334155',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
+              }}
+            >
+              Auto
+            </button>
+          </>
+        )}
 
         <div style={{ width: '1px', height: '20px', backgroundColor: '#d1d1d6', margin: '0 4px' }} />
 

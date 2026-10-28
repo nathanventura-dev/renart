@@ -70,7 +70,9 @@ Se você desejar apontar, destacar ou enriquecer o print antes de salvar:
 - **Círculo / Elipse (Circle):** Cria destaques circulares ou ovais com âncoras de ajuste e movimentação livre.
 - **Linha / Traço (Minus):** Desenha linhas ou traços livres, ideais para sublinhar textos, destacar linhas de código ou fazer marcações diretas.
 - **Flecha Vetorial (Arrow):** Desenha setas com ponta automática. Ideal para indicar botões, erros ou áreas de interesse em tutoriais.
-- **Bloco de Texto (Type):** Insere caixas de texto com tamanho de fonte e cores customizáveis sobre a imagem (edição direta inline no canvas com duplo clique, sem janelas modais).
+- **Bloco de Texto com Seleção Contextual de Fonte e Tamanho (Type):**
+  - Insere caixas de texto sobre a imagem com edição direta inline no canvas (duplo clique, sem janelas modais).
+  - **Seletores Contextuais Estilo Microsoft Word (`[Fonte ▾]` e `[Tamanho ▾]`):** Quando a ferramenta de Texto está ativa — ou quando você seleciona um bloco de texto já existente na imagem — a barra superior troca automaticamente os controles de espessura de linha pelos seletores dedicados de **Família da Fonte** (`Arial`, `Segoe UI`, `Calibri`, `Verdana`, `Georgia`, `Times New Roman`, `Courier New`) e **Tamanho da Fonte** (`12`, `14`, `16`, `18`, `20`, `24`, `28`, `32`, `36`, `48`), permitindo alterar a fonte e o tamanho de cada bloco de texto independentemente.
 - **Inserir Imagem / Figura (ImageIcon):** Permite anexar logos, selos, carimbos ou figuras externas sobre o print.
 - **Ferramenta de Lupa com Opções "Sem foco" e "Com foco" (Zoom Lens):**
   - **Duas Opções de Uso na Barra de Ferramentas:** Ao selecionar a Lupa, você pode escolher entre:

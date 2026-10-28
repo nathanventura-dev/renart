@@ -54,11 +54,12 @@ Para garantir robustez, estabilidade e manutenibilidade sem regressões, os test
   - Arraste horizontal ou vertical invertido.
 - **Comando:** `cmd.exe /c npm test tests/geometry.test.ts`
 
-### 2.5. `tests/editorStore.test.ts` (Anotações, Estilo por Bloco, Modo Auto, Multiseleção e Undo/Redo)
-- **Objetivo:** Testar a integridade da lista de anotações no Canvas, a customização independente por bloco, o modo `"Auto"` de espessura ao redimensionar, a multiseleção de blocos e a fidelidade do histórico.
+### 2.5. `tests/editorStore.test.ts` (Anotações, Fonte e Tamanho Contextual, Estilo por Bloco, Modo Auto, Multiseleção e Undo/Redo)
+- **Objetivo:** Testar a integridade da lista de anotações no Canvas, a seleção contextual de família e tamanho de fonte para blocos de texto (`shouldShowTextControls`, `setFontFamily`, `setFontSize`), a customização independente por bloco, o modo `"Auto"` de espessura ao redimensionar, a multiseleção de blocos e a fidelidade do histórico.
 - **Cenários Cobertos:**
-  - Inserção de retângulo, círculo, flecha, texto e lupa.
-  - Modificação independente de cor e espessura da linha apenas nos blocos selecionados (sem afetar os demais blocos da imagem).
+  - Inserção de retângulo, círculo, linha/traço, flecha, texto e lupa.
+  - Modificação independente de cor, espessura da linha, família de fonte (`fontFamily`) e tamanho de fonte (`fontSize`) apenas nos blocos selecionados (sem afetar os demais blocos da imagem).
+  - Troca contextual da barra superior para exibir seletores de fonte e tamanho quando a ferramenta `text` está ativa ou quando há blocos `text` selecionados (`shouldShowTextControls`).
   - Opção `"Auto"` de espessura de linha por bloco (`autoStrokeWidth`) e aplicação automática para novos blocos adicionados quando `"Auto"` está ativo.
   - Multiseleção de blocos (`setSelectedIds`, `toggleSelectedId`, `updateAnnotations`) permitindo movimentar, redimensionar, excluir ou alterar cores e espessuras de vários blocos simultaneamente.
   - Execução de `undo` e `redo` revertendo e reaplicando ações individuais ou em lote com precisão.

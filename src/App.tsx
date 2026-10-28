@@ -4,7 +4,7 @@ import { Toolbar } from './components/Toolbar';
 import { GallerySidebar } from './components/GallerySidebar';
 import { CanvasEditor } from './components/CanvasEditor';
 import { CaptureOverlay } from './components/CaptureOverlay';
-import { createEditorStore, ToolType, Annotation } from './state/editorStore';
+import { createEditorStore, ToolType, Annotation, shouldShowTextControls } from './state/editorStore';
 import { createGalleryStore } from './state/galleryStore';
 import { exportCanvas, copyCanvasToClipboard, ExportFormat } from './services/exportService';
 import { captureDesktopFrame, cropCapturedScreen } from './services/screenCaptureService';
@@ -269,6 +269,11 @@ export const App: React.FC = () => {
     }
   };
 
+  const selectedAnnotations = editorState.annotations.filter((ann) =>
+    editorState.selectedIds.includes(ann.id)
+  );
+  const showTextControls = shouldShowTextControls(editorState.activeTool, selectedAnnotations);
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', width: '100vw' }}>
       {/* Barra de Ferramentas Superior */}
@@ -291,6 +296,11 @@ export const App: React.FC = () => {
         onInsertImage={handleInsertImage}
         magnifierMode={magnifierMode}
         onSelectMagnifierMode={setMagnifierMode}
+        showTextControls={showTextControls}
+        fontFamily={editorState.fontFamily}
+        onSelectFontFamily={(f: string) => editorStore.setFontFamily(f)}
+        fontSize={editorState.fontSize}
+        onSelectFontSize={(s: number) => editorStore.setFontSize(s)}
       />
 
       {/* Espaço Principal: Galeria Lateral (Esquerda) + Canvas Central */}
@@ -324,6 +334,7 @@ export const App: React.FC = () => {
             strokeWidth={editorState.strokeWidth}
             autoStrokeWidth={editorState.autoStrokeWidth}
             fontSize={editorState.fontSize}
+            fontFamily={editorState.fontFamily}
             isLocked={editorState.isLocked}
             onSelectId={(id: string | null) => editorStore.setSelectedId(id)}
             onSelectIds={(ids: string[]) => editorStore.setSelectedIds(ids)}

@@ -40,6 +40,7 @@ interface CanvasEditorProps {
   strokeWidth: number;
   autoStrokeWidth?: boolean;
   fontSize: number;
+  fontFamily?: string;
   isLocked?: boolean;
   magnifierMode?: 'without-focus' | 'with-focus';
   onSelectId: (id: string | null) => void;
@@ -57,6 +58,7 @@ interface InlineEditingText {
   y: number;
   text: string;
   fontSize: number;
+  fontFamily: string;
   fill: string;
 }
 
@@ -171,6 +173,7 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
   strokeWidth,
   autoStrokeWidth = true,
   fontSize,
+  fontFamily = 'Arial',
   isLocked = false,
   magnifierMode = 'without-focus',
   onSelectId,
@@ -727,6 +730,7 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
         y: pos.y,
         text: initialText,
         fontSize,
+        fontFamily,
         fill: strokeColor,
       };
       onAddAnnotation(textAnn);
@@ -737,6 +741,7 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
         y: pos.y,
         text: initialText,
         fontSize,
+        fontFamily,
         fill: strokeColor,
       });
       return;
@@ -1145,6 +1150,7 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                     y={ann.y}
                     text={ann.text}
                     fontSize={ann.fontSize}
+                    fontFamily={ann.fontFamily || 'Arial'}
                     fill={ann.fill || '#000000'}
                     scaleX={ann.scaleX ?? 1}
                     scaleY={ann.scaleY ?? 1}
@@ -1164,6 +1170,7 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                         y: ann.y,
                         text: ann.text,
                         fontSize: ann.fontSize,
+                        fontFamily: ann.fontFamily || 'Arial',
                         fill: ann.fill || '#000000',
                       });
                     }}
@@ -1459,6 +1466,7 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                                 y={item.y}
                                 text={item.text}
                                 fontSize={item.fontSize}
+                                fontFamily={item.fontFamily || 'Arial'}
                                 fill={item.fill || '#000000'}
                                 scaleX={item.scaleX ?? 1}
                                 scaleY={item.scaleY ?? 1}
@@ -1827,7 +1835,7 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
               top: `${editingText.y}px`,
               fontSize: `${editingText.fontSize}px`,
               color: editingText.fill,
-              fontFamily: 'system-ui, sans-serif',
+              fontFamily: editingText.fontFamily || 'Arial',
               border: '1px dashed #0071e3',
               borderRadius: '3px',
               backgroundColor: 'rgba(255, 255, 255, 0.95)',

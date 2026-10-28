@@ -51,12 +51,25 @@ export interface ArrowAnnotation extends BaseAnnotation {
   points: number[]; // [x1, y1, x2, y2]
 }
 
+export const FONT_FAMILIES = [
+  'Arial',
+  'Segoe UI',
+  'Calibri',
+  'Verdana',
+  'Georgia',
+  'Times New Roman',
+  'Courier New',
+] as const;
+
+export const FONT_SIZES = [12, 14, 16, 18, 20, 24, 28, 32, 36, 48] as const;
+
 export interface TextAnnotation extends BaseAnnotation {
   type: 'text';
   x: number;
   y: number;
   text: string;
   fontSize: number;
+  fontFamily?: string;
   fill?: string;
 }
 
@@ -97,7 +110,20 @@ export interface EditorState {
   strokeWidth: number;
   autoStrokeWidth: boolean;
   fontSize: number;
+  fontFamily: string;
   isLocked: boolean;
+}
+
+/**
+ * Determina se a barra superior deve exibir os seletores contextuais de Fonte e Tamanho
+ * em vez da espessura de linha (quando a ferramenta 'text' está ativa ou há blocos 'text' selecionados).
+ */
+export function shouldShowTextControls(
+  activeTool: ToolType,
+  selectedAnnotations: Annotation[]
+): boolean {
+  if (activeTool === 'text') return true;
+  return selectedAnnotations.some((ann) => ann.type === 'text');
 }
 
 interface CaptureEditorSession {
@@ -120,7 +146,8 @@ export function createEditorStore(initialState?: Partial<EditorState>) {
     strokeColor: '#ff3b30',
     strokeWidth: 3,
     autoStrokeWidth: true,
-    fontSize: 16,
+    fontSize: 18,
+    fontFamily: 'Arial',
     isLocked: false,
     ...initialState,
   };
@@ -154,11 +181,16 @@ export function createEditorStore(initialState?: Partial<EditorState>) {
         : firstSelected.stroke || state.strokeColor;
     const nextWidth = firstSelected.strokeWidth ?? state.strokeWidth;
     const nextAuto = firstSelected.autoStrokeWidth ?? state.autoStrokeWidth;
+    const firstText = annotations.find((a) => ids.includes(a.id) && a.type === 'text') as
+      | TextAnnotation
+      | undefined;
 
     return {
       strokeColor: nextColor,
       strokeWidth: nextWidth,
       autoStrokeWidth: nextAuto,
+      fontSize: firstText ? firstText.fontSize : state.fontSize,
+      fontFamily: firstText ? firstText.fontFamily || 'Arial' : state.fontFamily,
     };
   };
 
@@ -327,7 +359,52 @@ export function createEditorStore(initialState?: Partial<EditorState>) {
     },
 
     setFontSize: (size: number) => {
+      if (state.selectedIds.length > 0 && !state.isLocked) {
+        const selectedSet = new Set(state.selectedIds);
+        const hasSelectedText = state.annotations.some(
+          (ann) => selectedSet.has(ann.id) && ann.type === 'text'
+        );
+        if (hasSelectedText) {
+          undoStack.push([...state.annotations]);
+          redoStack.length = 0;
+          state = {
+            ...state,
+            fontSize: size,
+            annotations: state.annotations.map((ann) => {
+              if (!selectedSet.has(ann.id) || ann.type !== 'text') return ann;
+              return { ...ann, fontSize: size };
+            }),
+          };
+          notify();
+          return;
+        }
+      }
       state = { ...state, fontSize: size };
+      notify();
+    },
+
+    setFontFamily: (fontFamily: string) => {
+      if (state.selectedIds.length > 0 && !state.isLocked) {
+        const selectedSet = new Set(state.selectedIds);
+        const hasSelectedText = state.annotations.some(
+          (ann) => selectedSet.has(ann.id) && ann.type === 'text'
+        );
+        if (hasSelectedText) {
+          undoStack.push([...state.annotations]);
+          redoStack.length = 0;
+          state = {
+            ...state,
+            fontFamily,
+            annotations: state.annotations.map((ann) => {
+              if (!selectedSet.has(ann.id) || ann.type !== 'text') return ann;
+              return { ...ann, fontFamily };
+            }),
+          };
+          notify();
+          return;
+        }
+      }
+      state = { ...state, fontFamily };
       notify();
     },
 
