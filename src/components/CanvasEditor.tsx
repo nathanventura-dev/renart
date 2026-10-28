@@ -13,7 +13,7 @@ import {
   Line,
 } from 'react-konva';
 import Konva from 'konva';
-import { Annotation, ToolType, ImageAnnotation } from '../state/editorStore';
+import { Annotation, ToolType, ImageAnnotation, ArrowStyle, ArrowCurveDirection } from '../state/editorStore';
 import {
   calculateMagnifierImageTransform,
   calculateZoomFromCrownDrag,
@@ -44,6 +44,10 @@ import {
   clampLinePointsToBounds,
   clampAnnotationPositionToBounds,
   calculateProportionalResizeBox,
+  calculateCurvedArrowPoints,
+  getArrowHeadDimensions,
+  calculateResizedArrowStroke,
+  clampArrowResizeBox,
 } from '../utils/zoomAndCrop';
 
 interface CanvasEditorProps {
@@ -59,6 +63,8 @@ interface CanvasEditorProps {
   fontFamily?: string;
   isLocked?: boolean;
   magnifierMode?: 'without-focus' | 'with-focus';
+  arrowStyle?: ArrowStyle;
+  arrowCurveDirection?: ArrowCurveDirection;
   zoomLevel?: number;
   onZoomIn?: () => void;
   onZoomOut?: () => void;
@@ -219,6 +225,8 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
   fontFamily = 'Arial',
   isLocked = false,
   magnifierMode = 'without-focus',
+  arrowStyle = 'standard',
+  arrowCurveDirection = 'right',
   zoomLevel = 1.0,
   onZoomIn,
   onZoomOut,
@@ -758,6 +766,13 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
         const steppedScale = nextFontSize / ann.fontSize;
         node.scaleX(steppedScale);
         node.scaleY(steppedScale);
+      } else if (ann?.type === 'arrow') {
+        const baseStroke = ann.strokeWidth || (ann.arrowStyle === 'thin' ? 2 : 4);
+        const rawScale = Math.max(Math.abs(node.scaleX() || 1), Math.abs(node.scaleY() || 1));
+        const nextStroke = calculateResizedArrowStroke(baseStroke, rawScale);
+        const steppedScale = nextStroke / baseStroke;
+        node.scaleX(steppedScale * (node.scaleX() < 0 ? -1 : 1));
+        node.scaleY(steppedScale * (node.scaleY() < 0 ? -1 : 1));
       } else if (ann) {
         // Para qualquer outra forma (rect, ellipse, arrow, line, image):
         // Garante escala uniforme em tempo real (scaleX === scaleY) sem qualquer distorção
@@ -917,7 +932,30 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
         };
       }
 
-      if (ann?.type === 'line' || ann?.type === 'arrow') {
+      if (ann?.type === 'arrow') {
+        const baseStroke = ann.strokeWidth || (ann.arrowStyle === 'thin' ? 2 : 4);
+        const rawScale = Math.max(Math.abs(node.scaleX() || 1), Math.abs(node.scaleY() || 1));
+        const nextStroke = calculateResizedArrowStroke(baseStroke, rawScale);
+        const steppedScale = (nextStroke / baseStroke) * ((node.scaleX() || 1) < 0 ? -1 : 1);
+        const nextPoints = ann.points.map((p) => Math.round(p * steppedScale));
+        node.scaleX(1);
+        node.scaleY(1);
+        (node as Konva.Arrow).points(nextPoints);
+        (node as Konva.Arrow).strokeWidth(nextStroke);
+        const clamped = clampLinePointsToBounds(node.x(), node.y(), nextPoints, imgW, imgH, 1, 1, node.rotation());
+        node.position({ x: clamped.x, y: clamped.y });
+        return {
+          x: clamped.x,
+          y: clamped.y,
+          points: nextPoints,
+          strokeWidth: nextStroke,
+          scaleX: 1,
+          scaleY: 1,
+          rotation: node.rotation(),
+        };
+      }
+
+      if (ann?.type === 'line') {
         const sx = node.scaleX() || 1;
         const sy = node.scaleY() || 1;
         const uniformScale = Math.max(Math.abs(sx), Math.abs(sy)) * (sx < 0 ? -1 : 1);
@@ -1171,15 +1209,23 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
         autoStrokeWidth,
       });
     } else if (activeTool === 'arrow') {
+      const initialStroke = arrowStyle === 'thin' ? 2 : strokeWidth || 4;
+      const initialPoints =
+        arrowStyle === 'curved'
+          ? [clampedStartX, clampedStartY, clampedStartX, clampedStartY, clampedStartX, clampedStartY]
+          : [clampedStartX, clampedStartY, clampedStartX, clampedStartY];
+
       setNewAnnotation({
         id,
         type: 'arrow',
         x: 0,
         y: 0,
-        points: [clampedStartX, clampedStartY, clampedStartX, clampedStartY],
+        points: initialPoints,
         stroke: strokeColor,
-        strokeWidth,
+        strokeWidth: initialStroke,
         autoStrokeWidth,
+        arrowStyle,
+        curveDirection: arrowCurveDirection,
       });
     }
   };
@@ -1272,7 +1318,20 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
       setNewAnnotation({ ...newAnnotation, points: [p1[0], p1[1], clampedDrawingX, clampedDrawingY] });
     } else if (newAnnotation.type === 'arrow') {
       const p1 = newAnnotation.points;
-      setNewAnnotation({ ...newAnnotation, points: [p1[0], p1[1], clampedDrawingX, clampedDrawingY] });
+      const startX = p1[0];
+      const startY = p1[1];
+      if (newAnnotation.arrowStyle === 'curved') {
+        const curvedPoints = calculateCurvedArrowPoints(
+          startX,
+          startY,
+          clampedDrawingX,
+          clampedDrawingY,
+          newAnnotation.curveDirection || arrowCurveDirection || 'right'
+        );
+        setNewAnnotation({ ...newAnnotation, points: curvedPoints });
+      } else {
+        setNewAnnotation({ ...newAnnotation, points: [startX, startY, clampedDrawingX, clampedDrawingY] });
+      }
     } else if (newAnnotation.type === 'magnifier') {
       const clampedLens = clampMagnifierToImageBounds(pos.x, pos.y, newAnnotation.radius, imgW, imgH);
       setNewAnnotation({
@@ -1334,15 +1393,18 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
         applySelectionIds([newAnnotation.id]);
       }
     } else if (newAnnotation.type === 'arrow') {
-      const [x1, y1, x2, y2] = newAnnotation.points;
-      const clampedP = [
-        Math.max(0, Math.min(x1, imgW)),
-        Math.max(0, Math.min(y1, imgH)),
-        Math.max(0, Math.min(x2, imgW)),
-        Math.max(0, Math.min(y2, imgH)),
-      ];
-      onAddAnnotation({ ...newAnnotation, points: clampedP });
-      applySelectionIds([newAnnotation.id]);
+      const p = newAnnotation.points;
+      const startX = p[0];
+      const startY = p[1];
+      const endX = p[p.length - 2];
+      const endY = p[p.length - 1];
+      if (Math.hypot(endX - startX, endY - startY) > 3) {
+        const clampedP = p.map((val, idx) =>
+          Math.max(0, Math.min(val, idx % 2 === 0 ? imgW : imgH))
+        );
+        onAddAnnotation({ ...newAnnotation, points: clampedP });
+        applySelectionIds([newAnnotation.id]);
+      }
     } else if (newAnnotation.type === 'magnifier') {
       const fx = newAnnotation.focusX ?? newAnnotation.x;
       const fy = newAnnotation.focusY ?? newAnnotation.y;
@@ -1563,6 +1625,11 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
               }
 
               if (ann.type === 'arrow') {
+                const currentArrowStyle = ann.arrowStyle || 'standard';
+                const headDims = getArrowHeadDimensions(ann.strokeWidth || 4, currentArrowStyle);
+                const isDashed = currentArrowStyle === 'dashed';
+                const isCurved = currentArrowStyle === 'curved';
+
                 return (
                   <Arrow
                     key={ann.id}
@@ -1574,12 +1641,14 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                     scaleY={ann.scaleY ?? 1}
                     rotation={ann.rotation ?? 0}
                     stroke={ann.stroke}
-                    strokeWidth={ann.strokeWidth}
+                    strokeWidth={ann.strokeWidth || (currentArrowStyle === 'thin' ? 2 : 4)}
+                    dash={isDashed ? [6, 4] : undefined}
+                    tension={isCurved ? 0.4 : 0}
                     strokeScaleEnabled={strokeScaleEnabled}
                     hitStrokeWidth={20}
                     fill={ann.stroke}
-                    pointerLength={10}
-                    pointerWidth={10}
+                    pointerLength={headDims.pointerLength}
+                    pointerWidth={headDims.pointerWidth}
                     draggable={canDrag}
                     dragBoundFunc={(pos) =>
                       getTransformedDragBound(pos, zoomLevel, (localX, localY) =>
@@ -1926,6 +1995,8 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                             );
                           }
                           if (item.type === 'arrow') {
+                            const currentItemStyle = item.arrowStyle || 'standard';
+                            const itemHeadDims = getArrowHeadDimensions(item.strokeWidth || 4, currentItemStyle);
                             return (
                               <Arrow
                                 key={`lens-${ann.id}-${item.id}`}
@@ -1936,11 +2007,13 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                                 scaleY={item.scaleY ?? 1}
                                 rotation={item.rotation ?? 0}
                                 stroke={item.stroke}
-                                strokeWidth={item.strokeWidth}
+                                strokeWidth={item.strokeWidth || (currentItemStyle === 'thin' ? 2 : 4)}
+                                dash={currentItemStyle === 'dashed' ? [6, 4] : undefined}
+                                tension={currentItemStyle === 'curved' ? 0.4 : 0}
                                 strokeScaleEnabled={itemStrokeScale}
                                 fill={item.stroke}
-                                pointerLength={10}
-                                pointerWidth={10}
+                                pointerLength={itemHeadDims.pointerLength}
+                                pointerWidth={itemHeadDims.pointerWidth}
                                 listening={false}
                               />
                             );
@@ -2156,16 +2229,22 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                     lineCap="round"
                   />
                 )}
-                {newAnnotation.type === 'arrow' && (
-                  <Arrow
-                    points={newAnnotation.points}
-                    stroke={newAnnotation.stroke}
-                    strokeWidth={newAnnotation.strokeWidth}
-                    fill={newAnnotation.stroke}
-                    pointerLength={10}
-                    pointerWidth={10}
-                  />
-                )}
+                {newAnnotation.type === 'arrow' && (() => {
+                  const previewStyle = newAnnotation.arrowStyle || arrowStyle || 'standard';
+                  const previewHead = getArrowHeadDimensions(newAnnotation.strokeWidth || 4, previewStyle);
+                  return (
+                    <Arrow
+                      points={newAnnotation.points}
+                      stroke={newAnnotation.stroke}
+                      strokeWidth={newAnnotation.strokeWidth}
+                      dash={previewStyle === 'dashed' ? [6, 4] : undefined}
+                      tension={previewStyle === 'curved' ? 0.4 : 0}
+                      fill={newAnnotation.stroke}
+                      pointerLength={previewHead.pointerLength}
+                      pointerWidth={previewHead.pointerWidth}
+                    />
+                  );
+                })()}
                 {newAnnotation.type === 'magnifier' && (() => {
                   const previewTransform = calculateMagnifierImageTransform(
                     newAnnotation.x,
@@ -2413,6 +2492,39 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                         ann.fontSize,
                         node.width(),
                         node.height()
+                      );
+                      if (
+                        clampedLocal.x < 0 ||
+                        clampedLocal.y < 0 ||
+                        clampedLocal.x + clampedLocal.width > canvasWidth ||
+                        clampedLocal.y + clampedLocal.height > canvasHeight
+                      ) {
+                        return oldBox;
+                      }
+                      return toAbsoluteBoundingBox(
+                        {
+                          ...clampedLocal,
+                          rotation: newBox.rotation,
+                        },
+                        zoomLevel
+                      );
+                    }
+                  }
+                }
+
+                if (transformerRef.current) {
+                  const nodes = transformerRef.current.nodes();
+                  if (nodes.length === 1) {
+                    const node = nodes[0];
+                    const ann = annotations.find((a) => a.id === node.id());
+                    if (ann?.type === 'arrow') {
+                      const baseStroke = ann.strokeWidth || (ann.arrowStyle === 'thin' ? 2 : 4);
+                      const clampedLocal = clampArrowResizeBox(
+                        localOldBox,
+                        proportionalBox,
+                        baseStroke,
+                        localOldBox.width,
+                        localOldBox.height
                       );
                       if (
                         clampedLocal.x < 0 ||

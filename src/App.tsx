@@ -505,6 +505,8 @@ export const App: React.FC = () => {
               editorStore.updateAnnotations(updatesById)
             }
             magnifierMode={magnifierMode}
+            arrowStyle={editorState.arrowStyle}
+            arrowCurveDirection={editorState.arrowCurveDirection}
             zoomLevel={zoomLevel}
             onZoomIn={handleZoomIn}
             onZoomOut={handleZoomOut}

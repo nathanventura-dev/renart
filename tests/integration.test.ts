@@ -54,4 +54,67 @@ describe('Integration Flow', () => {
     editor.redo();
     expect(editor.getState().annotations).toHaveLength(2);
   });
+
+  it('handles arrow variants lifecycle, style selection, curvature toggling and bounds clamping', () => {
+    const editor = createEditorStore();
+
+    // 1. Inicia com estilo standard e espessura 4px
+    expect(editor.getState().arrowStyle).toBe('standard');
+    editor.addAnnotation({
+      id: 'arrow-standard',
+      type: 'arrow',
+      points: [10, 10, 100, 10],
+      stroke: '#ff3b30',
+      strokeWidth: 4,
+      arrowStyle: 'standard',
+    });
+
+    // 2. Cria flecha fina (2px)
+    editor.setArrowStyle('thin');
+    expect(editor.getState().arrowStyle).toBe('thin');
+    editor.addAnnotation({
+      id: 'arrow-thin',
+      type: 'arrow',
+      points: [10, 30, 100, 30],
+      stroke: '#0071e3',
+      strokeWidth: 2,
+      arrowStyle: 'thin',
+    });
+
+    // 3. Cria flecha pontilhada
+    editor.setArrowStyle('dashed');
+    editor.addAnnotation({
+      id: 'arrow-dashed',
+      type: 'arrow',
+      points: [10, 50, 100, 50],
+      stroke: '#34c759',
+      strokeWidth: 4,
+      arrowStyle: 'dashed',
+    });
+
+    // 4. Cria flecha curva com 6 pontos
+    editor.setArrowStyle('curved');
+    editor.addAnnotation({
+      id: 'arrow-curved',
+      type: 'arrow',
+      points: [10, 100, 55, 120, 100, 100],
+      stroke: '#ff9f0a',
+      strokeWidth: 4,
+      arrowStyle: 'curved',
+      curveDirection: 'right',
+    });
+
+    expect(editor.getState().annotations).toHaveLength(4);
+
+    // 5. Alterna a direção da curva da flecha curva
+    editor.setSelectedIds(['arrow-curved']);
+    editor.toggleArrowCurveDirection('arrow-curved');
+    const curvedAnn = editor.getState().annotations.find((a) => a.id === 'arrow-curved');
+    expect(curvedAnn?.type === 'arrow' && curvedAnn.curveDirection).toBe('left');
+
+    // 6. Undo retorna para 'right'
+    editor.undo();
+    const curvedUndone = editor.getState().annotations.find((a) => a.id === 'arrow-curved');
+    expect(curvedUndone?.type === 'arrow' && curvedUndone.curveDirection).toBe('right');
+  });
 });
