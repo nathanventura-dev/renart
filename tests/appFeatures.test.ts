@@ -3,7 +3,7 @@ import { describe, it, expect } from 'vitest';
 import { createEditorStore } from '../src/state/editorStore';
 import { createGalleryStore } from '../src/state/galleryStore';
 import { calculateCropCoordinates } from '../src/services/screenCaptureService';
-import { resolveToolbarActionFeedback } from '../src/components/Toolbar';
+import { resolveToolbarActionFeedback, getToolbarLayoutMetrics } from '../src/components/Toolbar';
 
 describe('App Enhanced Features & User Fixes', () => {
   it('handles paste of image dataUrl into gallery respecting 10 items limit', () => {
@@ -217,5 +217,21 @@ describe('App Enhanced Features & User Fixes', () => {
       copyBadge: 'Copiado',
       exportBadge: null,
     });
+  });
+
+  it('enforces identical height and 3-column alignment (left capture, centered toolbar, right icons)', () => {
+    const metrics = getToolbarLayoutMetrics();
+
+    // Altura uniforme entre botão de captura, barra de ferramentas central e ícones da direita
+    expect(metrics.captureButtonHeight).toBe('36px');
+    expect(metrics.centerToolbarHeight).toBe('36px');
+    expect(metrics.rightActionIconHeight).toBe('36px');
+    expect(metrics.captureButtonHeight).toBe(metrics.centerToolbarHeight);
+    expect(metrics.centerToolbarHeight).toBe(metrics.rightActionIconHeight);
+
+    // Posicionamento: extremo esquerdo, centro e extremo direito
+    expect(metrics.leftAlignment).toBe('flex-start');
+    expect(metrics.centerAlignment).toBe('center');
+    expect(metrics.rightAlignment).toBe('flex-end');
   });
 });

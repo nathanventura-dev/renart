@@ -22,6 +22,33 @@ export interface ToolbarActionFeedback {
   exportBadge: 'Exportar' | null;
 }
 
+export const UNIFIED_TOOLBAR_HEIGHT = '36px';
+export const INNER_CONTROL_HEIGHT = '28px';
+
+export interface ToolbarLayoutMetrics {
+  captureButtonHeight: string;
+  centerToolbarHeight: string;
+  rightActionIconHeight: string;
+  leftAlignment: 'flex-start';
+  centerAlignment: 'center';
+  rightAlignment: 'flex-end';
+}
+
+/**
+ * Retorna as métricas de layout da barra superior garantindo a mesma altura (36px)
+ * e alinhamento em 3 colunas (esquerda: captura, centro: ferramentas, direita: ícones).
+ */
+export function getToolbarLayoutMetrics(): ToolbarLayoutMetrics {
+  return {
+    captureButtonHeight: UNIFIED_TOOLBAR_HEIGHT,
+    centerToolbarHeight: UNIFIED_TOOLBAR_HEIGHT,
+    rightActionIconHeight: UNIFIED_TOOLBAR_HEIGHT,
+    leftAlignment: 'flex-start',
+    centerAlignment: 'center',
+    rightAlignment: 'flex-end',
+  };
+}
+
 /**
  * Resolve os rótulos de hover ("Copiar" e "Exportar") e o aviso de confirmação ("Copiado")
  * próximos aos ícones na extrema direita da barra superior.
@@ -84,6 +111,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
 
   const feedback = resolveToolbarActionFeedback(hoveredAction, isCopied);
+  const layoutMetrics = getToolbarLayoutMetrics();
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -119,6 +147,21 @@ export const Toolbar: React.FC<ToolbarProps> = ({
     }, 1800);
   };
 
+  const getToolButtonStyle = (isActive: boolean): React.CSSProperties => ({
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: INNER_CONTROL_HEIGHT,
+    height: INNER_CONTROL_HEIGHT,
+    boxSizing: 'border-box',
+    backgroundColor: isActive ? '#ffffff' : 'transparent',
+    boxShadow: isActive ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+    border: 'none',
+    borderRadius: '6px',
+    padding: 0,
+    cursor: 'pointer',
+  });
+
   return (
     <div
       style={{
@@ -129,27 +172,38 @@ export const Toolbar: React.FC<ToolbarProps> = ({
         backgroundColor: '#ffffff',
         borderBottom: '1px solid #e5e5e7',
         userSelect: 'none',
-        flexWrap: 'wrap',
-        gap: '8px',
+        gap: '12px',
         position: 'relative',
         zIndex: 100,
       }}
     >
-      {/* Botão de Nova Captura */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+      {/* Coluna 1 (Extremo Esquerdo): Botão de Nova Captura */}
+      <div
+        style={{
+          flex: 1,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: layoutMetrics.leftAlignment,
+        }}
+      >
         <button
+          type="button"
           onClick={onNewCapture}
           style={{
-            display: 'flex',
+            display: 'inline-flex',
             alignItems: 'center',
+            justifyContent: 'center',
             gap: '6px',
+            height: layoutMetrics.captureButtonHeight,
+            boxSizing: 'border-box',
             backgroundColor: '#0071e3',
             color: '#fff',
             border: 'none',
-            borderRadius: '6px',
-            padding: '6px 12px',
+            borderRadius: '8px',
+            padding: '0 14px',
             fontWeight: 600,
             fontSize: '13px',
+            whiteSpace: 'nowrap',
             cursor: 'pointer',
           }}
         >
@@ -157,103 +211,71 @@ export const Toolbar: React.FC<ToolbarProps> = ({
         </button>
       </div>
 
-      {/* Ferramentas de Desenho e Anotação */}
+      {/* Coluna 2 (Centro): Barra de Ferramentas de Desenho e Anotação */}
       <div
         style={{
           display: 'flex',
           alignItems: 'center',
+          justifyContent: layoutMetrics.centerAlignment,
+          height: layoutMetrics.centerToolbarHeight,
+          boxSizing: 'border-box',
           gap: '4px',
           backgroundColor: '#f5f5f7',
-          padding: '4px',
+          padding: '0 6px',
           borderRadius: '8px',
+          border: '1px solid #e5e5e7',
         }}
       >
         <button
+          type="button"
           title="Selecionar / Multiseleção (Clique e arraste)"
           onClick={() => onSelectTool('select')}
-          style={{
-            backgroundColor: activeTool === 'select' ? '#ffffff' : 'transparent',
-            boxShadow: activeTool === 'select' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-            border: 'none',
-            borderRadius: '5px',
-            padding: '6px',
-            cursor: 'pointer',
-          }}
+          style={getToolButtonStyle(activeTool === 'select')}
         >
           <MousePointer size={16} />
         </button>
 
         <button
+          type="button"
           title="Retângulo"
           onClick={() => onSelectTool('rect')}
-          style={{
-            backgroundColor: activeTool === 'rect' ? '#ffffff' : 'transparent',
-            boxShadow: activeTool === 'rect' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-            border: 'none',
-            borderRadius: '5px',
-            padding: '6px',
-            cursor: 'pointer',
-          }}
+          style={getToolButtonStyle(activeTool === 'rect')}
         >
           <Square size={16} />
         </button>
 
         <button
+          type="button"
           title="Círculo / Elipse"
           onClick={() => onSelectTool('ellipse')}
-          style={{
-            backgroundColor: activeTool === 'ellipse' ? '#ffffff' : 'transparent',
-            boxShadow: activeTool === 'ellipse' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-            border: 'none',
-            borderRadius: '5px',
-            padding: '6px',
-            cursor: 'pointer',
-          }}
+          style={getToolButtonStyle(activeTool === 'ellipse')}
         >
           <Circle size={16} />
         </button>
 
         <button
+          type="button"
           title="Flecha"
           onClick={() => onSelectTool('arrow')}
-          style={{
-            backgroundColor: activeTool === 'arrow' ? '#ffffff' : 'transparent',
-            boxShadow: activeTool === 'arrow' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-            border: 'none',
-            borderRadius: '5px',
-            padding: '6px',
-            cursor: 'pointer',
-          }}
+          style={getToolButtonStyle(activeTool === 'arrow')}
         >
           <ArrowRight size={16} />
         </button>
 
         <button
+          type="button"
           title="Bloco de Texto"
           onClick={() => onSelectTool('text')}
-          style={{
-            backgroundColor: activeTool === 'text' ? '#ffffff' : 'transparent',
-            boxShadow: activeTool === 'text' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-            border: 'none',
-            borderRadius: '5px',
-            padding: '6px',
-            cursor: 'pointer',
-          }}
+          style={getToolButtonStyle(activeTool === 'text')}
         >
           <Type size={16} />
         </button>
 
         <button
+          type="button"
           title="Inserir Figura / Imagem"
           onClick={() => fileInputRef.current?.click()}
-          style={{
-            backgroundColor: activeTool === 'image' ? '#ffffff' : 'transparent',
-            boxShadow: activeTool === 'image' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-            border: 'none',
-            borderRadius: '5px',
-            padding: '6px',
-            cursor: 'pointer',
-          }}
+          style={getToolButtonStyle(activeTool === 'image')}
         >
           <ImageIcon size={16} />
         </button>
@@ -266,32 +288,28 @@ export const Toolbar: React.FC<ToolbarProps> = ({
         />
 
         <button
+          type="button"
           title="Lupa de Zoom"
           onClick={() => onSelectTool('magnifier')}
-          style={{
-            backgroundColor: activeTool === 'magnifier' ? '#ffffff' : 'transparent',
-            boxShadow: activeTool === 'magnifier' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-            border: 'none',
-            borderRadius: '5px',
-            padding: '6px',
-            cursor: 'pointer',
-          }}
+          style={getToolButtonStyle(activeTool === 'magnifier')}
         >
           <ZoomIn size={16} />
         </button>
 
-        <div style={{ width: '1px', height: '18px', backgroundColor: '#d1d1d6', margin: '0 4px' }} />
+        <div style={{ width: '1px', height: '20px', backgroundColor: '#d1d1d6', margin: '0 4px' }} />
 
         {/* Cores (aplica nos blocos selecionados ou define padrão para novos) */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
           {COLORS.map((c) => (
             <button
               key={c}
+              type="button"
               title={`Cor ${c}`}
               onClick={() => onSelectColor(c)}
               style={{
                 width: '18px',
                 height: '18px',
+                boxSizing: 'border-box',
                 borderRadius: '50%',
                 backgroundColor: c,
                 border: strokeColor === c ? '2px solid #0071e3' : '1px solid #ccc',
@@ -309,9 +327,11 @@ export const Toolbar: React.FC<ToolbarProps> = ({
           onChange={(e) => onSelectStrokeWidth(Number(e.target.value))}
           style={{
             marginLeft: '4px',
+            height: INNER_CONTROL_HEIGHT,
+            boxSizing: 'border-box',
             fontSize: '12px',
-            padding: '3px 6px',
-            borderRadius: '4px',
+            padding: '0 6px',
+            borderRadius: '6px',
             border: !autoStrokeWidth ? '1.5px solid #0071e3' : '1px solid #d1d1d6',
             backgroundColor: '#ffffff',
             cursor: 'pointer',
@@ -329,11 +349,16 @@ export const Toolbar: React.FC<ToolbarProps> = ({
           title="Espessura automática ao redimensionar o bloco"
           onClick={() => onToggleAutoStrokeWidth?.(!autoStrokeWidth)}
           style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            height: INNER_CONTROL_HEIGHT,
+            boxSizing: 'border-box',
             marginLeft: '2px',
             fontSize: '11px',
             fontWeight: 600,
-            padding: '3px 8px',
-            borderRadius: '4px',
+            padding: '0 8px',
+            borderRadius: '6px',
             border: autoStrokeWidth ? '1px solid #0071e3' : '1px solid #d1d1d6',
             backgroundColor: autoStrokeWidth ? '#0071e3' : '#ffffff',
             color: autoStrokeWidth ? '#ffffff' : '#334155',
@@ -344,42 +369,66 @@ export const Toolbar: React.FC<ToolbarProps> = ({
           Auto
         </button>
 
-        <div style={{ width: '1px', height: '18px', backgroundColor: '#d1d1d6', margin: '0 4px' }} />
+        <div style={{ width: '1px', height: '20px', backgroundColor: '#d1d1d6', margin: '0 4px' }} />
 
         {/* Desfazer e Refazer junto às ferramentas */}
         <button
+          type="button"
           title="Desfazer (Ctrl+Z)"
           disabled={!canUndo}
           onClick={onUndo}
           style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: INNER_CONTROL_HEIGHT,
+            height: INNER_CONTROL_HEIGHT,
+            boxSizing: 'border-box',
             border: 'none',
+            borderRadius: '6px',
             backgroundColor: 'transparent',
             cursor: canUndo ? 'pointer' : 'not-allowed',
             opacity: canUndo ? 1 : 0.4,
-            padding: '5px',
+            padding: 0,
           }}
         >
           <Undo2 size={16} />
         </button>
 
         <button
+          type="button"
           title="Refazer (Ctrl+Shift+Z)"
           disabled={!canRedo}
           onClick={onRedo}
           style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: INNER_CONTROL_HEIGHT,
+            height: INNER_CONTROL_HEIGHT,
+            boxSizing: 'border-box',
             border: 'none',
+            borderRadius: '6px',
             backgroundColor: 'transparent',
             cursor: canRedo ? 'pointer' : 'not-allowed',
             opacity: canRedo ? 1 : 0.4,
-            padding: '5px',
+            padding: 0,
           }}
         >
           <Redo2 size={16} />
         </button>
       </div>
 
-      {/* Extrema Direita: Apenas Ícones Minimalistas de Copiar e Exportar (Disquete) */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: 'auto' }}>
+      {/* Coluna 3 (Extremo Direito): Ícones Minimalistas de Copiar e Exportar (Disquete) */}
+      <div
+        style={{
+          flex: 1,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: layoutMetrics.rightAlignment,
+          gap: '8px',
+        }}
+      >
         {/* Ícone de Copiar + Hover "Copiar" / Feedback "Copiado" */}
         <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
           <button
@@ -389,11 +438,12 @@ export const Toolbar: React.FC<ToolbarProps> = ({
             onMouseEnter={() => setHoveredAction('copy')}
             onMouseLeave={() => setHoveredAction((prev) => (prev === 'copy' ? null : prev))}
             style={{
-              display: 'flex',
+              display: 'inline-flex',
               alignItems: 'center',
               justifyContent: 'center',
-              width: '34px',
-              height: '34px',
+              width: layoutMetrics.rightActionIconHeight,
+              height: layoutMetrics.rightActionIconHeight,
+              boxSizing: 'border-box',
               border: '1px solid #e2e8f0',
               backgroundColor: hoveredAction === 'copy' ? '#f1f5f9' : '#f8fafc',
               color: '#1e293b',
@@ -409,7 +459,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
             <div
               style={{
                 position: 'absolute',
-                top: '40px',
+                top: '42px',
                 right: 0,
                 backgroundColor: feedback.copyBadge === 'Copiado' ? '#16a34a' : '#1e293b',
                 color: '#ffffff',
@@ -440,11 +490,12 @@ export const Toolbar: React.FC<ToolbarProps> = ({
             onMouseEnter={() => setHoveredAction('export')}
             onMouseLeave={() => setHoveredAction((prev) => (prev === 'export' ? null : prev))}
             style={{
-              display: 'flex',
+              display: 'inline-flex',
               alignItems: 'center',
               justifyContent: 'center',
-              width: '34px',
-              height: '34px',
+              width: layoutMetrics.rightActionIconHeight,
+              height: layoutMetrics.rightActionIconHeight,
+              boxSizing: 'border-box',
               border: '1px solid #e2e8f0',
               backgroundColor:
                 hoveredAction === 'export' || isExportMenuOpen ? '#f1f5f9' : '#f8fafc',
@@ -461,7 +512,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
             <div
               style={{
                 position: 'absolute',
-                top: '40px',
+                top: '42px',
                 right: 0,
                 backgroundColor: '#1e293b',
                 color: '#ffffff',
@@ -483,7 +534,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
             <div
               style={{
                 position: 'absolute',
-                top: '40px',
+                top: '42px',
                 right: 0,
                 backgroundColor: '#ffffff',
                 border: '1px solid #e2e8f0',
