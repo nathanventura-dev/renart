@@ -5,7 +5,6 @@ import {
   Annotation,
   shouldShowTextControls,
   shouldShowArrowControls,
-  ArrowStyle,
 } from '../src/state/editorStore';
 
 describe('Editor Store', () => {

@@ -1,5 +1,4 @@
 import { Annotation, ArrowStyle } from '../state/editorStore';
-import type { TransformerBoundBox } from './magnifierAndHover';
 
 export const MIN_ZOOM_LEVEL = 0.25; // 25%
 export const MAX_ZOOM_LEVEL = 4.0; // 400%
