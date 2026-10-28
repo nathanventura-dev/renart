@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { ToolType } from '../state/editorStore';
 import {
   MousePointer,
@@ -11,8 +11,30 @@ import {
   Undo2,
   Redo2,
   Copy,
+  Save,
   Camera,
 } from 'lucide-react';
+
+export type HoveredToolbarAction = 'copy' | 'export' | null;
+
+export interface ToolbarActionFeedback {
+  copyBadge: 'Copiar' | 'Copiado' | null;
+  exportBadge: 'Exportar' | null;
+}
+
+/**
+ * Resolve os rótulos de hover ("Copiar" e "Exportar") e o aviso de confirmação ("Copiado")
+ * próximos aos ícones na extrema direita da barra superior.
+ */
+export function resolveToolbarActionFeedback(
+  hoveredAction: HoveredToolbarAction,
+  isCopied: boolean
+): ToolbarActionFeedback {
+  return {
+    copyBadge: isCopied ? 'Copiado' : hoveredAction === 'copy' ? 'Copiar' : null,
+    exportBadge: hoveredAction === 'export' ? 'Exportar' : null,
+  };
+}
 
 interface ToolbarProps {
   activeTool: ToolType;
@@ -54,6 +76,29 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   onInsertImage,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const exportMenuRef = useRef<HTMLDivElement>(null);
+  const copyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const [hoveredAction, setHoveredAction] = useState<HoveredToolbarAction>(null);
+  const [isCopied, setIsCopied] = useState(false);
+  const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
+
+  const feedback = resolveToolbarActionFeedback(hoveredAction, isCopied);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (exportMenuRef.current && !exportMenuRef.current.contains(e.target as Node)) {
+        setIsExportMenuOpen(false);
+      }
+    };
+    window.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      window.removeEventListener('mousedown', handleClickOutside);
+      if (copyTimerRef.current) {
+        clearTimeout(copyTimerRef.current);
+      }
+    };
+  }, []);
 
   const handleImageFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -61,6 +106,17 @@ export const Toolbar: React.FC<ToolbarProps> = ({
       onInsertImage(file);
       e.target.value = '';
     }
+  };
+
+  const handleCopyClick = () => {
+    onCopy();
+    setIsCopied(true);
+    if (copyTimerRef.current) {
+      clearTimeout(copyTimerRef.current);
+    }
+    copyTimerRef.current = setTimeout(() => {
+      setIsCopied(false);
+    }, 1800);
   };
 
   return (
@@ -75,6 +131,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
         userSelect: 'none',
         flexWrap: 'wrap',
         gap: '8px',
+        position: 'relative',
+        zIndex: 100,
       }}
     >
       {/* Botão de Nova Captura */}
@@ -285,10 +343,10 @@ export const Toolbar: React.FC<ToolbarProps> = ({
         >
           Auto
         </button>
-      </div>
 
-      {/* Ações: Desfazer / Refazer / Copiar / Exportar */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+        <div style={{ width: '1px', height: '18px', backgroundColor: '#d1d1d6', margin: '0 4px' }} />
+
+        {/* Desfazer e Refazer junto às ferramentas */}
         <button
           title="Desfazer (Ctrl+Z)"
           disabled={!canUndo}
@@ -298,10 +356,10 @@ export const Toolbar: React.FC<ToolbarProps> = ({
             backgroundColor: 'transparent',
             cursor: canUndo ? 'pointer' : 'not-allowed',
             opacity: canUndo ? 1 : 0.4,
-            padding: '4px',
+            padding: '5px',
           }}
         >
-          <Undo2 size={18} />
+          <Undo2 size={16} />
         </button>
 
         <button
@@ -313,65 +371,164 @@ export const Toolbar: React.FC<ToolbarProps> = ({
             backgroundColor: 'transparent',
             cursor: canRedo ? 'pointer' : 'not-allowed',
             opacity: canRedo ? 1 : 0.4,
-            padding: '4px',
+            padding: '5px',
           }}
         >
-          <Redo2 size={18} />
+          <Redo2 size={16} />
         </button>
+      </div>
 
-        <button
-          onClick={onCopy}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '4px',
-            border: '1px solid #d1d1d6',
-            backgroundColor: '#f5f5f7',
-            padding: '5px 10px',
-            borderRadius: '6px',
-            fontSize: '12px',
-            fontWeight: 500,
-            cursor: 'pointer',
-          }}
-        >
-          <Copy size={14} /> Copiar
-        </button>
+      {/* Extrema Direita: Apenas Ícones Minimalistas de Copiar e Exportar (Disquete) */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: 'auto' }}>
+        {/* Ícone de Copiar + Hover "Copiar" / Feedback "Copiado" */}
+        <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+          <button
+            type="button"
+            aria-label="Copiar"
+            onClick={handleCopyClick}
+            onMouseEnter={() => setHoveredAction('copy')}
+            onMouseLeave={() => setHoveredAction((prev) => (prev === 'copy' ? null : prev))}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: '34px',
+              height: '34px',
+              border: '1px solid #e2e8f0',
+              backgroundColor: hoveredAction === 'copy' ? '#f1f5f9' : '#f8fafc',
+              color: '#1e293b',
+              borderRadius: '8px',
+              cursor: 'pointer',
+              transition: 'background-color 0.15s ease',
+            }}
+          >
+            <Copy size={17} />
+          </button>
 
-        {/* Menu Exportar */}
-        <select
-          defaultValue=""
-          onChange={(e) => {
-            if (e.target.value) {
-              onExport(e.target.value as 'png' | 'jpeg' | 'pdf');
-              e.target.value = '';
-            }
-          }}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            backgroundColor: '#34c759',
-            color: '#fff',
-            border: 'none',
-            padding: '6px 10px',
-            borderRadius: '6px',
-            fontSize: '12px',
-            fontWeight: 600,
-            cursor: 'pointer',
-          }}
+          {feedback.copyBadge && (
+            <div
+              style={{
+                position: 'absolute',
+                top: '40px',
+                right: 0,
+                backgroundColor: feedback.copyBadge === 'Copiado' ? '#16a34a' : '#1e293b',
+                color: '#ffffff',
+                fontSize: '11px',
+                fontWeight: 600,
+                padding: '4px 8px',
+                borderRadius: '6px',
+                whiteSpace: 'nowrap',
+                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)',
+                pointerEvents: 'none',
+                zIndex: 200,
+              }}
+            >
+              {feedback.copyBadge}
+            </div>
+          )}
+        </div>
+
+        {/* Ícone de Disquete Minimalista (Exportar) + Hover "Exportar" */}
+        <div
+          ref={exportMenuRef}
+          style={{ position: 'relative', display: 'flex', alignItems: 'center' }}
         >
-          <option value="" disabled>
-            💾 Exportar...
-          </option>
-          <option value="png" style={{ color: '#000' }}>
-            Exportar como PNG
-          </option>
-          <option value="jpeg" style={{ color: '#000' }}>
-            Exportar como JPEG / JPG
-          </option>
-          <option value="pdf" style={{ color: '#000' }}>
-            Exportar como PDF
-          </option>
-        </select>
+          <button
+            type="button"
+            aria-label="Exportar"
+            onClick={() => setIsExportMenuOpen((prev) => !prev)}
+            onMouseEnter={() => setHoveredAction('export')}
+            onMouseLeave={() => setHoveredAction((prev) => (prev === 'export' ? null : prev))}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: '34px',
+              height: '34px',
+              border: '1px solid #e2e8f0',
+              backgroundColor:
+                hoveredAction === 'export' || isExportMenuOpen ? '#f1f5f9' : '#f8fafc',
+              color: '#1e293b',
+              borderRadius: '8px',
+              cursor: 'pointer',
+              transition: 'background-color 0.15s ease',
+            }}
+          >
+            <Save size={17} strokeWidth={1.75} />
+          </button>
+
+          {feedback.exportBadge && !isExportMenuOpen && (
+            <div
+              style={{
+                position: 'absolute',
+                top: '40px',
+                right: 0,
+                backgroundColor: '#1e293b',
+                color: '#ffffff',
+                fontSize: '11px',
+                fontWeight: 600,
+                padding: '4px 8px',
+                borderRadius: '6px',
+                whiteSpace: 'nowrap',
+                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)',
+                pointerEvents: 'none',
+                zIndex: 200,
+              }}
+            >
+              {feedback.exportBadge}
+            </div>
+          )}
+
+          {isExportMenuOpen && (
+            <div
+              style={{
+                position: 'absolute',
+                top: '40px',
+                right: 0,
+                backgroundColor: '#ffffff',
+                border: '1px solid #e2e8f0',
+                borderRadius: '8px',
+                boxShadow: '0 6px 20px rgba(0, 0, 0, 0.12)',
+                padding: '4px',
+                minWidth: '140px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '2px',
+                zIndex: 300,
+              }}
+            >
+              {(['png', 'jpeg', 'pdf'] as const).map((fmt) => (
+                <button
+                  key={fmt}
+                  type="button"
+                  onClick={() => {
+                    setIsExportMenuOpen(false);
+                    onExport(fmt);
+                  }}
+                  style={{
+                    textAlign: 'left',
+                    padding: '6px 10px',
+                    fontSize: '12px',
+                    fontWeight: 500,
+                    color: '#1e293b',
+                    backgroundColor: 'transparent',
+                    border: 'none',
+                    borderRadius: '5px',
+                    cursor: 'pointer',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = '#f1f5f9';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = 'transparent';
+                  }}
+                >
+                  Exportar como {fmt.toUpperCase()}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

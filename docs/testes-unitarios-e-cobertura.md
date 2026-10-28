@@ -85,7 +85,7 @@ Para garantir robustez, estabilidade e manutenibilidade sem regressões, os test
 - **Comando:** `cmd.exe /c npm test tests/integration.test.ts`
 
 ### 2.9. `tests/appFeatures.test.ts` (Funcionalidades Aprimoradas, Isolamento por Imagem e Captura Real)
-- **Objetivo:** Validar a colagem de imagens (`Ctrl+V`), desseleção com `ESC`, exclusão do bloco selecionado com a tecla `Delete` (incluindo suporte a desfazer com `Ctrl+Z`), edição direta de texto inline sem modais, trava de movimentação/exclusão após salvar (`Ctrl+S`), **isolamento independente de blocos e histórico Undo/Redo para cada print da galeria** (`switchCapture`) e **cálculo de recorte em pixels reais da captura de tela** (`calculateCropCoordinates`).
+- **Objetivo:** Validar a colagem de imagens (`Ctrl+V`), desseleção com `ESC`, exclusão do bloco selecionado com a tecla `Delete` (incluindo suporte a desfazer com `Ctrl+Z`), edição direta de texto inline sem modais, trava de movimentação/exclusão após salvar (`Ctrl+S`), isolamento independente de blocos e histórico Undo/Redo para cada print da galeria (`switchCapture`), cálculo de recorte em pixels reais da captura de tela (`calculateCropCoordinates`) e **rótulos de hover (`"Copiar"` / `"Exportar"`) e feedback `"Copiado"` nos ícones minimalistas da extrema direita** (`resolveToolbarActionFeedback`).
 - **Comando:** `cmd.exe /c npm test tests/appFeatures.test.ts`
 
 ### 2.10. `tests/magnifierAndHover.test.ts` (Lupa com Zoom Real, Coroa Minimalista Inferior e Hover Inteligente)

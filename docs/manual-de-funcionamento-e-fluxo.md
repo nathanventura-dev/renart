@@ -112,14 +112,19 @@ No painel esquerdo da aplicação, uma galeria visual organiza seus trabalhos re
 
 ---
 
-## 6. Exportação e Salvamento
+## 6. Copiar e Exportar (Ícones Minimalistas na Extrema Direita)
 
-No canto direito da barra superior, o menu **💾 Exportar** oferece três opções:
+Na extrema direita da barra superior, ficam localizados dois ícones minimalistas dedicados às ações finais:
 
-1. **Exportar como PNG:** Imagem com compressão sem perdas, ideal para interfaces gráficas e textos nítidos.
-2. **Exportar como JPEG / JPG:** Imagem otimizada com tamanho de arquivo reduzido.
-3. **Exportar como PDF:** Gera um documento PDF vetorial com a proporção exata da captura de tela (em folha paisagem ou retrato proporcional), pronto para anexar em relatórios técnicos ou documentações.
-4. **Copiar com Anotações (Botão Copiar):** Renderiza o print final com todas as formas, setas e textos desenhados e substitui o conteúdo da área de transferência.
+1. **Ícone de Copiar:**
+   - Ao passar o mouse (hover), exibe a legenda **`"Copiar"`**.
+   - Ao clicar, copia a captura com todas as anotações para a área de transferência e exibe imediatamente o aviso **`"Copiado"`** próximo ao ícone.
+2. **Ícone de Disquete Minimalista (Exportar):**
+   - Ao passar o mouse (hover), exibe a legenda **`"Exportar"`**.
+   - Ao clicar no disquete, abre o seletor rápido de formato:
+     - **Exportar como PNG:** Imagem sem perdas, ideal para interfaces gráficas e textos nítidos.
+     - **Exportar como JPEG:** Imagem compactada com tamanho reduzido.
+     - **Exportar como PDF:** Documento PDF proporcional à área capturada.
 
 ---
 

@@ -3,6 +3,7 @@ import { describe, it, expect } from 'vitest';
 import { createEditorStore } from '../src/state/editorStore';
 import { createGalleryStore } from '../src/state/galleryStore';
 import { calculateCropCoordinates } from '../src/services/screenCaptureService';
+import { resolveToolbarActionFeedback } from '../src/components/Toolbar';
 
 describe('App Enhanced Features & User Fixes', () => {
   it('handles paste of image dataUrl into gallery respecting 10 items limit', () => {
@@ -185,6 +186,36 @@ describe('App Enhanced Features & User Fixes', () => {
       sy: 100,
       sw: 800,
       sh: 600,
+    });
+  });
+
+  it('resolves hover labels ("Copiar" / "Exportar") and click feedback ("Copiado") for right-side icon buttons', () => {
+    // Sem hover e sem clique recente
+    expect(resolveToolbarActionFeedback(null, false)).toEqual({
+      copyBadge: null,
+      exportBadge: null,
+    });
+
+    // Hover sobre o ícone de copiar mostra "Copiar"
+    expect(resolveToolbarActionFeedback('copy', false)).toEqual({
+      copyBadge: 'Copiar',
+      exportBadge: null,
+    });
+
+    // Hover sobre o ícone de disquete (exportar) mostra "Exportar"
+    expect(resolveToolbarActionFeedback('export', false)).toEqual({
+      copyBadge: null,
+      exportBadge: 'Exportar',
+    });
+
+    // Ao clicar em copiar, mostra "Copiado" perto do botão de copiar (mesmo com ou sem hover)
+    expect(resolveToolbarActionFeedback('copy', true)).toEqual({
+      copyBadge: 'Copiado',
+      exportBadge: null,
+    });
+    expect(resolveToolbarActionFeedback(null, true)).toEqual({
+      copyBadge: 'Copiado',
+      exportBadge: null,
     });
   });
 });
