@@ -242,4 +242,50 @@ describe('Toolbar Horizontal Menus & Palette Dropdown', () => {
     expect(htmlCrop).toContain('rgba(34, 197, 94, 0.12)');
     expect(htmlCrop).toContain('rgba(239, 68, 68, 0.08)');
   });
+
+  it('renders minimalist capture button and right-aligned capture dropdown menu with Area, Window, and Fullscreen', () => {
+    // 1. Testa que resolveActiveToolbarMenu suporta 'capture'
+    let activeMenu: OpenToolbarMenu = null;
+    activeMenu = resolveActiveToolbarMenu(activeMenu, 'capture');
+    expect(activeMenu).toBe('capture');
+    activeMenu = resolveActiveToolbarMenu(activeMenu, 'capture');
+    expect(activeMenu).toBeNull();
+
+    // 2. Renderiza a Toolbar com o menu de captura aberto (initialOpenMenu: 'capture')
+    let capturedMode = '';
+    const htmlCapture = renderToString(
+      React.createElement(Toolbar, {
+        activeTool: 'select',
+        onSelectTool: () => {},
+        strokeColor: '#ff3b30',
+        onSelectColor: () => {},
+        strokeWidth: 2,
+        onSelectStrokeWidth: () => {},
+        canUndo: false,
+        canRedo: false,
+        onUndo: () => {},
+        onRedo: () => {},
+        onNewCapture: (mode) => {
+          capturedMode = mode || 'region';
+        },
+        onCopy: () => {},
+        onExport: () => {},
+        onInsertImage: () => {},
+        initialOpenMenu: 'capture',
+      })
+    );
+    expect(capturedMode).toBe('');
+
+    // Botão de captura com estilo minimalista (translúcido, sem azul saturado sólido de fundo)
+    expect(htmlCapture).toContain('Nova Captura');
+    expect(htmlCapture).not.toContain('background-color:#0071e3;color:#fff;border:none');
+
+    // Menu suspenso de captura à direita com as 3 opções
+    expect(htmlCapture).toContain('Área');
+    expect(htmlCapture).toContain('Janela');
+    expect(htmlCapture).toContain('Tela Inteira');
+
+    // Posicionamento do menu à direita para desobstruir a galeria
+    expect(htmlCapture).toContain('left:100%');
+  });
 });

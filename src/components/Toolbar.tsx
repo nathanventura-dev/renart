@@ -32,7 +32,11 @@ import {
   Camera,
   RotateCw,
   Palette,
+  ChevronDown,
+  AppWindow,
+  Monitor,
 } from 'lucide-react';
+import { CaptureMode } from '../types/capture';
 
 export type HoveredToolbarAction = 'copy' | 'export' | null;
 
@@ -159,7 +163,7 @@ interface ToolbarProps {
   canRedo: boolean;
   onUndo: () => void;
   onRedo: () => void;
-  onNewCapture: () => void;
+  onNewCapture: (mode?: CaptureMode) => void;
   onCopy: () => void;
   onExport: (format: 'png' | 'jpeg' | 'pdf') => void;
   onInsertImage: (file: File) => void;
@@ -196,7 +200,7 @@ export const TOOLBAR_COLORS = [
 ];
 export const COLORS = TOOLBAR_COLORS;
 
-export type OpenToolbarMenu = 'palette' | 'arrow' | 'magnifier' | 'text' | null;
+export type OpenToolbarMenu = 'palette' | 'arrow' | 'magnifier' | 'text' | 'capture' | null;
 
 export function resolveActiveToolbarMenu(
   currentMenu: OpenToolbarMenu,
@@ -209,10 +213,11 @@ export function resolveActiveToolbarMenu(
 export function isClickOutsideActiveMenu(
   activeMenu: OpenToolbarMenu,
   containers: {
-    palette: Node | null;
-    arrow: Node | null;
-    magnifier: Node | null;
-    text: Node | null;
+    palette?: Node | null;
+    arrow?: Node | null;
+    magnifier?: Node | null;
+    text?: Node | null;
+    capture?: Node | null;
   },
   target: Node | null
 ): boolean {
@@ -326,6 +331,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   const arrowContainerRef = useRef<HTMLDivElement>(null);
   const textContainerRef = useRef<HTMLDivElement>(null);
   const magnifierContainerRef = useRef<HTMLDivElement>(null);
+  const captureContainerRef = useRef<HTMLDivElement>(null);
   const copyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [hoveredAction, setHoveredAction] = useState<HoveredToolbarAction>(null);
@@ -363,6 +369,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
             arrow: arrowContainerRef.current,
             magnifier: magnifierContainerRef.current,
             text: textContainerRef.current,
+            capture: captureContainerRef.current,
           },
           targetNode
         )
@@ -428,7 +435,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
         zIndex: 100,
       }}
     >
-      {/* Coluna 1 (Extremo Esquerdo): Botão de Nova Captura */}
+      {/* Coluna 1 (Extremo Esquerdo): Botão de Nova Captura e Menu Suspenso à Direita */}
       <div
         style={{
           flex: 1,
@@ -437,29 +444,148 @@ export const Toolbar: React.FC<ToolbarProps> = ({
           justifyContent: layoutMetrics.leftAlignment,
         }}
       >
-        <button
-          type="button"
-          onClick={onNewCapture}
+        <div
+          ref={captureContainerRef}
           style={{
+            position: 'relative',
             display: 'inline-flex',
             alignItems: 'center',
-            justifyContent: 'center',
-            gap: '6px',
-            height: layoutMetrics.captureButtonHeight,
-            boxSizing: 'border-box',
-            backgroundColor: '#0071e3',
-            color: '#fff',
-            border: 'none',
-            borderRadius: '8px',
-            padding: '0 14px',
-            fontWeight: 600,
-            fontSize: '13px',
-            whiteSpace: 'nowrap',
-            cursor: 'pointer',
           }}
         >
-          <Camera size={16} /> Nova Captura
-        </button>
+          <button
+            type="button"
+            onClick={() => setOpenMenu((prev) => resolveActiveToolbarMenu(prev, 'capture'))}
+            title="Opções de Captura de Tela"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '6px',
+              height: layoutMetrics.captureButtonHeight,
+              boxSizing: 'border-box',
+              backgroundColor: openMenu === 'capture' ? 'rgba(0, 113, 227, 0.12)' : 'rgba(0, 0, 0, 0.04)',
+              color: openMenu === 'capture' ? '#0071e3' : '#1e293b',
+              border: openMenu === 'capture' ? '1px solid rgba(0, 113, 227, 0.3)' : '1px solid rgba(0, 0, 0, 0.08)',
+              borderRadius: '8px',
+              padding: '0 12px',
+              fontWeight: 600,
+              fontSize: '13px',
+              whiteSpace: 'nowrap',
+              cursor: 'pointer',
+              transition: 'all 0.15s ease',
+            }}
+          >
+            <Camera size={16} />
+            <span>Nova Captura</span>
+            <ChevronDown
+              size={14}
+              style={{
+                opacity: 0.6,
+                transform: openMenu === 'capture' ? 'rotate(180deg)' : 'none',
+                transition: 'transform 0.15s ease',
+              }}
+            />
+          </button>
+
+          {/* Menu Suspenso de Captura projetado para a Direita (desobstrui a galeria lateral) */}
+          {openMenu === 'capture' && (
+            <div
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: '100%',
+                marginLeft: '8px',
+                display: 'flex',
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: '4px',
+                backgroundColor: '#ffffff',
+                padding: '4px 6px',
+                borderRadius: '8px',
+                boxShadow: '0 4px 16px rgba(0, 0, 0, 0.12)',
+                border: '1px solid #e2e8f0',
+                zIndex: 10001,
+                whiteSpace: 'nowrap',
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => {
+                  setOpenMenu(null);
+                  onNewCapture('region');
+                }}
+                title="Capturar Área Retangular (arraste livre)"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '6px 10px',
+                  borderRadius: '6px',
+                  border: 'none',
+                  backgroundColor: 'transparent',
+                  color: '#334155',
+                  fontSize: '12px',
+                  fontWeight: 500,
+                  cursor: 'pointer',
+                  transition: 'background-color 0.15s ease',
+                }}
+              >
+                <Crop size={14} />
+                <span>Área</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setOpenMenu(null);
+                  onNewCapture('window');
+                }}
+                title="Capturar Janela (seletor nativo do sistema)"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '6px 10px',
+                  borderRadius: '6px',
+                  border: 'none',
+                  backgroundColor: 'transparent',
+                  color: '#334155',
+                  fontSize: '12px',
+                  fontWeight: 500,
+                  cursor: 'pointer',
+                  transition: 'background-color 0.15s ease',
+                }}
+              >
+                <AppWindow size={14} />
+                <span>Janela</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setOpenMenu(null);
+                  onNewCapture('fullscreen');
+                }}
+                title="Capturar Tela Inteira (monitor completo)"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '6px 10px',
+                  borderRadius: '6px',
+                  border: 'none',
+                  backgroundColor: 'transparent',
+                  color: '#334155',
+                  fontSize: '12px',
+                  fontWeight: 500,
+                  cursor: 'pointer',
+                  transition: 'background-color 0.15s ease',
+                }}
+              >
+                <Monitor size={14} />
+                <span>Tela Inteira</span>
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Coluna 2 (Centro): Barra de Ferramentas de Desenho e Anotação */}
