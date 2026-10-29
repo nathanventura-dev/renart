@@ -779,16 +779,60 @@ export function clampArrowResizeBox(
 
 /**
  * Define se o Transformer de redimensionamento do Konva deve ser acoplado ao tipo de bloco.
- * Todos os blocos de anotação suportam redimensionamento por Transformer, EXCETO a flecha
- * curva ('curved'), que possui 3 âncoras dedicadas (cauda, arco e ponta) para ajuste manual.
+ * Formas 2D (retângulo, elipse, imagem, texto) e o quadro de recorte utilizam Transformer.
+ * Linhas e flechas (retas ou curvas) NÃO utilizam Transformer, pois possuem âncoras pontuais dedicadas.
  */
 export function shouldAttachTransformer(
   annotationType: ToolType,
-  arrowStyle?: ArrowStyle
+  _arrowStyle?: ArrowStyle
 ): boolean {
   if (annotationType === 'select') return false;
-  if (annotationType === 'arrow' && arrowStyle === 'curved') return false;
+  if (annotationType === 'line' || annotationType === 'arrow') return false;
   return true;
+}
+
+export type TwoPointAnchorType = 'start' | 'end';
+
+/**
+ * Extrai as posições relativas das 2 âncoras de extremidade (linha ou seta reta):
+ * - start: origem / cauda (x1, y1)
+ * - end: destino / ponta (x2, y2)
+ */
+export function getTwoPointAnchorPositions(points: number[]): {
+  start: { x: number; y: number };
+  end: { x: number; y: number };
+} {
+  return {
+    start: { x: points[0] ?? 0, y: points[1] ?? 0 },
+    end: { x: points[2] ?? 0, y: points[3] ?? 0 },
+  };
+}
+
+/**
+ * Atualiza uma âncora específica de linha ou seta reta (0=origem/cauda, 1=destino/ponta),
+ * aplicando contenção rígida aos limites da imagem [0..canvasWidth, 0..canvasHeight].
+ */
+export function updateTwoPointAnchor(
+  points: number[],
+  anchorIndex: 0 | 1,
+  newX: number,
+  newY: number,
+  canvasWidth: number,
+  canvasHeight: number
+): number[] {
+  const clampedX = Math.round(Math.max(0, Math.min(newX, canvasWidth)));
+  const clampedY = Math.round(Math.max(0, Math.min(newY, canvasHeight)));
+
+  const result = [...points];
+  while (result.length < 4) {
+    result.push(0);
+  }
+
+  const offset = anchorIndex * 2;
+  result[offset] = clampedX;
+  result[offset + 1] = clampedY;
+
+  return result;
 }
 
 export type CurvedArrowAnchorType = 'tail' | 'bend' | 'tip';

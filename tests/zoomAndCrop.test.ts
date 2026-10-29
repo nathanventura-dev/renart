@@ -28,6 +28,8 @@ import {
   shouldAttachTransformer,
   updateCurvedArrowAnchor,
   getCurvedArrowAnchorPositions,
+  updateTwoPointAnchor,
+  getTwoPointAnchorPositions,
 } from '../src/utils/zoomAndCrop';
 import { Annotation } from '../src/state/editorStore';
 
@@ -530,21 +532,44 @@ describe('Pointer and Drag Coordinate Transformations Under Zoom', () => {
       expect(clampedMin.height).toBe(50);
     });
 
-    it('suppresses transformer for curved arrow while keeping it for other annotations', () => {
-      // Formas normais e flechas retas devem acoplar o Transformer
+    it('suppresses transformer for lines and all arrow styles while keeping it for 2D shapes', () => {
+      // Formas normais 2D acoplam o Transformer
       expect(shouldAttachTransformer('rect')).toBe(true);
       expect(shouldAttachTransformer('ellipse')).toBe(true);
       expect(shouldAttachTransformer('text')).toBe(true);
-      expect(shouldAttachTransformer('line')).toBe(true);
-      expect(shouldAttachTransformer('arrow', 'standard')).toBe(true);
-      expect(shouldAttachTransformer('arrow', 'thin')).toBe(true);
-      expect(shouldAttachTransformer('arrow', 'dashed')).toBe(true);
+      expect(shouldAttachTransformer('image')).toBe(true);
 
       // Ferramenta select não acopla
       expect(shouldAttachTransformer('select')).toBe(false);
 
-      // Flecha curva NÃO acopla o Transformer (usa as 3 âncoras dedicadas)
+      // Linhas e todas as setas NÃO acoplam o Transformer (usam âncoras pontuais dedicadas)
+      expect(shouldAttachTransformer('line')).toBe(false);
+      expect(shouldAttachTransformer('arrow')).toBe(false);
+      expect(shouldAttachTransformer('arrow', 'standard')).toBe(false);
+      expect(shouldAttachTransformer('arrow', 'thin')).toBe(false);
+      expect(shouldAttachTransformer('arrow', 'dashed')).toBe(false);
       expect(shouldAttachTransformer('arrow', 'curved')).toBe(false);
+    });
+
+    it('extracts and updates 2-point anchor positions for line and straight arrows respecting image bounds', () => {
+      const initialPoints = [50, 60, 200, 180];
+      const anchors = getTwoPointAnchorPositions(initialPoints);
+
+      expect(anchors.start).toEqual({ x: 50, y: 60 });
+      expect(anchors.end).toEqual({ x: 200, y: 180 });
+
+      // Atualiza âncora 0 (origem/cauda)
+      const updatedStart = updateTwoPointAnchor(initialPoints, 0, 30, 40, 800, 600);
+      expect(updatedStart).toEqual([30, 40, 200, 180]);
+
+      // Atualiza âncora 1 (destino/ponta)
+      const updatedEnd = updateTwoPointAnchor(initialPoints, 1, 250, 220, 800, 600);
+      expect(updatedEnd).toEqual([50, 60, 250, 220]);
+
+      // Clamping aos limites da imagem: arrastar além dos limites trava em 0 e canvasLimit
+      const clampedOutOfBounds = updateTwoPointAnchor(initialPoints, 1, 999, -50, 800, 600);
+      expect(clampedOutOfBounds[2]).toBe(800);
+      expect(clampedOutOfBounds[3]).toBe(0);
     });
 
     it('extracts and updates curved arrow anchor positions respecting image bounds', () => {
