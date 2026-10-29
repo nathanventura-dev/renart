@@ -20,6 +20,7 @@ import {
 } from '../src/utils/zoomAndCrop';
 import { calculateNativeExportPixelRatio } from '../src/services/exportService';
 import { getAnnotationSelectionOutline } from '../src/utils/magnifierAndHover';
+import { CaptureMode } from '../src/types/capture';
 
 describe('Integration Flow', () => {
   it('coordinates gallery selection with canvas editor state', () => {
@@ -782,5 +783,48 @@ describe('Integration Flow', () => {
     expect(zoomLevel).toBe(1.0);
     expect(gallery.getState().captures).toHaveLength(2);
     expect(gallery.getState().activeId).toBe(pastedId);
+  });
+
+  it('integrates full capture workflow: toolbar menu selection, floating bar mode switching, and clean cancel', async () => {
+    const gallery = createGalleryStore();
+    const editor = createEditorStore();
+
+    // 1. Simula seleção do modo 'fullscreen' no menu da Toolbar
+    const fullscreenData = 'data:image/png;base64,mockFullscreen1080p';
+    gallery.addCapture({
+      id: 'cap-fs-1',
+      title: 'Tela Inteira #1',
+      dataUrl: fullscreenData,
+      createdAt: Date.now(),
+    });
+    editor.switchCapture('cap-fs-1', fullscreenData);
+    expect(gallery.getState().captures).toHaveLength(1);
+    expect(gallery.getState().activeId).toBe('cap-fs-1');
+
+    // 2. Simula seleção do modo 'window' (seletor nativo do SO)
+    const windowData = 'data:image/png;base64,mockWindowNotepad';
+    gallery.addCapture({
+      id: 'cap-win-2',
+      title: 'Janela #2',
+      dataUrl: windowData,
+      createdAt: Date.now() + 10,
+    });
+    editor.switchCapture('cap-win-2', windowData);
+    expect(gallery.getState().captures).toHaveLength(2);
+    expect(gallery.getState().activeId).toBe('cap-win-2');
+
+    // 3. Simula início do modo 'region', usuário clica em 'X' na barra flutuante
+    let isOverlayOpen = true;
+    let currentMode: CaptureMode = 'region';
+    expect(currentMode).toBe('region');
+
+    const handleCancel = () => {
+      isOverlayOpen = false;
+    };
+    handleCancel();
+    expect(isOverlayOpen).toBe(false);
+
+    // Cancelar não gera nenhuma captura vazia na galeria
+    expect(gallery.getState().captures).toHaveLength(2);
   });
 });

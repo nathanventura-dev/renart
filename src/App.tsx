@@ -318,14 +318,63 @@ export const App: React.FC = () => {
 
   const handleStartCapture = async (mode: CaptureMode = 'region') => {
     setCaptureMode(mode);
-    // Captura o quadro real da tela/monitor antes de exibir o overlay de recorte
-    const screenFrame = await captureDesktopFrame();
+
+    if (mode === 'window') {
+      // Dispara o seletor nativo de janelas do sistema operacional
+      const windowFrame = await captureDesktopFrame('window');
+      if (windowFrame) {
+        const currentCount = galleryStore.getState().captures.length;
+        const newCaptureId = `cap-${Date.now()}`;
+        galleryStore.addCapture({
+          id: newCaptureId,
+          title: `Janela #${currentCount + 1}`,
+          dataUrl: windowFrame,
+          createdAt: Date.now(),
+        });
+        editorStore.switchCapture(newCaptureId, windowFrame);
+        editorStore.setImageBase64(windowFrame);
+        setZoomLevel(1.0);
+      }
+      return;
+    }
+
+    if (mode === 'fullscreen') {
+      // Captura instantânea do monitor completo
+      const screenFrame = await captureDesktopFrame('monitor');
+      if (screenFrame) {
+        const currentCount = galleryStore.getState().captures.length;
+        const newCaptureId = `cap-${Date.now()}`;
+        galleryStore.addCapture({
+          id: newCaptureId,
+          title: `Tela Inteira #${currentCount + 1}`,
+          dataUrl: screenFrame,
+          createdAt: Date.now(),
+        });
+        editorStore.switchCapture(newCaptureId, screenFrame);
+        editorStore.setImageBase64(screenFrame);
+        setZoomLevel(1.0);
+      }
+      return;
+    }
+
+    // Modo 'region': captura quadro congelado e abre o overlay com a barra flutuante
+    const screenFrame = await captureDesktopFrame('monitor');
     if (!screenFrame) {
       // Caso o usuário tenha cancelado a permissão de captura de tela, não abre o overlay vazio
       return;
     }
     setPreCapturedScreen(screenFrame);
     setIsCapturing(true);
+  };
+
+  const handleSwitchCaptureMode = async (newMode: CaptureMode) => {
+    if (newMode === 'region') {
+      setCaptureMode('region');
+      return;
+    }
+    setIsCapturing(false);
+    setPreCapturedScreen(null);
+    await handleStartCapture(newMode);
   };
 
   const handleCaptureComplete = async (
@@ -435,7 +484,7 @@ export const App: React.FC = () => {
         canRedo={editorStore.canRedo()}
         onUndo={() => editorStore.undo()}
         onRedo={() => editorStore.redo()}
-        onNewCapture={() => handleStartCapture('region')}
+        onNewCapture={(mode) => handleStartCapture(mode || 'region')}
         onCopy={handleCopy}
         onExport={handleExport}
         onInsertImage={handleInsertImage}
@@ -534,6 +583,7 @@ export const App: React.FC = () => {
           mode={captureMode}
           backgroundDataUrl={preCapturedScreen}
           onComplete={handleCaptureComplete}
+          onSwitchMode={handleSwitchCaptureMode}
           onCancel={() => {
             setIsCapturing(false);
             setPreCapturedScreen(null);
