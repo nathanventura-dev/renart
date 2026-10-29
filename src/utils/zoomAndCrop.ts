@@ -41,6 +41,22 @@ export function calculateFitToScreenScale(
 }
 
 /**
+ * Determina o nível de zoom resultante ao carregar, abrir ou colar uma imagem.
+ * Preserva os 100% (1.0) nativos solicitados pelo usuário (ou o zoom atual escolhido)
+ * em vez de forçar o rebaixamento automático para o fitScale.
+ */
+export function resolveZoomOnImageLoad(
+  currentZoom: number,
+  calculatedFitScale: number,
+  maintainNativeZoom: boolean = true
+): number {
+  if (maintainNativeZoom) {
+    return currentZoom > 0 ? clampZoomLevel(currentZoom) : DEFAULT_ZOOM_LEVEL;
+  }
+  return clampZoomLevel(calculatedFitScale);
+}
+
+/**
  * Restringe o nível de zoom aos limites mínimo (0.25) e máximo (4.0).
  */
 export function clampZoomLevel(

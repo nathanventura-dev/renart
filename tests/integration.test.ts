@@ -16,7 +16,9 @@ import {
   getTransformedDragBound,
   getOpenChevronArrowPoints,
   getCropVisualGuides,
+  resolveZoomOnImageLoad,
 } from '../src/utils/zoomAndCrop';
+import { calculateNativeExportPixelRatio } from '../src/services/exportService';
 import { getAnnotationSelectionOutline } from '../src/utils/magnifierAndHover';
 
 describe('Integration Flow', () => {
@@ -727,5 +729,58 @@ describe('Integration Flow', () => {
     // Cantos não ultrapassam a metade da largura (8px)
     const minTL = minGuides.corners.find((c) => c.name === 'crop-corner-tl')!;
     expect(minTL.points).toEqual([10, 18, 10, 10, 18, 10]);
+  });
+
+  it('guarantees 100% native preview fidelity and preserves zoom upon copying and pasting into gallery', () => {
+    // 1. Inicia com tela e imagem padrão
+    const gallery = createGalleryStore();
+    const editor = createEditorStore();
+    let zoomLevel = 1.0; // 100%
+
+    gallery.addCapture({
+      id: 'cap-initial',
+      title: 'Original #1',
+      dataUrl: 'data:image/png;base64,initialImage',
+      createdAt: 1000,
+    });
+    editor.switchCapture('cap-initial', 'data:image/png;base64,initialImage');
+
+    // 2. Adiciona anotação de edição
+    editor.addAnnotation({
+      id: 'arrow-edit',
+      type: 'arrow',
+      points: [50, 50, 200, 50],
+      stroke: '#ff3b30',
+      strokeWidth: 4,
+      arrowStyle: 'thin',
+    });
+    expect(editor.getState().annotations).toHaveLength(1);
+
+    // 3. Simula exportação/cópia com zoomLevel = 1.0
+    // O pixelRatio calculado deve ser exatamente 1.0 para manter 100% dos pixels nativos sem upsampling
+    const pixelRatio100 = calculateNativeExportPixelRatio(zoomLevel);
+    expect(pixelRatio100).toBe(1.0);
+
+    // Se o usuário estivesse com zoom de 60% (0.6), pixelRatio compensaria proporcionalmente
+    const pixelRatio60 = calculateNativeExportPixelRatio(0.6);
+    expect(pixelRatio60 * 0.6).toBeCloseTo(1.0, 2);
+
+    // 4. Simula o usuário colando o resultado na galeria (Ctrl+V)
+    const pastedId = 'pasted-001';
+    const pastedDataUrl = 'data:image/png;base64,pastedCleanNative100';
+    gallery.addCapture({
+      id: pastedId,
+      title: 'Colada #2',
+      dataUrl: pastedDataUrl,
+      createdAt: 2000,
+    });
+    editor.switchCapture(pastedId, pastedDataUrl);
+
+    // 5. O zoom é preservado em 100% (1.0) mesmo que o fitScale calculado para uma imagem grande seja baixo
+    const calculatedFitScaleForLargeImg = 0.35;
+    zoomLevel = resolveZoomOnImageLoad(zoomLevel, calculatedFitScaleForLargeImg);
+    expect(zoomLevel).toBe(1.0);
+    expect(gallery.getState().captures).toHaveLength(2);
+    expect(gallery.getState().activeId).toBe(pastedId);
   });
 });

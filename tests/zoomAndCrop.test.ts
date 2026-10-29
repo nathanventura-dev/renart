@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   calculateFitToScreenScale,
+  resolveZoomOnImageLoad,
   clampZoomLevel,
   getNextZoomStep,
   calculateCropBounds,
@@ -64,6 +65,20 @@ describe('Zoom and Fit-To-Screen Calculations', () => {
     expect(clampZoomLevel(0.75)).toBe(0.75);
     expect(clampZoomLevel(1.5)).toBe(1.5);
     expect(clampZoomLevel(5.0)).toBe(4.0);
+  });
+
+  it('preserves 100% (1.0) native zoom when loading or pasting images instead of automatically forcing fit-scale', () => {
+    // Quando a tela está em 100% de zoom (1.0) e uma nova imagem grande chega (fitScale = 0.35)
+    expect(resolveZoomOnImageLoad(1.0, 0.35)).toBe(1.0);
+
+    // Se o usuário já havia ajustado o zoom para 1.5x, preserva o zoom atual
+    expect(resolveZoomOnImageLoad(1.5, 0.4)).toBe(1.5);
+
+    // Se o zoom inicial for inválido ou 0, garante 100% (1.0) por padrão
+    expect(resolveZoomOnImageLoad(0, 0.5)).toBe(1.0);
+
+    // Se explicitamente configurado para não manter zoom nativo, respeita o fitScale calculado
+    expect(resolveZoomOnImageLoad(1.0, 0.35, false)).toBe(0.35);
   });
 
   it('increments and decrements zoom in logical steps', () => {

@@ -51,56 +51,131 @@ export function calculatePdfPageDimensions(canvasWidth: number, canvasHeight: nu
 }
 
 /**
- * Exporta o stage do Konva como um arquivo baixável no navegador ou sistema local.
+ * Calcula o pixelRatio necessário para exportar o Stage do Konva na resolução nativa 1:1 da imagem,
+ * compensando com exatidão o nível de zoom atual da tela para não perder resolução nem dobrar pixels.
+ */
+export function calculateNativeExportPixelRatio(stageScale: number = 1.0): number {
+  const safeScale = stageScale > 0 ? stageScale : 1.0;
+  return Number((1 / safeScale).toFixed(4));
+}
+
+/**
+ * Oculta temporariamente elementos de interface do editor (Transformer, âncoras, controles)
+ * durante a geração da imagem para que não sejam gravados no arquivo exportado ou clipboard.
+ */
+function toggleEditorOverlaysVisibility(stage: Konva.Stage, visible: boolean): Array<() => void> {
+  const restorers: Array<() => void> = [];
+  
+  const nodes = [
+    stage.findOne('Transformer'),
+    stage.findOne('.two-point-anchors-group'),
+    stage.findOne('.curved-arrow-anchors-group'),
+    stage.findOne('.crop-overlay-group'),
+    stage.findOne('.four-corner-anchors-group'),
+  ];
+
+  for (const node of nodes) {
+    if (node) {
+      const prev = node.visible();
+      node.visible(visible);
+      restorers.push(() => node.visible(prev));
+    }
+  }
+
+  stage.batchDraw();
+  return restorers;
+}
+
+/**
+ * Exporta o stage do Konva como um arquivo baixável no navegador ou sistema local,
+ * mantendo a fidelidade nativa 1:1 da imagem original.
  */
 export async function exportCanvas(
   stage: Konva.Stage,
   format: ExportFormat,
-  prefix: string = 'captura'
+  prefix: string = 'captura',
+  zoomLevel?: number
 ): Promise<void> {
   const filename = formatExportFilename(prefix, format);
+  const currentScale = zoomLevel ?? stage.scaleX() ?? 1.0;
+  const pixelRatio = calculateNativeExportPixelRatio(currentScale);
 
-  if (format === 'pdf') {
-    const dataUrl = stage.toDataURL({ pixelRatio: 2 });
-    const { width, height, orientation } = calculatePdfPageDimensions(stage.width(), stage.height());
+  const restorers = toggleEditorOverlaysVisibility(stage, false);
 
-    const pdf = new jsPDF({
-      orientation,
-      unit: 'mm',
-      format: [width, height],
-    });
+  try {
+    if (format === 'pdf') {
+      const dataUrl = stage.toDataURL({ pixelRatio });
+      const nativeWidth = Math.round(stage.width() * pixelRatio);
+      const nativeHeight = Math.round(stage.height() * pixelRatio);
+      const { width, height, orientation } = calculatePdfPageDimensions(nativeWidth, nativeHeight);
 
-    pdf.addImage(dataUrl, 'PNG', 0, 0, width, height);
-    pdf.save(filename);
-    return;
+      const pdf = new jsPDF({
+        orientation,
+        unit: 'mm',
+        format: [width, height],
+      });
+
+      pdf.addImage(dataUrl, 'PNG', 0, 0, width, height);
+      pdf.save(filename);
+      return;
+    }
+
+    // Exportação como imagem (PNG ou JPEG)
+    const mimeType = getMimeTypeForFormat(format as ExportImageFormat);
+    const dataUrl = stage.toDataURL({ mimeType, quality: 0.95, pixelRatio });
+
+    if (typeof document !== 'undefined') {
+      const link = document.createElement('a');
+      link.download = filename;
+      link.href = dataUrl;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+  } finally {
+    for (const restore of restorers) {
+      restore();
+    }
+    stage.batchDraw();
   }
-
-  // Exportação como imagem (PNG ou JPEG)
-  const mimeType = getMimeTypeForFormat(format as ExportImageFormat);
-  const dataUrl = stage.toDataURL({ mimeType, quality: 0.95, pixelRatio: 2 });
-
-  const link = document.createElement('a');
-  link.download = filename;
-  link.href = dataUrl;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
 }
 
 /**
- * Copia a imagem renderizada do Canvas anotado diretamente para a área de transferência do navegador.
+ * Copia a imagem renderizada do Canvas anotado diretamente para a área de transferência do navegador,
+ * preservando com exatidão a resolução nativa 1:1 e sem queimar alças de seleção.
  */
-export async function copyCanvasToClipboard(stage: Konva.Stage): Promise<void> {
-  const dataUrl = stage.toDataURL({ pixelRatio: 2 });
+export async function copyCanvasToClipboard(
+  stage: Konva.Stage,
+  zoomLevel?: number
+): Promise<void> {
+  const currentScale = zoomLevel ?? stage.scaleX() ?? 1.0;
+  const pixelRatio = calculateNativeExportPixelRatio(currentScale);
+
+  const restorers = toggleEditorOverlaysVisibility(stage, false);
+  let dataUrl = '';
+
+  try {
+    dataUrl = stage.toDataURL({ pixelRatio });
+  } finally {
+    for (const restore of restorers) {
+      restore();
+    }
+    stage.batchDraw();
+  }
+
   const res = await fetch(dataUrl);
   const blob = await res.blob();
 
   try {
-    await navigator.clipboard.write([
-      new ClipboardItem({
-        'image/png': blob,
-      }),
-    ]);
+    if (typeof ClipboardItem !== 'undefined') {
+      await navigator.clipboard.write([
+        new ClipboardItem({
+          'image/png': blob,
+        }),
+      ]);
+    } else {
+      await (navigator.clipboard as any).write([blob]);
+    }
   } catch (err) {
     console.error('Falha ao copiar canvas anotado para o clipboard:', err);
   }

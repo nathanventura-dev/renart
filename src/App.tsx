@@ -98,13 +98,14 @@ export const App: React.FC = () => {
     if (stageRef.current) {
       // Trava movimentação após salvar
       editorStore.setLocked(true);
-      await exportCanvas(stageRef.current, format, activeCapture?.title || 'captura');
+      await exportCanvas(stageRef.current, format, activeCapture?.title || 'captura', zoomLevel);
     }
-  }, [activeCapture?.title]);
+  }, [activeCapture?.title, zoomLevel]);
 
   const handleFitScaleCalculated = useCallback((scale: number) => {
     setFitScale(scale);
-    setZoomLevel(scale);
+    // Preserva o zoom em 100% (1.0) nativo ou no nível escolhido pelo usuário, sem rebaixamento arbitrário.
+    // O usuário pode clicar no indicador de zoom ou pressionar Ctrl+0 para alternar para fitScale a qualquer momento.
   }, []);
 
   const handleZoomIn = useCallback(() => {
@@ -301,6 +302,7 @@ export const App: React.FC = () => {
                 });
                 editorStore.switchCapture(newId, pastedDataUrl);
                 editorStore.setImageBase64(pastedDataUrl);
+                setZoomLevel(1.0); // Garante a manutenção dos 100% (1.0) nativos ao colar nova imagem
               }
             };
             reader.readAsDataURL(file);
@@ -410,7 +412,7 @@ export const App: React.FC = () => {
 
   const handleCopy = async () => {
     if (stageRef.current) {
-      await copyCanvasToClipboard(stageRef.current);
+      await copyCanvasToClipboard(stageRef.current, zoomLevel);
     }
   };
 
