@@ -236,4 +236,69 @@ describe('Integration Flow', () => {
     editor.undo();
     expect(getArrowPoints()).toEqual([100, 100, 250, 100]);
   });
+
+  it('resizes 2D shapes (rect and ellipse) preserving constant strokeWidth without distortion', () => {
+    const editor = createEditorStore();
+
+    editor.addAnnotation({
+      id: 'rect-resize-test',
+      type: 'rect',
+      x: 100,
+      y: 100,
+      width: 120,
+      height: 80,
+      stroke: '#ff3b30',
+      strokeWidth: 4,
+    });
+    editor.setSelectedIds(['rect-resize-test']);
+
+    // Redimensiona o retângulo de forma livre (aumenta largura e altura)
+    editor.updateAnnotation('rect-resize-test', {
+      width: 240,
+      height: 160,
+    });
+
+    const rect = editor.getState().annotations.find((a) => a.id === 'rect-resize-test')!;
+    expect(rect.type).toBe('rect');
+    if (rect.type === 'rect') {
+      expect(rect.width).toBe(240);
+      expect(rect.height).toBe(160);
+      // Espessura DEVE permanecer intacta (4px)
+      expect(rect.strokeWidth).toBe(4);
+    }
+
+    // Redimensiona elipse livremente
+    editor.addAnnotation({
+      id: 'ellipse-resize-test',
+      type: 'ellipse',
+      x: 300,
+      y: 200,
+      radiusX: 50,
+      radiusY: 30,
+      stroke: '#0071e3',
+      strokeWidth: 3,
+    });
+    editor.setSelectedIds(['ellipse-resize-test']);
+
+    editor.updateAnnotation('ellipse-resize-test', {
+      radiusX: 90,
+      radiusY: 45,
+    });
+
+    const ellipse = editor.getState().annotations.find((a) => a.id === 'ellipse-resize-test')!;
+    expect(ellipse.type).toBe('ellipse');
+    if (ellipse.type === 'ellipse') {
+      expect(ellipse.radiusX).toBe(90);
+      expect(ellipse.radiusY).toBe(45);
+      expect(ellipse.strokeWidth).toBe(3);
+    }
+
+    // Undo desfaz redimensionamento da elipse
+    editor.undo();
+    const ellipseUndone = editor.getState().annotations.find((a) => a.id === 'ellipse-resize-test')!;
+    if (ellipseUndone.type === 'ellipse') {
+      expect(ellipseUndone.radiusX).toBe(50);
+      expect(ellipseUndone.radiusY).toBe(30);
+    }
+  });
 });

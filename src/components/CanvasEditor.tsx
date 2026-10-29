@@ -493,6 +493,59 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
       }
       transformerRef.current.nodes(nodes);
       transformerRef.current.forceUpdate();
+
+      if (nodes.length > 0) {
+        const rotater = transformerRef.current.findOne('.rotater') as Konva.Shape | undefined;
+        if (rotater) {
+          rotater.width(24);
+          rotater.height(24);
+          rotater.offset({ x: 12, y: 12 });
+          rotater.sceneFunc((context, shape) => {
+            const ctx = context._context as CanvasRenderingContext2D;
+            const w = shape.width();
+            const h = shape.height();
+            const cx = w / 2;
+            const cy = h / 2;
+            const r = Math.max(cx, 11);
+
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(cx, cy, r, 0, Math.PI * 2, false);
+            ctx.fillStyle = '#262626';
+            ctx.shadowColor = 'rgba(0, 0, 0, 0.35)';
+            ctx.shadowBlur = 4;
+            ctx.shadowOffsetY = 1;
+            ctx.fill();
+
+            ctx.shadowColor = 'transparent';
+            ctx.lineWidth = 1.2;
+            ctx.strokeStyle = '#52525b';
+            ctx.stroke();
+
+            // Seta circular branca (⟳)
+            ctx.beginPath();
+            ctx.arc(cx, cy, r * 0.52, -Math.PI * 0.85, Math.PI * 0.65, false);
+            ctx.lineWidth = 1.75;
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineCap = 'round';
+            ctx.stroke();
+
+            const endAngle = Math.PI * 0.65;
+            const tipX = cx + Math.cos(endAngle) * (r * 0.52);
+            const tipY = cy + Math.sin(endAngle) * (r * 0.52);
+            ctx.beginPath();
+            ctx.moveTo(tipX - 1.5, tipY - 3.5);
+            ctx.lineTo(tipX + 3, tipY + 1.5);
+            ctx.lineTo(tipX - 3, tipY + 3);
+            ctx.closePath();
+            ctx.fillStyle = '#ffffff';
+            ctx.fill();
+
+            ctx.restore();
+          });
+        }
+      }
+
       transformerRef.current.getLayer()?.batchDraw();
     } else {
       transformerRef.current.nodes([]);
@@ -967,9 +1020,8 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
       if (ann?.type === 'rect') {
         const sx = Math.abs(node.scaleX() || 1);
         const sy = Math.abs(node.scaleY() || 1);
-        const scale = Math.max(sx, sy);
-        const nextW = Math.max(5, Math.round(ann.width * scale));
-        const nextH = Math.max(5, Math.round(ann.height * scale));
+        const nextW = Math.max(10, Math.round(ann.width * sx));
+        const nextH = Math.max(10, Math.round(ann.height * sy));
         node.scaleX(1);
         node.scaleY(1);
         (node as Konva.Rect).width(nextW);
@@ -990,9 +1042,8 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
       if (ann?.type === 'ellipse') {
         const sx = Math.abs(node.scaleX() || 1);
         const sy = Math.abs(node.scaleY() || 1);
-        const scale = Math.max(sx, sy);
-        const nextRx = Math.max(5, Math.round(ann.radiusX * scale));
-        const nextRy = Math.max(5, Math.round(ann.radiusY * scale));
+        const nextRx = Math.max(5, Math.round(ann.radiusX * sx));
+        const nextRy = Math.max(5, Math.round(ann.radiusY * sy));
         node.scaleX(1);
         node.scaleY(1);
         (node as Konva.Ellipse).radiusX(nextRx);
@@ -2730,7 +2781,7 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
               onTransformEnd={handleTransformEnd}
               flipEnabled={false}
               rotateEnabled={!hasSelectedMagnifier && activeTool !== 'crop' && !isCropping}
-              keepRatio={activeTool === 'crop' || isCropping ? false : true}
+              keepRatio={activeTool === 'crop' || isCropping ? false : hasSelectedText || hasSelectedMagnifier ? true : false}
               enabledAnchors={
                 activeTool === 'crop' || isCropping
                   ? [
@@ -2743,19 +2794,17 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                       'bottom-center',
                       'bottom-right',
                     ]
-                  : hasSelectedText
-                    ? ['top-left', 'top-right', 'bottom-left', 'bottom-right']
-                    : [
-                        'top-left',
-                        'top-center',
-                        'top-right',
-                        'middle-left',
-                        'middle-right',
-                        'bottom-left',
-                        'bottom-center',
-                        'bottom-right',
-                      ]
+                  : ['top-left', 'top-right', 'bottom-left', 'bottom-right']
               }
+              anchorSize={10}
+              anchorCornerRadius={5}
+              anchorFill="#ffffff"
+              anchorStroke="#71717a"
+              anchorStrokeWidth={1.5}
+              borderStroke="#0071e3"
+              borderStrokeWidth={1.5}
+              rotateAnchorOffset={28}
+              rotateAnchorCursor="grab"
               boundBoxFunc={(oldBox, newBox) => {
                 const localNewBox = toLocalBoundingBox(newBox, zoomLevel);
                 const localOldBox = toLocalBoundingBox(oldBox, zoomLevel);
@@ -2861,17 +2910,20 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                   }
                 }
 
-                // Para qualquer outro elemento (retângulo, elipse, imagem inserida, flecha, linha):
-                // Impede ultrapassar os limites da imagem de fundo
+                // Para qualquer outro elemento (retângulo, elipse, imagem inserida):
+                // Redimensionamento livre pelos 4 cantos mantendo limites da imagem
+                const minDim = 10;
                 if (
-                  proportionalBox.x < 0 ||
-                  proportionalBox.y < 0 ||
-                  proportionalBox.x + proportionalBox.width > canvasWidth ||
-                  proportionalBox.y + proportionalBox.height > canvasHeight
+                  localNewBox.width < minDim ||
+                  localNewBox.height < minDim ||
+                  localNewBox.x < 0 ||
+                  localNewBox.y < 0 ||
+                  localNewBox.x + localNewBox.width > canvasWidth ||
+                  localNewBox.y + localNewBox.height > canvasHeight
                 ) {
                   return oldBox;
                 }
-                return toAbsoluteBoundingBox(proportionalBox, zoomLevel);
+                return newBox;
               }}
             />
           </Layer>
