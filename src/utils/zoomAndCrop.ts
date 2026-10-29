@@ -278,6 +278,88 @@ export function adjustAnnotationsForCrop(
   return adjustedList;
 }
 
+export interface CropVisualGuides {
+  corners: Array<{ name: string; points: number[] }>;
+  edgeBars: Array<{ name: string; points: number[] }>;
+  gridLines: Array<{ name: string; points: number[] }>;
+}
+
+/**
+ * Calcula as coordenadas geométricas para as guias visuais minimalistas de recorte:
+ * - 4 cantos em "L" clássicos de fotografia
+ * - 4 barras centrais nas arestas
+ * - 4 linhas da grade 3x3 de regra dos terços
+ */
+export function getCropVisualGuides(
+  cropBox: CropBox,
+  cornerSize: number = 14,
+  barSize: number = 12
+): CropVisualGuides {
+  const { x, y, width: w, height: h } = cropBox;
+  const actualCorner = Math.max(1, Math.min(cornerSize, w / 2, h / 2));
+  const actualBar = Math.max(1, Math.min(barSize, w / 2, h / 2));
+  const halfBar = actualBar / 2;
+
+  const corners = [
+    {
+      name: 'crop-corner-tl',
+      points: [x, y + actualCorner, x, y, x + actualCorner, y],
+    },
+    {
+      name: 'crop-corner-tr',
+      points: [x + w - actualCorner, y, x + w, y, x + w, y + actualCorner],
+    },
+    {
+      name: 'crop-corner-bl',
+      points: [x, y + h - actualCorner, x, y + h, x + actualCorner, y + h],
+    },
+    {
+      name: 'crop-corner-br',
+      points: [x + w - actualCorner, y + h, x + w, y + h, x + w, y + h - actualCorner],
+    },
+  ];
+
+  const edgeBars = [
+    {
+      name: 'crop-edge-top',
+      points: [x + w / 2 - halfBar, y, x + w / 2 + halfBar, y],
+    },
+    {
+      name: 'crop-edge-bottom',
+      points: [x + w / 2 - halfBar, y + h, x + w / 2 + halfBar, y + h],
+    },
+    {
+      name: 'crop-edge-left',
+      points: [x, y + h / 2 - halfBar, x, y + h / 2 + halfBar],
+    },
+    {
+      name: 'crop-edge-right',
+      points: [x + w, y + h / 2 - halfBar, x + w, y + h / 2 + halfBar],
+    },
+  ];
+
+  const gridLines = [
+    {
+      name: 'crop-grid-v1',
+      points: [x + w / 3, y, x + w / 3, y + h],
+    },
+    {
+      name: 'crop-grid-v2',
+      points: [x + (2 * w) / 3, y, x + (2 * w) / 3, y + h],
+    },
+    {
+      name: 'crop-grid-h1',
+      points: [x, y + h / 3, x + w, y + h / 3],
+    },
+    {
+      name: 'crop-grid-h2',
+      points: [x, y + (2 * h) / 3, x + w, y + (2 * h) / 3],
+    },
+  ];
+
+  return { corners, edgeBars, gridLines };
+}
+
 /**
  * Converte coordenadas absolutas de tela/ponteiro da janela do Stage para
  * coordenadas reais não-escaladas do canvas da imagem, com precisão em qualquer nível de zoom.

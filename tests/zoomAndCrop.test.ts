@@ -39,6 +39,7 @@ import {
   snapRectWithShift,
   getTwoPointAnchorDragBound,
   getOpenChevronArrowPoints,
+  getCropVisualGuides,
 } from '../src/utils/zoomAndCrop';
 import { Annotation } from '../src/state/editorStore';
 
@@ -163,6 +164,66 @@ describe('Crop Geometry and Annotation Adjustment', () => {
     expect(t1.y).toBe(50); // 150 - 100
 
     expect(adjusted.find((a) => a.id === 'r-fora')).toBeUndefined();
+  });
+
+  it('calculates crop visual guides: 4 L-shaped corners, 4 edge bars, and rule-of-thirds grid lines', () => {
+    const cropBox = { x: 100, y: 100, width: 300, height: 200 };
+    const guides = getCropVisualGuides(cropBox, 14, 12);
+
+    expect(guides.corners).toHaveLength(4);
+    expect(guides.edgeBars).toHaveLength(4);
+    expect(guides.gridLines).toHaveLength(4);
+
+    // Cantos em "L" (comprimento 14px):
+    const tl = guides.corners.find((c) => c.name === 'crop-corner-tl')!;
+    expect(tl.points).toEqual([100, 114, 100, 100, 114, 100]);
+
+    const tr = guides.corners.find((c) => c.name === 'crop-corner-tr')!;
+    expect(tr.points).toEqual([386, 100, 400, 100, 400, 114]);
+
+    const bl = guides.corners.find((c) => c.name === 'crop-corner-bl')!;
+    expect(bl.points).toEqual([100, 286, 100, 300, 114, 300]);
+
+    const br = guides.corners.find((c) => c.name === 'crop-corner-br')!;
+    expect(br.points).toEqual([386, 300, 400, 300, 400, 286]);
+
+    // Barras centrais (comprimento 12px, +-6 do centro):
+    const topBar = guides.edgeBars.find((b) => b.name === 'crop-edge-top')!;
+    expect(topBar.points).toEqual([244, 100, 256, 100]);
+
+    const bottomBar = guides.edgeBars.find((b) => b.name === 'crop-edge-bottom')!;
+    expect(bottomBar.points).toEqual([244, 300, 256, 300]);
+
+    const leftBar = guides.edgeBars.find((b) => b.name === 'crop-edge-left')!;
+    expect(leftBar.points).toEqual([100, 194, 100, 206]);
+
+    const rightBar = guides.edgeBars.find((b) => b.name === 'crop-edge-right')!;
+    expect(rightBar.points).toEqual([400, 194, 400, 206]);
+
+    // Linhas de terços (3x3):
+    const v1 = guides.gridLines.find((g) => g.name === 'crop-grid-v1')!;
+    expect(v1.points).toEqual([200, 100, 200, 300]);
+
+    const v2 = guides.gridLines.find((g) => g.name === 'crop-grid-v2')!;
+    expect(v2.points).toEqual([300, 100, 300, 300]);
+
+    const h1 = guides.gridLines.find((g) => g.name === 'crop-grid-h1')!;
+    expect(h1.points[0]).toBe(100);
+    expect(h1.points[1]).toBeCloseTo(166.67, 1);
+    expect(h1.points[2]).toBe(400);
+    expect(h1.points[3]).toBeCloseTo(166.67, 1);
+
+    const h2 = guides.gridLines.find((g) => g.name === 'crop-grid-h2')!;
+    expect(h2.points[0]).toBe(100);
+    expect(h2.points[1]).toBeCloseTo(233.33, 1);
+    expect(h2.points[2]).toBe(400);
+    expect(h2.points[3]).toBeCloseTo(233.33, 1);
+
+    // Caixa de corte muito pequena (20x20px): cantos e barras são limitados a metade da dimensão (10px)
+    const smallCrop = { x: 50, y: 50, width: 20, height: 20 };
+    const smallGuides = getCropVisualGuides(smallCrop, 14, 12);
+    const smallTL = smallGuides.corners.find((c) => c.name === 'crop-corner-tl')!;
+    expect(smallTL.points).toEqual([50, 60, 50, 50, 60, 50]);
   });
 });
 
