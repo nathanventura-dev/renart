@@ -249,6 +249,35 @@ describe('Pointer and Drag Coordinate Transformations Under Zoom', () => {
         x: 0,
         y: 0,
       });
+
+      // Rotação de 180 graus: a área delimitada é idêntica à de 0 graus (centro cx, cy)
+      // Retângulo grande de 500x300 em canvas de 800x600: deve poder se mover livremente em [0, 300] e [0, 300]
+      expect(clampRectToBounds(50, 50, 500, 300, canvasWidth, canvasHeight, 1, 1, 180)).toEqual({
+        x: 50,
+        y: 50,
+      });
+      // Arrastado além da borda esquerda/superior com 180 graus
+      expect(clampRectToBounds(-100, -50, 500, 300, canvasWidth, canvasHeight, 1, 1, 180)).toEqual({
+        x: 0,
+        y: 0,
+      });
+      // Arrastado além da borda direita/inferior com 180 graus (maxX = 800 - 500 = 300, maxY = 600 - 300 = 300)
+      expect(clampRectToBounds(500, 400, 500, 300, canvasWidth, canvasHeight, 1, 1, 180)).toEqual({
+        x: 300,
+        y: 300,
+      });
+
+      // Rotação de 90 graus (vertical): dimensões projetadas passam a ser 300 de largura e 500 de altura
+      // Largura na tela = 300 (extentX = 150), altura na tela = 500 (extentY = 250)
+      // Centro permitido: cx em [150, 650] (x em [-100, 400]), cy em [250, 350] (y em [100, 200])
+      expect(clampRectToBounds(-200, 0, 500, 300, canvasWidth, canvasHeight, 1, 1, 90)).toEqual({
+        x: -100,
+        y: 100,
+      });
+      expect(clampRectToBounds(600, 500, 500, 300, canvasWidth, canvasHeight, 1, 1, 90)).toEqual({
+        x: 400,
+        y: 200,
+      });
     });
 
     it('clamps ellipse positions strictly by radii from edges', () => {
@@ -655,6 +684,52 @@ describe('Pointer and Drag Coordinate Transformations Under Zoom', () => {
         width: 220,
         height: 120,
       });
+    });
+
+    it('resizes rotated rectangle keeping opposite corner firmly anchored and respecting image area', () => {
+      // Retângulo com rotação 180 graus:
+      // x: 100, y: 100, width: 200, height: 100. Centro inicial: (200, 150).
+      // Com rotação 180°: BR inicial está em (100, 100), TL inicial está em (300, 200).
+      const rect180: Annotation = {
+        id: 'r180',
+        type: 'rect',
+        x: 100,
+        y: 100,
+        width: 200,
+        height: 100,
+        stroke: '#ff0000',
+        strokeWidth: 2,
+        rotation: 180,
+      };
+
+      // Arrastar TL (corner 0) de (300, 200) para (400, 250):
+      // O canto oposto BR (100, 100) DEVE ficar estritamente ancorado!
+      const updated180 = updateCornerResize(rect180, 0, { x: 400, y: 250 }, 800, 600) as {
+        x?: number;
+        y?: number;
+        width?: number;
+        height?: number;
+      };
+      expect(updated180.width).toBe(300);
+      expect(updated180.height).toBe(150);
+      // O centro do novo retângulo é (250, 175) -> x: 250 - 150 = 100, y: 175 - 75 = 100
+      expect(updated180.x).toBe(100);
+      expect(updated180.y).toBe(100);
+
+      // Verifica com getFourCornerPositions que o canto BR continua exatamente em (100, 100)
+      const cornersAfter = getFourCornerPositions({
+        ...rect180,
+        ...updated180,
+        type: 'rect',
+        width: updated180.width!,
+        height: updated180.height!,
+      });
+      // Canto BR (index 2) deve ser (100, 100)
+      expect(cornersAfter.corners[2].x).toBeCloseTo(100, 0);
+      expect(cornersAfter.corners[2].y).toBeCloseTo(100, 0);
+      // Canto TL (index 0) deve ser (400, 250)
+      expect(cornersAfter.corners[0].x).toBeCloseTo(400, 0);
+      expect(cornersAfter.corners[0].y).toBeCloseTo(250, 0);
     });
 
     it('resizes ellipse keeping opposite boundary firmly anchored', () => {

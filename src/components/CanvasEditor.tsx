@@ -1818,7 +1818,35 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
           const rawRot = updateShapeRotation(selectedFourCornerAnnotation, localPos);
           const finalRot = e.shiftKey ? snapAngleToStep(rawRot, 15) : rawRot;
           if (finalRot !== (selectedFourCornerAnnotation.rotation ?? 0)) {
-            onUpdateAnnotationRef.current(selectedFourCornerAnnotation.id, { rotation: finalRot });
+            const clampedPos =
+              selectedFourCornerAnnotation.type === 'rect'
+                ? clampRectToBounds(
+                    selectedFourCornerAnnotation.x,
+                    selectedFourCornerAnnotation.y,
+                    selectedFourCornerAnnotation.width,
+                    selectedFourCornerAnnotation.height,
+                    canvasWidth,
+                    canvasHeight,
+                    1,
+                    1,
+                    finalRot
+                  )
+                : clampEllipseToBounds(
+                    selectedFourCornerAnnotation.x,
+                    selectedFourCornerAnnotation.y,
+                    selectedFourCornerAnnotation.radiusX,
+                    selectedFourCornerAnnotation.radiusY,
+                    canvasWidth,
+                    canvasHeight,
+                    1,
+                    1,
+                    finalRot
+                  );
+            onUpdateAnnotationRef.current(selectedFourCornerAnnotation.id, {
+              rotation: finalRot,
+              x: clampedPos.x,
+              y: clampedPos.y,
+            });
           }
         }
         stage.container().style.cursor = 'default';
@@ -3202,7 +3230,35 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                         e.cancelBubble = true;
                         setIsRotating(false);
                         setLiveRotation(null);
-                        onUpdateAnnotation(selectedFourCornerAnnotation.id, { rotation: 0 });
+                        const clampedPos =
+                          selectedFourCornerAnnotation.type === 'rect'
+                            ? clampRectToBounds(
+                                selectedFourCornerAnnotation.x,
+                                selectedFourCornerAnnotation.y,
+                                selectedFourCornerAnnotation.width,
+                                selectedFourCornerAnnotation.height,
+                                canvasWidth,
+                                canvasHeight,
+                                1,
+                                1,
+                                0
+                              )
+                            : clampEllipseToBounds(
+                                selectedFourCornerAnnotation.x,
+                                selectedFourCornerAnnotation.y,
+                                selectedFourCornerAnnotation.radiusX,
+                                selectedFourCornerAnnotation.radiusY,
+                                canvasWidth,
+                                canvasHeight,
+                                1,
+                                1,
+                                0
+                              );
+                        onUpdateAnnotation(selectedFourCornerAnnotation.id, {
+                          rotation: 0,
+                          x: clampedPos.x,
+                          y: clampedPos.y,
+                        });
                       }}
                     >
                       {/* Área de toque expandida invisível */}

@@ -1,7 +1,7 @@
 // tests/integration.test.ts
 import { describe, it, expect } from 'vitest';
 import { createGalleryStore } from '../src/state/galleryStore';
-import { createEditorStore } from '../src/state/editorStore';
+import { createEditorStore, RectAnnotation } from '../src/state/editorStore';
 import {
   updateCurvedArrowAnchor,
   updateTwoPointAnchor,
@@ -12,6 +12,8 @@ import {
   snapLinePointsWithShift,
   snapRectWithShift,
   getTwoPointAnchorDragBound,
+  clampRectToBounds,
+  getTransformedDragBound,
 } from '../src/utils/zoomAndCrop';
 import { getAnnotationSelectionOutline } from '../src/utils/magnifierAndHover';
 
@@ -539,5 +541,82 @@ describe('Integration Flow', () => {
 
     editor.redo();
     expect(editor.getState().annotations.find((a) => a.id === 'square-rect-1')!.rotation).toBe(0);
+  });
+
+  it('resizes rectangle to larger size, rotates 180 and 90 degrees (vertical), and respects image boundaries with or without zoom', () => {
+    const editor = createEditorStore();
+    const canvasWidth = 800;
+    const canvasHeight = 600;
+
+    // 1. Cria retângulo inicial
+    editor.addAnnotation({
+      id: 'rect-flow-1',
+      type: 'rect',
+      x: 100,
+      y: 100,
+      width: 200,
+      height: 100,
+      stroke: '#ff0000',
+      strokeWidth: 2,
+      rotation: 0,
+    });
+
+    const rect = editor.getState().annotations.find((a) => a.id === 'rect-flow-1')!;
+
+    // 2. Redimensiona para maior (350x250) arrastando o canto BR
+    const resized = updateCornerResize(rect, 2, { x: 450, y: 350 }, canvasWidth, canvasHeight) as Partial<RectAnnotation>;
+    expect(resized.width).toBe(350);
+    expect(resized.height).toBe(250);
+    editor.updateAnnotation('rect-flow-1', resized);
+
+    // 3. Gira 180 graus (ou vertical 90 graus)
+    editor.updateAnnotation('rect-flow-1', { rotation: 180 });
+    const rect180 = editor.getState().annotations.find((a) => a.id === 'rect-flow-1') as RectAnnotation;
+    expect(rect180.rotation).toBe(180);
+
+    // 4. Garante respeito estrito à área útil ao movimentar nos extremos, independente de zoom (100% e 200%)
+    for (const zoom of [1.0, 2.0, 0.5]) {
+      // Arrastar além da borda esquerda/topo (-200, -200)
+      const clampedTopLeft = getTransformedDragBound({ x: -200 * zoom, y: -200 * zoom }, zoom, (lx, ly) => {
+        const rawLeft = lx - rect180.width / 2;
+        const rawTop = ly - rect180.height / 2;
+        const clamped = clampRectToBounds(rawLeft, rawTop, rect180.width, rect180.height, canvasWidth, canvasHeight, 1, 1, 180);
+        return {
+          x: clamped.x + rect180.width / 2,
+          y: clamped.y + rect180.height / 2,
+        };
+      });
+      // Em coordenadas locais (desfeitas de zoom), o centro nunca pode violar o canvas
+      const localCenterTL = { x: clampedTopLeft.x / zoom, y: clampedTopLeft.y / zoom };
+      expect(localCenterTL.x - rect180.width / 2).toBeGreaterThanOrEqual(0);
+      expect(localCenterTL.y - rect180.height / 2).toBeGreaterThanOrEqual(0);
+
+      // Arrastar além da borda direita/fundo (1000, 1000)
+      const clampedBottomRight = getTransformedDragBound({ x: 1000 * zoom, y: 1000 * zoom }, zoom, (lx, ly) => {
+        const rawLeft = lx - rect180.width / 2;
+        const rawTop = ly - rect180.height / 2;
+        const clamped = clampRectToBounds(rawLeft, rawTop, rect180.width, rect180.height, canvasWidth, canvasHeight, 1, 1, 180);
+        return {
+          x: clamped.x + rect180.width / 2,
+          y: clamped.y + rect180.height / 2,
+        };
+      });
+      const localCenterBR = { x: clampedBottomRight.x / zoom, y: clampedBottomRight.y / zoom };
+      expect(localCenterBR.x + rect180.width / 2).toBeLessThanOrEqual(canvasWidth);
+      expect(localCenterBR.y + rect180.height / 2).toBeLessThanOrEqual(canvasHeight);
+    }
+
+    // 5. Rotação vertical (90 graus)
+    editor.updateAnnotation('rect-flow-1', { rotation: 90 });
+    const rect90 = editor.getState().annotations.find((a) => a.id === 'rect-flow-1') as RectAnnotation;
+    // Ao girar verticalmente, a largura na tela passa a ser height (250) e a altura width (350)
+    // Ao arrastar nos cantos da tela, todas as 4 extremidades devem permanecer contidas no canvas [0..800, 0..600]
+    const clamped90 = clampRectToBounds(-100, -100, rect90.width, rect90.height, canvasWidth, canvasHeight, 1, 1, 90);
+    const center90 = { x: clamped90.x + rect90.width / 2, y: clamped90.y + rect90.height / 2 };
+    // Largura projetada: height/2 = 125. Altura projetada: width/2 = 175.
+    expect(center90.x - rect90.height / 2).toBeGreaterThanOrEqual(0);
+    expect(center90.y - rect90.width / 2).toBeGreaterThanOrEqual(0);
+    expect(center90.x + rect90.height / 2).toBeLessThanOrEqual(canvasWidth);
+    expect(center90.y + rect90.width / 2).toBeLessThanOrEqual(canvasHeight);
   });
 });

@@ -439,51 +439,36 @@ export function clampRectToBounds(
     const maxX = Math.max(0, canvasWidth - safeW);
     const maxY = Math.max(0, canvasHeight - safeH);
     return {
-      x: Math.max(0, Math.min(x, maxX)),
-      y: Math.max(0, Math.min(y, maxY)),
+      x: Math.round(Math.max(0, Math.min(x, maxX))),
+      y: Math.round(Math.max(0, Math.min(y, maxY))),
     };
   }
 
-  const rad = (rotation * Math.PI) / 180;
-  const cos = Math.cos(rad);
-  const sin = Math.sin(rad);
+  // Com rotação não-nula, calculamos o semi-tamanho (extent) da bounding box
+  // projetada a partir da rotação em torno do centro do retângulo (cx, cy)
+  const rad = ((rotation % 360) * Math.PI) / 180;
+  const cos = Math.abs(Math.cos(rad));
+  const sin = Math.abs(Math.sin(rad));
 
-  const corners = [
-    { x: 0, y: 0 },
-    { x: safeW * cos, y: safeW * sin },
-    { x: safeW * cos - safeH * sin, y: safeW * sin + safeH * cos },
-    { x: -safeH * sin, y: safeH * cos },
-  ];
+  const extentX = (safeW * cos + safeH * sin) / 2;
+  const extentY = (safeW * sin + safeH * cos) / 2;
 
-  let minX = Infinity;
-  let maxX = -Infinity;
-  let minY = Infinity;
-  let maxY = -Infinity;
+  // Centro atual
+  const cx = x + width / 2;
+  const cy = y + height / 2;
 
-  for (const c of corners) {
-    if (c.x < minX) minX = c.x;
-    if (c.x > maxX) maxX = c.x;
-    if (c.y < minY) minY = c.y;
-    if (c.y > maxY) maxY = c.y;
-  }
+  // Clampa o centro de modo que todos os 4 cantos rotacionados permaneçam dentro de [0, canvas]
+  const minCx = Math.min(extentX, canvasWidth / 2);
+  const maxCx = Math.max(extentX, canvasWidth - extentX);
+  const minCy = Math.min(extentY, canvasHeight / 2);
+  const maxCy = Math.max(extentY, canvasHeight - extentY);
 
-  const allowedMinX = -minX;
-  const allowedMaxX = canvasWidth - maxX;
-  const allowedMinY = -minY;
-  const allowedMaxY = canvasHeight - maxY;
-
-  const clampedX =
-    allowedMaxX >= allowedMinX
-      ? Math.max(allowedMinX, Math.min(x, allowedMaxX))
-      : allowedMinX;
-  const clampedY =
-    allowedMaxY >= allowedMinY
-      ? Math.max(allowedMinY, Math.min(y, allowedMaxY))
-      : allowedMinY;
+  const clampedCx = Math.max(minCx, Math.min(cx, maxCx));
+  const clampedCy = Math.max(minCy, Math.min(cy, maxCy));
 
   return {
-    x: clampedX,
-    y: clampedY,
+    x: Math.round(clampedCx - width / 2),
+    y: Math.round(clampedCy - height / 2),
   };
 }
 
@@ -990,14 +975,24 @@ export function updateCornerResize(
         y: rectRes.y + rectRes.height / 2,
       };
       const worldNewCenter = rotatePointAround(unrotatedNewCenter, { x: cx, y: cy }, rot);
-      const rad = (rot * Math.PI) / 180;
       const w = rectRes.width;
       const h = rectRes.height;
-      const newRectX = Math.round(worldNewCenter.x - (w / 2) * Math.cos(rad) + (h / 2) * Math.sin(rad));
-      const newRectY = Math.round(worldNewCenter.y - (w / 2) * Math.sin(rad) - (h / 2) * Math.cos(rad));
+      const rawNewRectX = Math.round(worldNewCenter.x - w / 2);
+      const rawNewRectY = Math.round(worldNewCenter.y - h / 2);
+      const clampedPos = clampRectToBounds(
+        rawNewRectX,
+        rawNewRectY,
+        w,
+        h,
+        canvasWidth,
+        canvasHeight,
+        1,
+        1,
+        rot
+      );
       return {
-        x: newRectX,
-        y: newRectY,
+        x: clampedPos.x,
+        y: clampedPos.y,
         width: w,
         height: h,
       };
@@ -1006,9 +1001,20 @@ export function updateCornerResize(
     const ellipseRes = unrotatedRes as { x?: number; y?: number; radiusX?: number; radiusY?: number };
     if (ellipseRes.x !== undefined && ellipseRes.y !== undefined && ellipseRes.radiusX !== undefined && ellipseRes.radiusY !== undefined) {
       const worldNewCenter = rotatePointAround({ x: ellipseRes.x, y: ellipseRes.y }, { x: cx, y: cy }, rot);
+      const clampedPos = clampEllipseToBounds(
+        worldNewCenter.x,
+        worldNewCenter.y,
+        ellipseRes.radiusX,
+        ellipseRes.radiusY,
+        canvasWidth,
+        canvasHeight,
+        1,
+        1,
+        rot
+      );
       return {
-        x: worldNewCenter.x,
-        y: worldNewCenter.y,
+        x: clampedPos.x,
+        y: clampedPos.y,
         radiusX: ellipseRes.radiusX,
         radiusY: ellipseRes.radiusY,
       };
