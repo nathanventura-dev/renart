@@ -7,6 +7,8 @@ import {
   resolveActiveToolbarMenu,
   OpenToolbarMenu,
   TOOLBAR_COLORS,
+  isClickOutsideActiveMenu,
+  shouldSwitchToolOnMenuClick,
 } from '../src/components/Toolbar';
 
 describe('Toolbar Horizontal Menus & Palette Dropdown', () => {
@@ -172,5 +174,39 @@ describe('Toolbar Horizontal Menus & Palette Dropdown', () => {
     expect(htmlText).toContain('data-testid="horizontal-floating-menu-text"');
     expect(htmlText).toContain('title="Família da fonte"');
     expect(htmlText).toContain('title="Tamanho da fonte"');
+  });
+
+  it('correctly detects click outside active menu via isClickOutsideActiveMenu', () => {
+    const fakePaletteNode = { contains: (target: any) => target === 'inside-palette' } as any;
+    const containers = {
+      palette: fakePaletteNode,
+      arrow: null,
+      magnifier: null,
+      text: null,
+    };
+
+    // Alvo dentro da paleta -> não deve fechar
+    expect(isClickOutsideActiveMenu('palette', containers, 'inside-palette' as any)).toBe(false);
+
+    // Alvo fora da paleta (ex: canvas) -> deve fechar
+    expect(isClickOutsideActiveMenu('palette', containers, 'outside-canvas' as any)).toBe(true);
+
+    // Sem menu ativo -> não faz nada
+    expect(isClickOutsideActiveMenu(null, containers, 'outside-canvas' as any)).toBe(false);
+  });
+
+  it('determines whether to switch active tool when opening submenu via shouldSwitchToolOnMenuClick', () => {
+    // Se a ferramenta já está ativa, não deve chamar switch
+    expect(shouldSwitchToolOnMenuClick('arrow', 'arrow', [])).toBe(false);
+
+    // Se há uma anotação de flecha selecionada no canvas, não deve alternar/limpar seleção
+    expect(
+      shouldSwitchToolOnMenuClick('select', 'arrow', [
+        { id: 'arr-1', type: 'arrow', points: [0, 0, 10, 10] },
+      ])
+    ).toBe(false);
+
+    // Se é outra ferramenta e não há flecha selecionada, deve alternar a ferramenta
+    expect(shouldSwitchToolOnMenuClick('select', 'arrow', [])).toBe(true);
   });
 });

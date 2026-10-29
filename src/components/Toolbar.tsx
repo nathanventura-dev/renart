@@ -206,6 +206,33 @@ export function resolveActiveToolbarMenu(
   return currentMenu === targetMenu ? null : targetMenu;
 }
 
+export function isClickOutsideActiveMenu(
+  activeMenu: OpenToolbarMenu,
+  containers: {
+    palette: Node | null;
+    arrow: Node | null;
+    magnifier: Node | null;
+    text: Node | null;
+  },
+  target: Node | null
+): boolean {
+  if (!activeMenu || !target) return false;
+  const container = containers[activeMenu];
+  if (!container) return false;
+  return !container.contains(target);
+}
+
+export function shouldSwitchToolOnMenuClick(
+  currentTool: ToolType,
+  targetTool: ToolType,
+  selectedAnnotations: Annotation[] = []
+): boolean {
+  if (currentTool === targetTool) return false;
+  const hasSelectedTargetType = selectedAnnotations.some((a) => a.type === targetTool);
+  if (hasSelectedTargetType) return false;
+  return true;
+}
+
 export interface HorizontalFloatingMenuProps {
   isOpen: boolean;
   testId?: string;
@@ -305,6 +332,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   const [isCopied, setIsCopied] = useState(false);
   const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
   const [openMenu, setOpenMenu] = useState<OpenToolbarMenu>(initialOpenMenu);
+  const openMenuRef = useRef<OpenToolbarMenu>(openMenu);
+  openMenuRef.current = openMenu;
 
   const feedback = resolveToolbarActionFeedback(hoveredAction, isCopied);
   const layoutMetrics = getToolbarLayoutMetrics();
@@ -325,21 +354,20 @@ export const Toolbar: React.FC<ToolbarProps> = ({
       if (exportMenuRef.current && !exportMenuRef.current.contains(targetNode)) {
         setIsExportMenuOpen(false);
       }
-      if (openMenu) {
-        const activeContainer =
-          openMenu === 'palette'
-            ? paletteContainerRef.current
-            : openMenu === 'arrow'
-            ? arrowContainerRef.current
-            : openMenu === 'magnifier'
-            ? magnifierContainerRef.current
-            : openMenu === 'text'
-            ? textContainerRef.current
-            : null;
-
-        if (activeContainer && !activeContainer.contains(targetNode)) {
-          setOpenMenu(null);
-        }
+      const currentMenu = openMenuRef.current;
+      if (
+        isClickOutsideActiveMenu(
+          currentMenu,
+          {
+            palette: paletteContainerRef.current,
+            arrow: arrowContainerRef.current,
+            magnifier: magnifierContainerRef.current,
+            text: textContainerRef.current,
+          },
+          targetNode
+        )
+      ) {
+        setOpenMenu(null);
       }
     };
     window.addEventListener('mousedown', handleClickOutside);
@@ -494,10 +522,12 @@ export const Toolbar: React.FC<ToolbarProps> = ({
             type="button"
             title="Flecha"
             onClick={() => {
-              onSelectTool('arrow');
+              if (shouldSwitchToolOnMenuClick(activeTool, 'arrow', selectedAnnotations)) {
+                onSelectTool('arrow');
+              }
               setOpenMenu((prev) => resolveActiveToolbarMenu(prev, 'arrow'));
             }}
-            style={getToolButtonStyle(activeTool === 'arrow')}
+            style={getToolButtonStyle(activeTool === 'arrow' || openMenu === 'arrow')}
           >
             <ArrowRight size={16} />
           </button>
@@ -566,10 +596,12 @@ export const Toolbar: React.FC<ToolbarProps> = ({
             type="button"
             title="Bloco de Texto"
             onClick={() => {
-              onSelectTool('text');
+              if (shouldSwitchToolOnMenuClick(activeTool, 'text', selectedAnnotations)) {
+                onSelectTool('text');
+              }
               setOpenMenu((prev) => resolveActiveToolbarMenu(prev, 'text'));
             }}
-            style={getToolButtonStyle(activeTool === 'text')}
+            style={getToolButtonStyle(activeTool === 'text' || openMenu === 'text')}
           >
             <Type size={16} />
           </button>
@@ -648,10 +680,12 @@ export const Toolbar: React.FC<ToolbarProps> = ({
             type="button"
             title="Lupa de Zoom"
             onClick={() => {
-              onSelectTool('magnifier');
+              if (shouldSwitchToolOnMenuClick(activeTool, 'magnifier', selectedAnnotations)) {
+                onSelectTool('magnifier');
+              }
               setOpenMenu((prev) => resolveActiveToolbarMenu(prev, 'magnifier'));
             }}
-            style={getToolButtonStyle(activeTool === 'magnifier')}
+            style={getToolButtonStyle(activeTool === 'magnifier' || openMenu === 'magnifier')}
           >
             <Search size={16} />
           </button>

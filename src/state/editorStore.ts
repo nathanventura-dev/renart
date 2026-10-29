@@ -353,6 +353,7 @@ export function createEditorStore(
     },
 
     setActiveTool: (tool: ToolType) => {
+      if (state.activeTool === tool) return;
       state = { ...state, activeTool: tool, selectedId: null, selectedIds: [] };
       notify();
     },
