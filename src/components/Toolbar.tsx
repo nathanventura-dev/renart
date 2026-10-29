@@ -194,7 +194,7 @@ export const TOOLBAR_COLORS = [
   '#000000',
   '#ffffff',
 ];
-const COLORS = TOOLBAR_COLORS;
+export const COLORS = TOOLBAR_COLORS;
 
 export type OpenToolbarMenu = 'palette' | 'arrow' | 'magnifier' | 'text' | null;
 
@@ -275,7 +275,6 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   onInsertImage,
   magnifierMode = 'without-focus',
   onSelectMagnifierMode,
-  showTextControls = false,
   fontFamily = 'Arial',
   onSelectFontFamily,
   fontSize = 18,
@@ -309,12 +308,12 @@ export const Toolbar: React.FC<ToolbarProps> = ({
 
   const feedback = resolveToolbarActionFeedback(hoveredAction, isCopied);
   const layoutMetrics = getToolbarLayoutMetrics();
-  const { showArrowControls, effectiveArrowStyle, showInvertCurve } = resolveArrowToolbarState(
+  const { effectiveArrowStyle, showInvertCurve } = resolveArrowToolbarState(
     activeTool,
     selectedAnnotations,
     arrowStyle
   );
-  const { showMagnifierControls, effectiveMagnifierMode } = resolveMagnifierToolbarState(
+  const { effectiveMagnifierMode } = resolveMagnifierToolbarState(
     activeTool,
     selectedAnnotations,
     magnifierMode
@@ -774,125 +773,6 @@ export const Toolbar: React.FC<ToolbarProps> = ({
           </div>
         )}
 
-        {showMagnifierControls && (
-          <div
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              height: INNER_CONTROL_HEIGHT,
-              backgroundColor: '#e2e8f0',
-              borderRadius: '6px',
-              padding: '2px',
-              gap: '2px',
-              boxSizing: 'border-box',
-            }}
-          >
-            <button
-              type="button"
-              title="Lupa Sem Foco: Amplia diretamente a área sob a lente (como tradicionalmente)"
-              onClick={() => onSelectMagnifierMode?.('without-focus')}
-              style={{
-                height: '24px',
-                padding: '0 8px',
-                fontSize: '11px',
-                fontWeight: 600,
-                border: 'none',
-                borderRadius: '4px',
-                cursor: 'pointer',
-                backgroundColor: effectiveMagnifierMode === 'without-focus' ? '#0071e3' : 'transparent',
-                color: effectiveMagnifierMode === 'without-focus' ? '#ffffff' : '#334155',
-              }}
-            >
-              Sem foco
-            </button>
-            <button
-              type="button"
-              title="Lupa Com Foco: Clica no ponto de foco e puxa a lupa para o canto com rastro fosco"
-              onClick={() => onSelectMagnifierMode?.('with-focus')}
-              style={{
-                height: '24px',
-                padding: '0 8px',
-                fontSize: '11px',
-                fontWeight: 600,
-                border: 'none',
-                borderRadius: '4px',
-                cursor: 'pointer',
-                backgroundColor: effectiveMagnifierMode === 'with-focus' ? '#0071e3' : 'transparent',
-                color: effectiveMagnifierMode === 'with-focus' ? '#ffffff' : '#334155',
-              }}
-            >
-              Com foco
-            </button>
-          </div>
-        )}
-
-        {showArrowControls && (
-          <div
-            data-testid="arrow-style-selector"
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              height: INNER_CONTROL_HEIGHT,
-              backgroundColor: '#e2e8f0',
-              borderRadius: '6px',
-              padding: '2px',
-              gap: '2px',
-              boxSizing: 'border-box',
-            }}
-          >
-            {ARROW_STYLE_OPTIONS.map((opt) => {
-              const isSelected = effectiveArrowStyle === opt.id;
-              return (
-                <button
-                  key={opt.id}
-                  type="button"
-                  title={opt.tooltip}
-                  onClick={() => onSelectArrowStyle?.(opt.id)}
-                  style={{
-                    height: '24px',
-                    padding: '0 8px',
-                    fontSize: '11px',
-                    fontWeight: 600,
-                    border: 'none',
-                    borderRadius: '4px',
-                    cursor: 'pointer',
-                    backgroundColor: isSelected ? '#0071e3' : 'transparent',
-                    color: isSelected ? '#ffffff' : '#334155',
-                    transition: 'all 0.15s ease',
-                  }}
-                >
-                  {opt.label}
-                </button>
-              );
-            })}
-          </div>
-        )}
-
-        {showInvertCurve && (
-          <button
-            type="button"
-            title="Inverter direção do arco da flecha curva"
-            onClick={onToggleCurveDirection}
-            style={{
-              height: INNER_CONTROL_HEIGHT,
-              padding: '0 8px',
-              fontSize: '11px',
-              fontWeight: 600,
-              border: '1px solid #cbd5e1',
-              borderRadius: '6px',
-              cursor: 'pointer',
-              backgroundColor: '#f8fafc',
-              color: '#334155',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '4px',
-            }}
-          >
-            <RotateCw size={13} />
-            <span>Inverter arco</span>
-          </button>
-        )}
-
         <div style={{ width: '1px', height: '20px', backgroundColor: '#d1d1d6', margin: '0 4px' }} />
 
         {/* Paleta de Cores: Botão com ícone que abre lista suspensa horizontal */}
@@ -954,84 +834,29 @@ export const Toolbar: React.FC<ToolbarProps> = ({
           </HorizontalFloatingMenu>
         </div>
 
-        {showTextControls ? (
-          <>
-            {/* Seletor Contextual de Fonte (Estilo Microsoft Word) */}
-            <select
-              title="Família da fonte"
-              value={fontFamily}
-              onChange={(e) => onSelectFontFamily?.(e.target.value)}
-              style={{
-                marginLeft: '4px',
-                height: INNER_CONTROL_HEIGHT,
-                boxSizing: 'border-box',
-                fontSize: '12px',
-                fontFamily,
-                padding: '0 6px',
-                borderRadius: '6px',
-                border: '1px solid #d1d1d6',
-                backgroundColor: '#ffffff',
-                cursor: 'pointer',
-              }}
-            >
-              {FONT_FAMILIES.map((font) => (
-                <option key={font} value={font} style={{ fontFamily: font }}>
-                  {font}
-                </option>
-              ))}
-            </select>
-
-            {/* Seletor Contextual de Tamanho da Fonte */}
-            <select
-              title="Tamanho da fonte"
-              value={fontSize}
-              onChange={(e) => onSelectFontSize?.(Number(e.target.value))}
-              style={{
-                marginLeft: '2px',
-                height: INNER_CONTROL_HEIGHT,
-                boxSizing: 'border-box',
-                fontSize: '12px',
-                padding: '0 6px',
-                borderRadius: '6px',
-                border: '1px solid #d1d1d6',
-                backgroundColor: '#ffffff',
-                cursor: 'pointer',
-              }}
-            >
-              {FONT_SIZES.map((size) => (
-                <option key={size} value={size}>
-                  {size}
-                </option>
-              ))}
-            </select>
-          </>
-        ) : (
-          <>
-            {/* Espessura do traço em pixels */}
-            <select
-              title="Espessura da linha (em pixels)"
-              value={strokeWidth}
-              onChange={(e) => onSelectStrokeWidth(Number(e.target.value))}
-              style={{
-                marginLeft: '4px',
-                height: INNER_CONTROL_HEIGHT,
-                boxSizing: 'border-box',
-                fontSize: '12px',
-                padding: '0 6px',
-                borderRadius: '6px',
-                border: '1px solid #d1d1d6',
-                backgroundColor: '#ffffff',
-                cursor: 'pointer',
-              }}
-            >
-              {STROKE_WIDTHS.map((width) => (
-                <option key={width} value={width}>
-                  {width}px
-                </option>
-              ))}
-            </select>
-          </>
-        )}
+        {/* Espessura do traço em pixels (fixo ao lado da paleta) */}
+        <select
+          title="Espessura da linha (em pixels)"
+          value={strokeWidth}
+          onChange={(e) => onSelectStrokeWidth(Number(e.target.value))}
+          style={{
+            marginLeft: '4px',
+            height: INNER_CONTROL_HEIGHT,
+            boxSizing: 'border-box',
+            fontSize: '12px',
+            padding: '0 6px',
+            borderRadius: '6px',
+            border: '1px solid #d1d1d6',
+            backgroundColor: '#ffffff',
+            cursor: 'pointer',
+          }}
+        >
+          {STROKE_WIDTHS.map((width) => (
+            <option key={width} value={width}>
+              {width}px
+            </option>
+          ))}
+        </select>
 
         <div style={{ width: '1px', height: '20px', backgroundColor: '#d1d1d6', margin: '0 4px' }} />
 
