@@ -3,6 +3,7 @@ import {
   ToolType,
   FONT_FAMILIES,
   FONT_SIZES,
+  STROKE_WIDTHS,
   ArrowStyle,
   Annotation,
   MagnifierAnnotation,
@@ -153,8 +154,6 @@ interface ToolbarProps {
   onSelectColor: (color: string) => void;
   strokeWidth: number;
   onSelectStrokeWidth: (width: number) => void;
-  autoStrokeWidth?: boolean;
-  onToggleAutoStrokeWidth?: (auto: boolean) => void;
   canUndo: boolean;
   canRedo: boolean;
   onUndo: () => void;
@@ -193,8 +192,6 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   onSelectColor,
   strokeWidth,
   onSelectStrokeWidth,
-  autoStrokeWidth = true,
-  onToggleAutoStrokeWidth,
   canUndo,
   canRedo,
   onUndo,
@@ -719,42 +716,17 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 fontSize: '12px',
                 padding: '0 6px',
                 borderRadius: '6px',
-                border: !autoStrokeWidth ? '1.5px solid #0071e3' : '1px solid #d1d1d6',
+                border: '1px solid #d1d1d6',
                 backgroundColor: '#ffffff',
                 cursor: 'pointer',
               }}
             >
-              <option value={2}>2px</option>
-              <option value={3}>3px</option>
-              <option value={5}>5px</option>
-              <option value={8}>8px</option>
+              {STROKE_WIDTHS.map((width) => (
+                <option key={width} value={width}>
+                  {width}px
+                </option>
+              ))}
             </select>
-
-            {/* Botão "Auto" ao lado da lista de pixels */}
-            <button
-              type="button"
-              title="Espessura automática ao redimensionar o bloco"
-              onClick={() => onToggleAutoStrokeWidth?.(!autoStrokeWidth)}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                height: INNER_CONTROL_HEIGHT,
-                boxSizing: 'border-box',
-                marginLeft: '2px',
-                fontSize: '11px',
-                fontWeight: 600,
-                padding: '0 8px',
-                borderRadius: '6px',
-                border: autoStrokeWidth ? '1px solid #0071e3' : '1px solid #d1d1d6',
-                backgroundColor: autoStrokeWidth ? '#0071e3' : '#ffffff',
-                color: autoStrokeWidth ? '#ffffff' : '#334155',
-                cursor: 'pointer',
-                transition: 'all 0.15s ease',
-              }}
-            >
-              Auto
-            </button>
           </>
         )}
 

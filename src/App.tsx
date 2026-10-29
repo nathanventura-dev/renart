@@ -429,8 +429,6 @@ export const App: React.FC = () => {
         onSelectColor={(c: string) => editorStore.setStrokeColor(c)}
         strokeWidth={editorState.strokeWidth}
         onSelectStrokeWidth={(w: number) => editorStore.setStrokeWidth(w)}
-        autoStrokeWidth={editorState.autoStrokeWidth}
-        onToggleAutoStrokeWidth={(auto: boolean) => editorStore.setAutoStrokeWidth(auto)}
         canUndo={editorStore.canUndo()}
         canRedo={editorStore.canRedo()}
         onUndo={() => editorStore.undo()}
@@ -489,7 +487,6 @@ export const App: React.FC = () => {
             selectedIds={editorState.selectedIds}
             strokeColor={editorState.strokeColor}
             strokeWidth={editorState.strokeWidth}
-            autoStrokeWidth={editorState.autoStrokeWidth}
             fontSize={editorState.fontSize}
             fontFamily={editorState.fontFamily}
             isLocked={editorState.isLocked}

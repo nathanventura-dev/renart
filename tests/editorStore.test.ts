@@ -3,6 +3,7 @@ import { describe, it, expect } from 'vitest';
 import {
   createEditorStore,
   Annotation,
+  STROKE_WIDTHS,
   shouldShowTextControls,
   shouldShowArrowControls,
   shouldShowMagnifierControls,
@@ -164,13 +165,14 @@ describe('Editor Store', () => {
     }
   });
 
-  it('manages Auto stroke width per block and as default for newly added blocks', () => {
+  it('manages STROKE_WIDTHS scale and sets stroke width on selected blocks without auto mode', () => {
+    expect(STROKE_WIDTHS).toEqual([2, 3, 4, 5, 6, 7, 8, 9, 10]);
+
     const store = createEditorStore();
-    // Por padrão, Auto vem ativo
-    expect(store.getState().autoStrokeWidth).toBe(true);
+    expect(store.getState().strokeWidth).toBe(4);
 
     store.addAnnotation({
-      id: 'rect-auto-1',
+      id: 'rect-width-1',
       type: 'rect',
       x: 10,
       y: 10,
@@ -179,37 +181,24 @@ describe('Editor Store', () => {
       stroke: '#ff3b30',
       strokeWidth: 3,
     });
-    store.addAnnotation({
-      id: 'rect-auto-2',
-      type: 'rect',
-      x: 120,
-      y: 10,
-      width: 80,
-      height: 60,
-      stroke: '#ff3b30',
-      strokeWidth: 3,
-    });
 
-    // Ambos recebem autoStrokeWidth = true ao serem criados com Auto ativo
-    expect(store.getState().annotations[0].autoStrokeWidth).toBe(true);
-    expect(store.getState().annotations[1].autoStrokeWidth).toBe(true);
+    // Seleciona rect-width-1 e define uma espessura (7px) -> atualiza imediatamente
+    store.setSelectedId('rect-width-1');
+    store.setStrokeWidth(7);
 
-    // Seleciona apenas rect-auto-1 e define uma espessura fixa (5px) -> desativa o Auto apenas em rect-auto-1
-    store.setSelectedId('rect-auto-1');
-    store.setStrokeWidth(5);
+    const a1 = store.getState().annotations.find((a) => a.id === 'rect-width-1')!;
+    expect(a1.strokeWidth).toBe(7);
+    expect(store.getState().strokeWidth).toBe(7);
 
-    const a1 = store.getState().annotations.find((a) => a.id === 'rect-auto-1')!;
-    const a2 = store.getState().annotations.find((a) => a.id === 'rect-auto-2')!;
-    expect(a1.strokeWidth).toBe(5);
-    expect(a1.autoStrokeWidth).toBe(false);
-    expect(a2.strokeWidth).toBe(3);
-    expect(a2.autoStrokeWidth).toBe(true);
+    // Undo desfaz a alteração de espessura
+    store.undo();
+    const a1Undone = store.getState().annotations.find((a) => a.id === 'rect-width-1')!;
+    expect(a1Undone.strokeWidth).toBe(3);
 
-    // Reativa a opção "Auto" com rect-auto-1 selecionado -> volta rect-auto-1 para autoStrokeWidth = true
-    store.setAutoStrokeWidth(true);
-    const a1AfterAuto = store.getState().annotations.find((a) => a.id === 'rect-auto-1')!;
-    expect(a1AfterAuto.autoStrokeWidth).toBe(true);
-    expect(store.getState().autoStrokeWidth).toBe(true);
+    // Redo reaplica
+    store.redo();
+    const a1Redone = store.getState().annotations.find((a) => a.id === 'rect-width-1')!;
+    expect(a1Redone.strokeWidth).toBe(7);
   });
 
   it('supports multi-selection of blocks to move, resize, delete, or change color and strokeWidth together', () => {
@@ -297,7 +286,6 @@ describe('Editor Store', () => {
 
     const added = store.getState().annotations[0];
     expect(added.type).toBe('line');
-    expect(added.autoStrokeWidth).toBe(true);
     if (added.type === 'line') {
       expect(added.points).toEqual([50, 120, 250, 120]);
     }
@@ -308,7 +296,6 @@ describe('Editor Store', () => {
     const updated = store.getState().annotations[0];
     expect(updated.stroke).toBe('#0071e3');
     expect(updated.strokeWidth).toBe(5);
-    expect(updated.autoStrokeWidth).toBe(false);
   });
 
   it('supports contextual fontFamily and fontSize selection per text block with undo/redo and mixed selection safety', () => {

@@ -11,6 +11,8 @@ export type ToolType =
   | 'magnifier'
   | 'crop';
 
+export const STROKE_WIDTHS = [2, 3, 4, 5, 6, 7, 8, 9, 10] as const;
+
 export interface BaseAnnotation {
   id: string;
   type: ToolType;
@@ -18,7 +20,6 @@ export interface BaseAnnotation {
   y?: number;
   stroke?: string;
   strokeWidth?: number;
-  autoStrokeWidth?: boolean;
   scaleX?: number;
   scaleY?: number;
   rotation?: number;
@@ -118,7 +119,6 @@ export interface EditorState {
   selectedIds: string[];
   strokeColor: string;
   strokeWidth: number;
-  autoStrokeWidth: boolean;
   fontSize: number;
   fontFamily: string;
   arrowStyle: ArrowStyle;
@@ -190,8 +190,7 @@ export function createEditorStore(
     selectedId: initialSelectedId,
     selectedIds: initialSelectedIds,
     strokeColor: '#ff3b30',
-    strokeWidth: 3,
-    autoStrokeWidth: true,
+    strokeWidth: 4,
     fontSize: 18,
     fontFamily: 'Arial',
     arrowStyle: 'standard',
@@ -247,7 +246,6 @@ export function createEditorStore(
         ? firstSelected.fill || state.strokeColor
         : firstSelected.stroke || state.strokeColor;
     const nextWidth = firstSelected.strokeWidth ?? state.strokeWidth;
-    const nextAuto = firstSelected.autoStrokeWidth ?? state.autoStrokeWidth;
     const firstText = annotations.find((a) => ids.includes(a.id) && a.type === 'text') as
       | TextAnnotation
       | undefined;
@@ -269,7 +267,6 @@ export function createEditorStore(
     return {
       strokeColor: nextColor,
       strokeWidth: nextWidth,
-      autoStrokeWidth: nextAuto,
       fontSize: firstText ? firstText.fontSize : state.fontSize,
       fontFamily: firstText ? firstText.fontFamily || 'Arial' : state.fontFamily,
       arrowStyle: firstArrow ? firstArrow.arrowStyle || 'standard' : state.arrowStyle,
@@ -427,39 +424,16 @@ export function createEditorStore(
         state = {
           ...state,
           strokeWidth: width,
-          autoStrokeWidth: false,
           annotations: state.annotations.map((ann) => {
             if (!selectedSet.has(ann.id)) return ann;
             return {
               ...ann,
               strokeWidth: width,
-              autoStrokeWidth: false,
             };
           }),
         };
       } else {
         state = { ...state, strokeWidth: width };
-      }
-      notify();
-    },
-
-    setAutoStrokeWidth: (auto: boolean) => {
-      if (state.selectedIds.length > 0 && !state.isLocked) {
-        const selectedSet = new Set(state.selectedIds);
-        pushUndoSnapshot();
-        state = {
-          ...state,
-          autoStrokeWidth: auto,
-          annotations: state.annotations.map((ann) => {
-            if (!selectedSet.has(ann.id)) return ann;
-            return {
-              ...ann,
-              autoStrokeWidth: auto,
-            };
-          }),
-        };
-      } else {
-        state = { ...state, autoStrokeWidth: auto };
       }
       notify();
     },
@@ -709,15 +683,11 @@ export function createEditorStore(
 
     addAnnotation: (annotation: Annotation) => {
       pushUndoSnapshot();
-      const withDefaults: Annotation = {
-        ...annotation,
-        autoStrokeWidth: annotation.autoStrokeWidth ?? state.autoStrokeWidth,
-      };
       state = {
         ...state,
-        annotations: [...state.annotations, withDefaults],
-        selectedId: withDefaults.id,
-        selectedIds: [withDefaults.id],
+        annotations: [...state.annotations, annotation],
+        selectedId: annotation.id,
+        selectedIds: [annotation.id],
         isLocked: false,
       };
       notify();

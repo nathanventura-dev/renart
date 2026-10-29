@@ -60,7 +60,6 @@ interface CanvasEditorProps {
   selectedIds?: string[];
   strokeColor: string;
   strokeWidth: number;
-  autoStrokeWidth?: boolean;
   fontSize: number;
   fontFamily?: string;
   isLocked?: boolean;
@@ -222,7 +221,6 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
   selectedIds,
   strokeColor,
   strokeWidth,
-  autoStrokeWidth = true,
   fontSize,
   fontFamily = 'Arial',
   isLocked = false,
@@ -1248,7 +1246,6 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
         height: 1,
         stroke: strokeColor,
         strokeWidth,
-        autoStrokeWidth,
       });
     } else if (activeTool === 'ellipse') {
       setNewAnnotation({
@@ -1260,7 +1257,6 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
         radiusY: 1,
         stroke: strokeColor,
         strokeWidth,
-        autoStrokeWidth,
       });
     } else if (activeTool === 'line') {
       setNewAnnotation({
@@ -1271,7 +1267,6 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
         points: [clampedStartX, clampedStartY, clampedStartX, clampedStartY],
         stroke: strokeColor,
         strokeWidth,
-        autoStrokeWidth,
       });
     } else if (activeTool === 'arrow') {
       const initialStroke = arrowStyle === 'thin' ? 2 : strokeWidth || 4;
@@ -1288,7 +1283,6 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
         points: initialPoints,
         stroke: strokeColor,
         strokeWidth: initialStroke,
-        autoStrokeWidth,
         arrowStyle,
         curveDirection: arrowCurveDirection,
       });
@@ -1585,7 +1579,7 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
           <Layer>
             {orderedAnnotations.map((ann) => {
               const canDrag = !isLocked && (!crownDrag || crownDrag.id !== ann.id);
-              const strokeScaleEnabled = ann.autoStrokeWidth ?? true;
+              const strokeScaleEnabled = false;
 
               if (ann.type === 'rect') {
                 return (
@@ -2029,7 +2023,7 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                           />
                         )}
                         {visibleInLensAnnotations.map((item) => {
-                          const itemStrokeScale = item.autoStrokeWidth ?? true;
+                          const itemStrokeScale = false;
                           if (item.type === 'rect') {
                             return (
                               <Rect
