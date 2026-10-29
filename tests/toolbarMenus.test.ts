@@ -312,4 +312,46 @@ describe('Toolbar Horizontal Menus & Palette Dropdown', () => {
     // Posicionamento do menu à direita para desobstruir a galeria
     expect(htmlCapture).toContain('left:100%');
   });
+
+  it('renders minimalist horizontal export menu to the left of the blue active export button with .png, .jpeg, .pdf', () => {
+    // 1. resolveActiveToolbarMenu suporta 'export'
+    let activeMenu: OpenToolbarMenu = null;
+    activeMenu = resolveActiveToolbarMenu(activeMenu, 'export');
+    expect(activeMenu).toBe('export');
+    activeMenu = resolveActiveToolbarMenu(activeMenu, 'export');
+    expect(activeMenu).toBeNull();
+
+    // 2. Renderiza a Toolbar com o menu de exportação aberto (initialOpenMenu: 'export')
+    const htmlExport = renderToString(
+      React.createElement(Toolbar, {
+        activeTool: 'select',
+        onSelectTool: () => {},
+        strokeColor: '#ff3b30',
+        onSelectColor: () => {},
+        strokeWidth: 2,
+        onSelectStrokeWidth: () => {},
+        canUndo: false,
+        canRedo: false,
+        onUndo: () => {},
+        onRedo: () => {},
+        onNewCapture: () => {},
+        onCopy: () => {},
+        onExport: () => {},
+        onInsertImage: () => {},
+        initialOpenMenu: 'export',
+      })
+    );
+
+    // Botão de exportar fica com estilo azul ativo
+    expect(htmlExport).toContain('rgba(0, 113, 227, 0.12)');
+    expect(htmlExport).toContain('#0071e3');
+
+    // Menu horizontal com opções minimalistas
+    expect(htmlExport).toContain('.png');
+    expect(htmlExport).toContain('.jpeg');
+    expect(htmlExport).toContain('.pdf');
+
+    // Não deve exibir o dropdown vertical antigo com min-width 140px
+    expect(htmlExport).not.toContain('min-width:140px');
+  });
 });

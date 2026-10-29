@@ -199,7 +199,7 @@ export const TOOLBAR_COLORS = [
 ];
 export const COLORS = TOOLBAR_COLORS;
 
-export type OpenToolbarMenu = 'palette' | 'arrow' | 'magnifier' | 'text' | 'capture' | null;
+export type OpenToolbarMenu = 'palette' | 'arrow' | 'magnifier' | 'text' | 'capture' | 'export' | null;
 
 export function resolveActiveToolbarMenu(
   currentMenu: OpenToolbarMenu,
@@ -217,6 +217,7 @@ export function isClickOutsideActiveMenu(
     magnifier?: Node | null;
     text?: Node | null;
     capture?: Node | null;
+    export?: Node | null;
   },
   target: Node | null
 ): boolean {
@@ -335,7 +336,6 @@ export const Toolbar: React.FC<ToolbarProps> = ({
 
   const [hoveredAction, setHoveredAction] = useState<HoveredToolbarAction>(null);
   const [isCopied, setIsCopied] = useState(false);
-  const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
   const [openMenu, setOpenMenu] = useState<OpenToolbarMenu>(initialOpenMenu);
   const openMenuRef = useRef<OpenToolbarMenu>(openMenu);
   openMenuRef.current = openMenu;
@@ -356,9 +356,6 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       const targetNode = e.target as Node;
-      if (exportMenuRef.current && !exportMenuRef.current.contains(targetNode)) {
-        setIsExportMenuOpen(false);
-      }
       const currentMenu = openMenuRef.current;
       if (
         isClickOutsideActiveMenu(
@@ -369,6 +366,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
             magnifier: magnifierContainerRef.current,
             text: textContainerRef.current,
             capture: captureContainerRef.current,
+            export: exportMenuRef.current,
           },
           targetNode
         )
@@ -1215,15 +1213,76 @@ export const Toolbar: React.FC<ToolbarProps> = ({
           )}
         </div>
 
-        {/* Ícone de Disquete Minimalista (Exportar) + Hover "Exportar" */}
+        {/* Ícone de Disquete Minimalista (Exportar) + Menu Horizontal Minimalista à Esquerda */}
         <div
           ref={exportMenuRef}
-          style={{ position: 'relative', display: 'flex', alignItems: 'center' }}
+          style={{
+            position: 'relative',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+          }}
         >
+          {openMenu === 'export' && (
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                backgroundColor: '#f8fafc',
+                border: '1px solid #e2e8f0',
+                borderRadius: '8px',
+                padding: '2px 4px',
+                height: layoutMetrics.rightActionIconHeight,
+                boxSizing: 'border-box',
+              }}
+            >
+              {(['png', 'jpeg', 'pdf'] as const).map((fmt) => (
+                <button
+                  key={fmt}
+                  type="button"
+                  onClick={() => {
+                    setOpenMenu(null);
+                    onExport(fmt);
+                  }}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: '0 8px',
+                    height: '28px',
+                    fontSize: '12px',
+                    fontWeight: 600,
+                    color: '#475569',
+                    backgroundColor: 'transparent',
+                    border: 'none',
+                    borderRadius: '5px',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = '#ffffff';
+                    e.currentTarget.style.color = '#0071e3';
+                    e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.08)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = 'transparent';
+                    e.currentTarget.style.color = '#475569';
+                    e.currentTarget.style.boxShadow = 'none';
+                  }}
+                >
+                  {`.${fmt}`}
+                </button>
+              ))}
+            </div>
+          )}
+
           <button
             type="button"
             aria-label="Exportar"
-            onClick={() => setIsExportMenuOpen((prev) => !prev)}
+            onClick={() =>
+              setOpenMenu((prev) => resolveActiveToolbarMenu(prev, 'export'))
+            }
             onMouseEnter={() => setHoveredAction('export')}
             onMouseLeave={() => setHoveredAction((prev) => (prev === 'export' ? null : prev))}
             style={{
@@ -1233,19 +1292,26 @@ export const Toolbar: React.FC<ToolbarProps> = ({
               width: layoutMetrics.rightActionIconHeight,
               height: layoutMetrics.rightActionIconHeight,
               boxSizing: 'border-box',
-              border: '1px solid #e2e8f0',
+              border:
+                openMenu === 'export'
+                  ? '1px solid rgba(0, 113, 227, 0.3)'
+                  : '1px solid #e2e8f0',
               backgroundColor:
-                hoveredAction === 'export' || isExportMenuOpen ? '#f1f5f9' : '#f8fafc',
-              color: '#1e293b',
+                openMenu === 'export'
+                  ? 'rgba(0, 113, 227, 0.12)'
+                  : hoveredAction === 'export'
+                    ? '#f1f5f9'
+                    : '#f8fafc',
+              color: openMenu === 'export' ? '#0071e3' : '#1e293b',
               borderRadius: '8px',
               cursor: 'pointer',
-              transition: 'background-color 0.15s ease',
+              transition: 'background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease',
             }}
           >
             <Save size={17} strokeWidth={1.75} />
           </button>
 
-          {feedback.exportBadge && !isExportMenuOpen && (
+          {feedback.exportBadge && openMenu !== 'export' && (
             <div
               style={{
                 position: 'absolute',
@@ -1264,56 +1330,6 @@ export const Toolbar: React.FC<ToolbarProps> = ({
               }}
             >
               {feedback.exportBadge}
-            </div>
-          )}
-
-          {isExportMenuOpen && (
-            <div
-              style={{
-                position: 'absolute',
-                top: '42px',
-                right: 0,
-                backgroundColor: '#ffffff',
-                border: '1px solid #e2e8f0',
-                borderRadius: '8px',
-                boxShadow: '0 6px 20px rgba(0, 0, 0, 0.12)',
-                padding: '4px',
-                minWidth: '140px',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '2px',
-                zIndex: 300,
-              }}
-            >
-              {(['png', 'jpeg', 'pdf'] as const).map((fmt) => (
-                <button
-                  key={fmt}
-                  type="button"
-                  onClick={() => {
-                    setIsExportMenuOpen(false);
-                    onExport(fmt);
-                  }}
-                  style={{
-                    textAlign: 'left',
-                    padding: '6px 10px',
-                    fontSize: '12px',
-                    fontWeight: 500,
-                    color: '#1e293b',
-                    backgroundColor: 'transparent',
-                    border: 'none',
-                    borderRadius: '5px',
-                    cursor: 'pointer',
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = '#f1f5f9';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = 'transparent';
-                  }}
-                >
-                  Exportar como {fmt.toUpperCase()}
-                </button>
-              ))}
             </div>
           )}
         </div>
