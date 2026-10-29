@@ -69,16 +69,16 @@ Se você desejar apontar, destacar ou enriquecer o print antes de salvar:
 - **Retângulo (Square):** Cria caixas retangulares. Ao clicar no retângulo, surgem **âncoras nos cantos e laterais** que permitem esticar ou encolher o elemento com precisão milimétrica.
 - **Círculo / Elipse (Circle):** Cria destaques circulares ou ovais com âncoras de ajuste e movimentação livre.
 - **Linha / Traço (Minus):** Desenha linhas ou traços livres, ideais para sublinhar textos, destacar linhas de código ou fazer marcações diretas.
-- **Flecha Vetorial (Arrow):** Desenha setas com ponta automática. Ideal para indicar botões, erros ou áreas de interesse em tutoriais.
-- **Bloco de Texto com Seleção Contextual de Fonte e Tamanho e Redimensionamento Sem Distorção (Type):**
+- **Flecha Vetorial com Menu Suspenso Horizontal de Estilos (Arrow):** Desenha setas com ponta automática. Ao clicar no ícone da flecha, abre-se um **menu suspenso horizontal flutuante** rente à barra com os 4 estilos (`Padrão`, `Fina`, `Pontilhada`, `Curva`) e o botão `Inverter arco` (quando curva).
+- **Bloco de Texto com Menu Suspenso Horizontal de Fonte e Tamanho (Type):**
   - Insere caixas de texto sobre a imagem com edição direta inline no canvas (duplo clique, sem janelas modais).
-  - **Seletores Contextuais Estilo Microsoft Word (`[Fonte ▾]` e `[Tamanho ▾]`):** Quando a ferramenta de Texto está ativa — ou quando você seleciona um bloco de texto já existente na imagem — a barra superior troca automaticamente os controles de espessura de linha pelos seletores dedicados de **Família da Fonte** (`Arial`, `Segoe UI`, `Calibri`, `Verdana`, `Georgia`, `Times New Roman`, `Courier New`) e **Tamanho da Fonte** (`12`, `14`, `16`, `18`, `20`, `24`, `28`, `32`, `36`, `48`), permitindo alterar a fonte e o tamanho de cada bloco de texto independentemente.
-  - **Redimensionamento Automático em Degraus de Tamanho (`12` a `48`) Sem Distorção:** Ao redimensionar um bloco de texto pelas âncoras de canto no canvas, o texto nunca estica nem distorce: ele aumenta ou diminui automaticamente em degraus nos tamanhos de fonte (`12`, `14`, `16`, `18`, `20`, `24`, `28`, `32`, `36`, `48`), travando no limite mínimo **`12`** (não pode diminuir mais) e no limite máximo **`48`** (não pode aumentar mais), sincronizando o tamanho na barra superior.
+  - **Menu Suspenso Horizontal Flutuante (`[Fonte ▾]` e `[Tamanho ▾]`):** Ao clicar no ícone de Texto, abre-se logo abaixo do ícone um menu suspenso horizontal rente à barra contendo os seletores dedicados de **Família da Fonte** (`Arial`, `Segoe UI`, `Calibri`, `Verdana`, `Georgia`, `Times New Roman`, `Courier New`) e **Tamanho da Fonte** (`12`, `14`, `16`, `18`, `20`, `24`, `28`, `32`, `36`, `48`), sem empurrar os botões da barra de ferramentas.
+  - **Redimensionamento Automático em Degraus de Tamanho (`12` a `48`) Sem Distorção:** Ao redimensionar um bloco de texto pelas âncoras de canto no canvas, o texto nunca estica nem distorce: ele aumenta ou diminui automaticamente em degraus nos tamanhos de fonte (`12` a `48`).
 - **Inserir Imagem / Figura (ImageIcon):** Permite anexar logos, selos, carimbos ou figuras externas sobre o print.
-- **Ferramenta de Lupa com Opções "Sem foco" e "Com foco" (Zoom Lens):**
-  - **Duas Opções de Uso na Barra de Ferramentas:** Ao selecionar a Lupa, você pode escolher entre:
+- **Ferramenta de Lupa com Menu Suspenso Horizontal (Zoom Lens):**
+  - **Menu Suspenso Horizontal Flutuante:** Ao clicar no ícone da Lupa, abre-se logo abaixo do ícone o menu suspenso com as opções:
     - **`Sem foco`:** Mantém a lupa tradicional que amplia diretamente a região sob a própria lente.
-    - **`Com foco`:** Permite clicar no ponto exato que deseja focar e arrastar a lupa para qualquer canto da tela. O ponto focal exibe **apenas um ponto discreto** (sem círculo ao redor para não poluir a visão) conectado à lupa por um **rastro levemente fosco estreito**. Tanto o ponto focal quanto o corpo da lupa podem ser reposicionados livremente.
+    - **`Com foco`:** Permite clicar no ponto exato que deseja focar e arrastar a lupa para qualquer canto da tela com rastro levemente fosco conectado à lente.
   - **Ampliação Real da Imagem e de Todos os Blocos Adicionados:** A lente circular fica **sempre acima de todos os elementos da imagem** (independentemente da ordem de criação) e recorta/amplia em tempo real tanto os pixels da imagem de fundo quanto **todos os blocos adicionados** sob ela (setas, traços/linhas, elipses, quadrados/retângulos, textos e imagens inseridas).
   - **Redimensionamento Livre Respeitando o Limite da Imagem:** Ao selecionar a lupa, surgem âncoras de redimensionamento ao redor da lente (deixando a parte inferior livre para a coroa de zoom), permitindo aumentar ou diminuir o espaço ocupado pela lupa conforme desejar, sempre respeitando automaticamente as bordas da imagem.
   - **Movimentação Livre:** Pode ser arrastada livremente dentro dos limites da imagem tanto logo após a criação quanto depois de redimensionar ou realizar zoom in / zoom out.
@@ -92,8 +92,11 @@ Se você desejar apontar, destacar ou enriquecer o print antes de salvar:
   - **Mouse fora da área dos blocos adicionados:** O ponteiro permanece no modo de criação (`crosshair`) e clicar na área livre adiciona mais um bloco normalmente.
 
 ### 4.3. Controles de Estilo por Bloco, Opção "Auto", Multiseleção e Histórico
-- **Alteração Independente de Cor e Espessura por Bloco:**
-  - Ao selecionar qualquer bloco já presente na imagem e clicar em uma cor da paleta (Vermelho, Laranja, Verde, Azul, Roxo, Preto, Branco) ou alterar a espessura em pixels (`2px`, `3px`, `5px`, `8px`), **somente o(s) bloco(s) selecionado(s)** terão sua cor ou espessura modificada, sem interferir nos demais blocos da imagem.
+- **Paleta de Cores em Menu Suspenso Horizontal:**
+  - Na barra de ferramentas, um botão minimalista com ícone de Paleta exibe um indicador sutil da cor atual. Ao clicar, surge um **menu suspenso horizontal flutuante** com as 7 cores disponíveis (Vermelho, Laranja, Verde, Azul, Roxo, Preto, Branco).
+  - Clicar em uma cor aplica a cor nos blocos selecionados (ou define a cor para os próximos) e fecha o menu automaticamente. Clicar novamente no ícone ou fora do menu também o fecha.
+- **Espessura de Linha em Pixels (`2px`, `3px`, `5px`, `8px`):**
+  - Posicionada fixa ao lado da Paleta de Cores, permitindo escolher a espessura sem deslocar o layout.
 - **Opção `"Auto"` ao Lado da Lista de Espessura (Pixels):**
   - Ao lado do seletor de pixels (`2px`, `3px`, `5px`, `8px`), o botão **`Auto`** permite escolher entre espessura automática proporcional ao redimensionamento (`strokeScaleEnabled: true`) ou espessura fixa em pixels (`strokeScaleEnabled: false`).
   - Se **`Auto`** estiver selecionado, todos os novos blocos adicionados recebem o ajuste automático de espessura ao redimensionar.
