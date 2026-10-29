@@ -70,6 +70,7 @@ import {
   snapLinePointsWithShift,
   snapRectWithShift,
   getTwoPointAnchorDragBound,
+  getOpenChevronArrowPoints,
 } from '../utils/zoomAndCrop';
 
 interface CanvasEditorProps {
@@ -1190,8 +1191,12 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
         const nextPoints = ann.points.map((p) => Math.round(p * steppedScale));
         node.scaleX(1);
         node.scaleY(1);
-        (node as Konva.Arrow).points(nextPoints);
-        (node as Konva.Arrow).strokeWidth(nextStroke);
+        if (typeof (node as any).points === 'function') {
+          (node as any).points(nextPoints);
+        }
+        if (typeof (node as any).strokeWidth === 'function') {
+          (node as any).strokeWidth(nextStroke);
+        }
         const clamped = clampLinePointsToBounds(node.x(), node.y(), nextPoints, imgW, imgH, 1, 1, node.rotation());
         node.position({ x: clamped.x, y: clamped.y });
         return {
@@ -2140,6 +2145,67 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                   (isCurvedSelected && liveAnchorPoints) || (isStraightSelected && liveTwoPointPoints)
                     ? 0
                     : (ann.y || 0);
+                const effectiveStroke = ann.strokeWidth || (currentArrowStyle === 'thin' ? 2 : 4);
+
+                if (currentArrowStyle === 'thin' && displayPoints.length >= 4) {
+                  const chevronData = getOpenChevronArrowPoints(
+                    displayPoints[0],
+                    displayPoints[1],
+                    displayPoints[2],
+                    displayPoints[3],
+                    effectiveStroke
+                  );
+                  return (
+                    <Group
+                      key={ann.id}
+                      id={ann.id}
+                      x={displayX}
+                      y={displayY}
+                      scaleX={ann.scaleX ?? 1}
+                      scaleY={ann.scaleY ?? 1}
+                      rotation={ann.rotation ?? 0}
+                      draggable={canDrag && !draggingAnchor && !draggingTwoPointAnchor}
+                      dragBoundFunc={(pos) =>
+                        getTransformedDragBound(pos, zoomLevel, (localX, localY) =>
+                          clampLinePointsToBounds(
+                            localX,
+                            localY,
+                            displayPoints,
+                            canvasWidth,
+                            canvasHeight,
+                            ann.scaleX ?? 1,
+                            ann.scaleY ?? 1,
+                            ann.rotation ?? 0
+                          )
+                        )
+                      }
+                      onMouseEnter={handleBlockMouseEnter}
+                      onMouseLeave={handleBlockMouseLeave}
+                      onClick={(e) => handleBlockClick(ann.id, e)}
+                      onDragStart={() => handleBlockDragStart(ann.id)}
+                      onDragMove={(e) => handleBlockDragMove(ann.id, e)}
+                      onDragEnd={(e) => handleBlockDragEnd(ann.id, e)}
+                    >
+                      <Line
+                        points={chevronData.shaftPoints}
+                        stroke={ann.stroke}
+                        strokeWidth={effectiveStroke}
+                        lineCap="round"
+                        strokeScaleEnabled={strokeScaleEnabled}
+                        hitStrokeWidth={20}
+                      />
+                      <Line
+                        points={chevronData.chevronPoints}
+                        stroke={ann.stroke}
+                        strokeWidth={effectiveStroke}
+                        lineCap="round"
+                        lineJoin="round"
+                        strokeScaleEnabled={strokeScaleEnabled}
+                        hitStrokeWidth={20}
+                      />
+                    </Group>
+                  );
+                }
 
                 return (
                   <Arrow
@@ -2152,7 +2218,7 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                     scaleY={ann.scaleY ?? 1}
                     rotation={ann.rotation ?? 0}
                     stroke={ann.stroke}
-                    strokeWidth={ann.strokeWidth || (currentArrowStyle === 'thin' ? 2 : 4)}
+                    strokeWidth={effectiveStroke}
                     dash={isDashed ? [6, 4] : undefined}
                     tension={isCurved ? 0.4 : 0}
                     strokeScaleEnabled={strokeScaleEnabled}
@@ -2507,6 +2573,45 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                           }
                           if (item.type === 'arrow') {
                             const currentItemStyle = item.arrowStyle || 'standard';
+                            const effectiveStroke = item.strokeWidth || (currentItemStyle === 'thin' ? 2 : 4);
+                            if (currentItemStyle === 'thin' && item.points.length >= 4) {
+                              const chevronData = getOpenChevronArrowPoints(
+                                item.points[0],
+                                item.points[1],
+                                item.points[2],
+                                item.points[3],
+                                effectiveStroke
+                              );
+                              return (
+                                <Group
+                                  key={`lens-${ann.id}-${item.id}`}
+                                  x={item.x || 0}
+                                  y={item.y || 0}
+                                  scaleX={item.scaleX ?? 1}
+                                  scaleY={item.scaleY ?? 1}
+                                  rotation={item.rotation ?? 0}
+                                  listening={false}
+                                >
+                                  <Line
+                                    points={chevronData.shaftPoints}
+                                    stroke={item.stroke}
+                                    strokeWidth={effectiveStroke}
+                                    lineCap="round"
+                                    strokeScaleEnabled={itemStrokeScale}
+                                    listening={false}
+                                  />
+                                  <Line
+                                    points={chevronData.chevronPoints}
+                                    stroke={item.stroke}
+                                    strokeWidth={effectiveStroke}
+                                    lineCap="round"
+                                    lineJoin="round"
+                                    strokeScaleEnabled={itemStrokeScale}
+                                    listening={false}
+                                  />
+                                </Group>
+                              );
+                            }
                             const itemHeadDims = getArrowHeadDimensions(item.strokeWidth || 4, currentItemStyle);
                             return (
                               <Arrow
@@ -2518,7 +2623,7 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                                 scaleY={item.scaleY ?? 1}
                                 rotation={item.rotation ?? 0}
                                 stroke={item.stroke}
-                                strokeWidth={item.strokeWidth || (currentItemStyle === 'thin' ? 2 : 4)}
+                                strokeWidth={effectiveStroke}
                                 dash={currentItemStyle === 'dashed' ? [6, 4] : undefined}
                                 tension={currentItemStyle === 'curved' ? 0.4 : 0}
                                 strokeScaleEnabled={itemStrokeScale}
@@ -2805,6 +2910,33 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                 )}
                 {newAnnotation.type === 'arrow' && (() => {
                   const previewStyle = newAnnotation.arrowStyle || arrowStyle || 'standard';
+                  const effectiveStroke = newAnnotation.strokeWidth || (previewStyle === 'thin' ? 2 : 4);
+                  if (previewStyle === 'thin' && newAnnotation.points.length >= 4) {
+                    const chevronData = getOpenChevronArrowPoints(
+                      newAnnotation.points[0],
+                      newAnnotation.points[1],
+                      newAnnotation.points[2],
+                      newAnnotation.points[3],
+                      effectiveStroke
+                    );
+                    return (
+                      <Group listening={false}>
+                        <Line
+                          points={chevronData.shaftPoints}
+                          stroke={newAnnotation.stroke}
+                          strokeWidth={effectiveStroke}
+                          lineCap="round"
+                        />
+                        <Line
+                          points={chevronData.chevronPoints}
+                          stroke={newAnnotation.stroke}
+                          strokeWidth={effectiveStroke}
+                          lineCap="round"
+                          lineJoin="round"
+                        />
+                      </Group>
+                    );
+                  }
                   const previewHead = getArrowHeadDimensions(newAnnotation.strokeWidth || 4, previewStyle);
                   return (
                     <Arrow

@@ -14,6 +14,7 @@ import {
   getTwoPointAnchorDragBound,
   clampRectToBounds,
   getTransformedDragBound,
+  getOpenChevronArrowPoints,
 } from '../src/utils/zoomAndCrop';
 import { getAnnotationSelectionOutline } from '../src/utils/magnifierAndHover';
 
@@ -618,5 +619,81 @@ describe('Integration Flow', () => {
     expect(center90.y - rect90.width / 2).toBeGreaterThanOrEqual(0);
     expect(center90.x + rect90.height / 2).toBeLessThanOrEqual(canvasWidth);
     expect(center90.y + rect90.width / 2).toBeLessThanOrEqual(canvasHeight);
+  });
+
+  it('integrates thin chevron arrow with 2-point anchor adjustments, chevron points computation, and undo/redo', () => {
+    const editor = createEditorStore();
+
+    // 1. Cria flecha fina (arrowStyle: 'thin')
+    editor.addAnnotation({
+      id: 'arrow-thin-integ',
+      type: 'arrow',
+      points: [50, 50, 200, 50],
+      stroke: '#0071e3',
+      strokeWidth: 2,
+      arrowStyle: 'thin',
+    });
+    editor.setSelectedIds(['arrow-thin-integ']);
+
+    const getThinArrow = () => {
+      const ann = editor.getState().annotations.find((a) => a.id === 'arrow-thin-integ');
+      return ann?.type === 'arrow' ? ann : null;
+    };
+
+    const initialAnn = getThinArrow()!;
+    expect(initialAnn.arrowStyle).toBe('thin');
+    expect(initialAnn.strokeWidth).toBe(2);
+
+    // 2. Geometria de chevron inicial (horizontal)
+    const initialChevron = getOpenChevronArrowPoints(
+      initialAnn.points[0],
+      initialAnn.points[1],
+      initialAnn.points[2],
+      initialAnn.points[3],
+      initialAnn.strokeWidth
+    );
+    expect(initialChevron.shaftPoints).toEqual([50, 50, 200, 50]);
+    expect(initialChevron.chevronPoints[2]).toBe(200); // Ponta X
+    expect(initialChevron.chevronPoints[3]).toBe(50);  // Ponta Y
+    // As abas recuam para a esquerda em relação a x=200
+    expect(initialChevron.chevronPoints[0]).toBeLessThan(200);
+    expect(initialChevron.chevronPoints[4]).toBeLessThan(200);
+
+    // 3. Ajusta a ponta (âncora 1) para (250, 100)
+    const updatedTipPoints = updateTwoPointAnchor(initialAnn.points, 1, 250, 100, 800, 600);
+    editor.updateAnnotation('arrow-thin-integ', { points: updatedTipPoints });
+
+    const afterTipAnn = getThinArrow()!;
+    expect(afterTipAnn.points).toEqual([50, 50, 250, 100]);
+    const rotatedChevron = getOpenChevronArrowPoints(
+      afterTipAnn.points[0],
+      afterTipAnn.points[1],
+      afterTipAnn.points[2],
+      afterTipAnn.points[3],
+      afterTipAnn.strokeWidth
+    );
+    expect(rotatedChevron.shaftPoints).toEqual([50, 50, 250, 100]);
+    expect(rotatedChevron.chevronPoints[2]).toBe(250);
+    expect(rotatedChevron.chevronPoints[3]).toBe(100);
+
+    // 4. Ajusta a cauda (âncora 0) para (20, 30)
+    const updatedTailPoints = updateTwoPointAnchor(afterTipAnn.points, 0, 20, 30, 800, 600);
+    editor.updateAnnotation('arrow-thin-integ', { points: updatedTailPoints });
+
+    const afterTailAnn = getThinArrow()!;
+    expect(afterTailAnn.points).toEqual([20, 30, 250, 100]);
+
+    // 5. Histórico Undo/Redo
+    editor.undo(); // Desfaz ajuste da cauda
+    expect(getThinArrow()!.points).toEqual([50, 50, 250, 100]);
+
+    editor.undo(); // Desfaz ajuste da ponta
+    expect(getThinArrow()!.points).toEqual([50, 50, 200, 50]);
+
+    editor.redo(); // Refaz ajuste da ponta
+    expect(getThinArrow()!.points).toEqual([50, 50, 250, 100]);
+
+    editor.redo(); // Refaz ajuste da cauda
+    expect(getThinArrow()!.points).toEqual([20, 30, 250, 100]);
   });
 });
