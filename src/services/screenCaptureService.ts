@@ -52,17 +52,20 @@ export async function copyDataUrlToClipboard(dataUrl: string): Promise<void> {
 }
 
 /**
- * Captura um quadro real da tela do usuário (via Tauri nativo ou Web Screen Capture API getDisplayMedia).
- * Retorna null caso o usuário cancele a seleção da tela.
+ * Captura um quadro real da tela ou janela do usuário (via Tauri nativo ou Web Screen Capture API getDisplayMedia).
+ * Retorna null caso o usuário cancele a seleção da tela/janela.
  */
-export async function captureDesktopFrame(): Promise<string | null> {
+export async function captureDesktopFrame(
+  displaySurface: 'monitor' | 'window' = 'monitor'
+): Promise<string | null> {
   // 1. Tenta captura de tela inteira nativa se estiver rodando dentro do Tauri
   try {
     const isTauri =
       typeof window !== 'undefined' && ('__TAURI_INTERNALS__' in window || '__TAURI__' in window);
     if (isTauri) {
       const { invoke } = await import('@tauri-apps/api/core');
-      const dataUrl = await invoke<string>('tauri_capture_screen', { mode: 'fullscreen' });
+      const mode = displaySurface === 'window' ? 'window' : 'fullscreen';
+      const dataUrl = await invoke<string>('tauri_capture_screen', { mode });
       if (dataUrl) return dataUrl;
     }
   } catch (err) {
@@ -78,10 +81,12 @@ export async function captureDesktopFrame(): Promise<string | null> {
     try {
       const stream = await navigator.mediaDevices.getDisplayMedia({
         video: {
-          displaySurface: 'monitor',
+          displaySurface,
         } as MediaTrackConstraints,
         audio: false,
       });
+
+      if (!stream) return null;
 
       const video = document.createElement('video');
       video.srcObject = stream;

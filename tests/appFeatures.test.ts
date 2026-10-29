@@ -2,7 +2,8 @@
 import { describe, it, expect } from 'vitest';
 import { createEditorStore } from '../src/state/editorStore';
 import { createGalleryStore } from '../src/state/galleryStore';
-import { calculateCropCoordinates } from '../src/services/screenCaptureService';
+import { calculateCropCoordinates, captureDesktopFrame } from '../src/services/screenCaptureService';
+import { CaptureMode } from '../src/types/capture';
 import {
   resolveToolbarActionFeedback,
   getToolbarLayoutMetrics,
@@ -301,5 +302,37 @@ describe('App Enhanced Features & User Fixes', () => {
     // Com ferramenta select sem nenhuma lupa selecionada
     const stateEmpty = resolveMagnifierToolbarState('select', [], 'without-focus');
     expect(stateEmpty.showMagnifierControls).toBe(false);
+  });
+
+  it('supports window and fullscreen capture modes with displaySurface constraints', async () => {
+    const validModes: CaptureMode[] = ['region', 'freeform', 'fullscreen', 'window'];
+    expect(validModes).toContain('window');
+
+    let requestedConstraints: any = null;
+    const originalMediaDevices = navigator.mediaDevices;
+    Object.defineProperty(navigator, 'mediaDevices', {
+      value: {
+        getDisplayMedia: async (constraints: any) => {
+          requestedConstraints = constraints;
+          return null;
+        },
+      },
+      configurable: true,
+      writable: true,
+    });
+
+    try {
+      await captureDesktopFrame('window');
+      expect(requestedConstraints?.video?.displaySurface).toBe('window');
+
+      await captureDesktopFrame('monitor');
+      expect(requestedConstraints?.video?.displaySurface).toBe('monitor');
+    } finally {
+      Object.defineProperty(navigator, 'mediaDevices', {
+        value: originalMediaDevices,
+        configurable: true,
+        writable: true,
+      });
+    }
   });
 });

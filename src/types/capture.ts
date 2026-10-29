@@ -1,4 +1,4 @@
-export type CaptureMode = 'region' | 'freeform' | 'fullscreen';
+export type CaptureMode = 'region' | 'freeform' | 'fullscreen' | 'window';
 
 export interface Point {
   x: number;
