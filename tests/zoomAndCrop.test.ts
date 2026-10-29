@@ -38,6 +38,7 @@ import {
   snapLinePointsWithShift,
   snapRectWithShift,
   getTwoPointAnchorDragBound,
+  getOpenChevronArrowPoints,
 } from '../src/utils/zoomAndCrop';
 import { Annotation } from '../src/state/editorStore';
 
@@ -998,6 +999,52 @@ describe('Pointer and Drag Coordinate Transformations Under Zoom', () => {
       // Com clamp nos limites do canvas quando arrastado para fora
       const clampedShifted = getTwoPointAnchorDragBound(900, 105, fixedPoint, true, canvasWidth, canvasHeight);
       expect(clampedShifted).toEqual({ x: 800, y: 100 });
+    });
+
+    it('calculates open chevron arrow points matching Lucide arrow icon geometry', () => {
+      // 1. Flecha horizontal para a direita (0, 0) -> (100, 0) com strokeWidth 2
+      const horiz = getOpenChevronArrowPoints(0, 0, 100, 0, 2);
+      expect(horiz.shaftPoints).toEqual([0, 0, 100, 0]);
+      // barbLength = max(8, 2 * 3.8) = 8
+      // Ponta do chevron é (100, 0) no índice 2, 3
+      expect(horiz.chevronPoints[2]).toBe(100);
+      expect(horiz.chevronPoints[3]).toBe(0);
+      // As abas devem recuar em X (x < 100) e ter aberturas simétricas em Y (+y e -y)
+      const [x1, y1, tipX, tipY, x2, y2] = horiz.chevronPoints;
+      expect(tipX).toBe(100);
+      expect(tipY).toBe(0);
+      expect(x1).toBeCloseTo(100 - 8 * Math.cos(Math.PI / 4), 4);
+      expect(y1).toBeCloseTo(8 * Math.sin(Math.PI / 4), 4);
+      expect(x2).toBeCloseTo(100 - 8 * Math.cos(Math.PI / 4), 4);
+      expect(y2).toBeCloseTo(-8 * Math.sin(Math.PI / 4), 4);
+
+      // 2. Flecha vertical para baixo (0, 0) -> (0, 100)
+      const vert = getOpenChevronArrowPoints(0, 0, 0, 100, 2);
+      expect(vert.shaftPoints).toEqual([0, 0, 0, 100]);
+      expect(vert.chevronPoints[2]).toBe(0);
+      expect(vert.chevronPoints[3]).toBe(100);
+      // Abas recuam para cima (y < 100) e abrem simetricamente em X
+      expect(vert.chevronPoints[1]).toBeLessThan(100);
+      expect(vert.chevronPoints[5]).toBeLessThan(100);
+      expect(Math.abs(vert.chevronPoints[0])).toBeCloseTo(Math.abs(vert.chevronPoints[4]), 4);
+
+      // 3. Flecha degenerada de comprimento zero (50, 50) -> (50, 50)
+      const degen = getOpenChevronArrowPoints(50, 50, 50, 50, 2);
+      expect(degen.shaftPoints).toEqual([50, 50, 50, 50]);
+      expect(degen.chevronPoints.every(n => Number.isFinite(n) && !Number.isNaN(n))).toBe(true);
+
+      // 4. Proporção das abas com strokeWidth (2px, 4px, 8px)
+      const p2 = getOpenChevronArrowPoints(0, 0, 100, 0, 2);
+      const p4 = getOpenChevronArrowPoints(0, 0, 100, 0, 4);
+      const p8 = getOpenChevronArrowPoints(0, 0, 100, 0, 8);
+
+      const len2 = Math.hypot(p2.chevronPoints[0] - p2.chevronPoints[2], p2.chevronPoints[1] - p2.chevronPoints[3]);
+      const len4 = Math.hypot(p4.chevronPoints[0] - p4.chevronPoints[2], p4.chevronPoints[1] - p4.chevronPoints[3]);
+      const len8 = Math.hypot(p8.chevronPoints[0] - p8.chevronPoints[2], p8.chevronPoints[1] - p8.chevronPoints[3]);
+
+      expect(len2).toBeCloseTo(8, 2); // max(8, 7.6) = 8
+      expect(len4).toBeCloseTo(4 * 3.8, 2); // 15.2
+      expect(len8).toBeCloseTo(8 * 3.8, 2); // 30.4
     });
   });
 });

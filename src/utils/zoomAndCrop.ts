@@ -668,6 +668,39 @@ export function getArrowHeadDimensions(
   };
 }
 
+export interface OpenChevronPoints {
+  shaftPoints: [number, number, number, number];
+  chevronPoints: [number, number, number, number, number, number];
+}
+
+/**
+ * Calcula as coordenadas para flecha fina com ponta aberta em chevron 45° estilo ícone SVG (Lucide ArrowRight).
+ * Retorna os pontos da haste [x1, y1, x2, y2] e os pontos da ponta chevron [xTop, yTop, x2, y2, xBottom, yBottom].
+ */
+export function getOpenChevronArrowPoints(
+  x1: number,
+  y1: number,
+  x2: number,
+  y2: number,
+  strokeWidth: number = 2
+): OpenChevronPoints {
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  const angle = Math.atan2(dy, dx);
+  const barbLength = Math.max(8, strokeWidth * 3.8);
+
+  const xTop = x2 - barbLength * Math.cos(angle - Math.PI / 4);
+  const yTop = y2 - barbLength * Math.sin(angle - Math.PI / 4);
+
+  const xBottom = x2 - barbLength * Math.cos(angle + Math.PI / 4);
+  const yBottom = y2 - barbLength * Math.sin(angle + Math.PI / 4);
+
+  return {
+    shaftPoints: [x1, y1, x2, y2],
+    chevronPoints: [xTop, yTop, x2, y2, xBottom, yBottom],
+  };
+}
+
 /**
  * Calcula as coordenadas de 6 pontos [x1, y1, midX, midY, x2, y2] para flecha curva,
  * projetando o ponto médio perpendicularmente à corda para um arco suave.
