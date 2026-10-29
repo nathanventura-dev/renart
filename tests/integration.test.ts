@@ -2,7 +2,12 @@
 import { describe, it, expect } from 'vitest';
 import { createGalleryStore } from '../src/state/galleryStore';
 import { createEditorStore } from '../src/state/editorStore';
-import { updateCurvedArrowAnchor, updateTwoPointAnchor } from '../src/utils/zoomAndCrop';
+import {
+  updateCurvedArrowAnchor,
+  updateTwoPointAnchor,
+  updateCornerResize,
+  updateShapeRotation,
+} from '../src/utils/zoomAndCrop';
 
 describe('Integration Flow', () => {
   it('coordinates gallery selection with canvas editor state', () => {
@@ -299,6 +304,58 @@ describe('Integration Flow', () => {
     if (ellipseUndone.type === 'ellipse') {
       expect(ellipseUndone.radiusX).toBe(50);
       expect(ellipseUndone.radiusY).toBe(30);
+    }
+  });
+
+  it('updates 4-corner resize and 360 rotation for rect and ellipse with full undo/redo support', () => {
+    const editor = createEditorStore();
+
+    editor.addAnnotation({
+      id: 'rect-4corner-test',
+      type: 'rect',
+      x: 100,
+      y: 100,
+      width: 200,
+      height: 100,
+      stroke: '#ff3b30',
+      strokeWidth: 4,
+      rotation: 0,
+    });
+    editor.setSelectedIds(['rect-4corner-test']);
+
+    // Simula arrastar o canto BR (index 2) usando updateCornerResize
+    const rectAnn = editor.getState().annotations.find((a) => a.id === 'rect-4corner-test')!;
+    const resizeUpdate = updateCornerResize(rectAnn, 2, { x: 350, y: 250 }, 800, 600);
+    editor.updateAnnotation('rect-4corner-test', resizeUpdate);
+
+    let updatedRect = editor.getState().annotations.find((a) => a.id === 'rect-4corner-test')!;
+    if (updatedRect.type === 'rect') {
+      expect(updatedRect.x).toBe(100);
+      expect(updatedRect.y).toBe(100);
+      expect(updatedRect.width).toBe(250);
+      expect(updatedRect.height).toBe(150);
+      expect(updatedRect.strokeWidth).toBe(4);
+    }
+
+    // Simula arrastar a alça de rotação para a direita (90 graus)
+    const rot = updateShapeRotation(updatedRect, { x: 350, y: 175 }); // centro é (225, 175)
+    expect(rot).toBeCloseTo(90, 0);
+    editor.updateAnnotation('rect-4corner-test', { rotation: rot });
+
+    updatedRect = editor.getState().annotations.find((a) => a.id === 'rect-4corner-test')!;
+    expect(updatedRect.rotation).toBeCloseTo(90, 0);
+
+    // Undo desfaz rotação
+    editor.undo();
+    updatedRect = editor.getState().annotations.find((a) => a.id === 'rect-4corner-test')!;
+    expect(updatedRect.rotation).toBe(0);
+
+    // Undo desfaz redimensionamento
+    editor.undo();
+    updatedRect = editor.getState().annotations.find((a) => a.id === 'rect-4corner-test')!;
+    if (updatedRect.type === 'rect') {
+      expect(updatedRect.width).toBe(200);
+      expect(updatedRect.height).toBe(100);
     }
   });
 });

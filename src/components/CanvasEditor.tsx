@@ -11,9 +11,18 @@ import {
   Circle,
   Group,
   Line,
+  Shape,
 } from 'react-konva';
 import Konva from 'konva';
-import { Annotation, ToolType, ImageAnnotation, ArrowStyle, ArrowCurveDirection } from '../state/editorStore';
+import {
+  Annotation,
+  ToolType,
+  ImageAnnotation,
+  RectAnnotation,
+  EllipseAnnotation,
+  ArrowStyle,
+  ArrowCurveDirection,
+} from '../state/editorStore';
 import {
   calculateMagnifierImageTransform,
   calculateZoomFromCrownDrag,
@@ -52,6 +61,9 @@ import {
   getCurvedArrowAnchorPositions,
   updateTwoPointAnchor,
   getTwoPointAnchorPositions,
+  getFourCornerPositions,
+  updateCornerResize,
+  updateShapeRotation,
 } from '../utils/zoomAndCrop';
 
 interface CanvasEditorProps {
@@ -265,6 +277,10 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
   const [draggingTwoPointAnchor, setDraggingTwoPointAnchor] = useState<{ id: string; index: 0 | 1 } | null>(null);
   const [hoveredTwoPointAnchor, setHoveredTwoPointAnchor] = useState<0 | 1 | null>(null);
   const [isDraggingTwoPointBody, setIsDraggingTwoPointBody] = useState(false);
+  const [liveFourCornerUpdate, setLiveFourCornerUpdate] = useState<Partial<Annotation> | null>(null);
+  const [draggingCorner, setDraggingCorner] = useState<0 | 1 | 2 | 3 | null>(null);
+  const [isRotating, setIsRotating] = useState(false);
+  const [liveRotation, setLiveRotation] = useState<number | null>(null);
 
   const transformerRef = useRef<Konva.Transformer>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -493,59 +509,6 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
       }
       transformerRef.current.nodes(nodes);
       transformerRef.current.forceUpdate();
-
-      if (nodes.length > 0) {
-        const rotater = transformerRef.current.findOne('.rotater') as Konva.Shape | undefined;
-        if (rotater) {
-          rotater.width(24);
-          rotater.height(24);
-          rotater.offset({ x: 12, y: 12 });
-          rotater.sceneFunc((context, shape) => {
-            const ctx = context._context as CanvasRenderingContext2D;
-            const w = shape.width();
-            const h = shape.height();
-            const cx = w / 2;
-            const cy = h / 2;
-            const r = Math.max(cx, 11);
-
-            ctx.save();
-            ctx.beginPath();
-            ctx.arc(cx, cy, r, 0, Math.PI * 2, false);
-            ctx.fillStyle = '#262626';
-            ctx.shadowColor = 'rgba(0, 0, 0, 0.35)';
-            ctx.shadowBlur = 4;
-            ctx.shadowOffsetY = 1;
-            ctx.fill();
-
-            ctx.shadowColor = 'transparent';
-            ctx.lineWidth = 1.2;
-            ctx.strokeStyle = '#52525b';
-            ctx.stroke();
-
-            // Seta circular branca (⟳)
-            ctx.beginPath();
-            ctx.arc(cx, cy, r * 0.52, -Math.PI * 0.85, Math.PI * 0.65, false);
-            ctx.lineWidth = 1.75;
-            ctx.strokeStyle = '#ffffff';
-            ctx.lineCap = 'round';
-            ctx.stroke();
-
-            const endAngle = Math.PI * 0.65;
-            const tipX = cx + Math.cos(endAngle) * (r * 0.52);
-            const tipY = cy + Math.sin(endAngle) * (r * 0.52);
-            ctx.beginPath();
-            ctx.moveTo(tipX - 1.5, tipY - 3.5);
-            ctx.lineTo(tipX + 3, tipY + 1.5);
-            ctx.lineTo(tipX - 3, tipY + 3);
-            ctx.closePath();
-            ctx.fillStyle = '#ffffff';
-            ctx.fill();
-
-            ctx.restore();
-          });
-        }
-      }
-
       transformerRef.current.getLayer()?.batchDraw();
     } else {
       transformerRef.current.nodes([]);
@@ -1180,7 +1143,13 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
     }
 
     const targetName = e.target.name();
-    if (targetName === 'magnifier-crown' || targetName === 'magnifier-focus') {
+    if (
+      targetName === 'magnifier-crown' ||
+      targetName === 'magnifier-focus' ||
+      targetName?.startsWith('corner-anchor-') ||
+      targetName?.startsWith('two-point-anchor-') ||
+      targetName === 'four-corner-rotater'
+    ) {
       return;
     }
 
@@ -1608,6 +1577,53 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
     return rawPoints;
   }, [selectedTwoPointAnnotation, liveTwoPointPoints, draggingTwoPointAnchor]);
 
+  const selectedFourCornerAnnotation = useMemo(() => {
+    if (effectiveSelectedIds.length !== 1) return null;
+    const ann = annotations.find((a) => a.id === effectiveSelectedIds[0]);
+    if (ann && (ann.type === 'rect' || ann.type === 'ellipse')) {
+      return ann;
+    }
+    return null;
+  }, [effectiveSelectedIds, annotations]);
+
+  const effectiveFourCornerAnn = useMemo(() => {
+    if (!selectedFourCornerAnnotation) return null;
+    if (selectedFourCornerAnnotation.type === 'rect') {
+      const base = { ...selectedFourCornerAnnotation };
+      if (liveFourCornerUpdate) {
+        const update = liveFourCornerUpdate as Partial<RectAnnotation>;
+        if (update.x !== undefined) base.x = update.x;
+        if (update.y !== undefined) base.y = update.y;
+        if (update.width !== undefined) base.width = update.width;
+        if (update.height !== undefined) base.height = update.height;
+      }
+      if (liveRotation !== null) {
+        base.rotation = liveRotation;
+      }
+      return base;
+    }
+    if (selectedFourCornerAnnotation.type === 'ellipse') {
+      const base = { ...selectedFourCornerAnnotation };
+      if (liveFourCornerUpdate) {
+        const update = liveFourCornerUpdate as Partial<EllipseAnnotation>;
+        if (update.x !== undefined) base.x = update.x;
+        if (update.y !== undefined) base.y = update.y;
+        if (update.radiusX !== undefined) base.radiusX = update.radiusX;
+        if (update.radiusY !== undefined) base.radiusY = update.radiusY;
+      }
+      if (liveRotation !== null) {
+        base.rotation = liveRotation;
+      }
+      return base;
+    }
+    return selectedFourCornerAnnotation;
+  }, [selectedFourCornerAnnotation, liveFourCornerUpdate, liveRotation]);
+
+  const fourCornerPositions = useMemo(() => {
+    if (!effectiveFourCornerAnn) return null;
+    return getFourCornerPositions(effectiveFourCornerAnn);
+  }, [effectiveFourCornerAnn]);
+
   return (
     <div
       ref={containerRef}
@@ -1667,21 +1683,24 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
           {/* Camada de Vetores e Anotações (Lupas sempre no topo) */}
           <Layer>
             {orderedAnnotations.map((ann) => {
-              const canDrag = !isLocked && (!crownDrag || crownDrag.id !== ann.id);
+              const isManipulatingFourCorner = draggingCorner !== null || isRotating;
+              const canDrag = !isLocked && !isManipulatingFourCorner && (!crownDrag || crownDrag.id !== ann.id);
               const strokeScaleEnabled = false;
 
               if (ann.type === 'rect') {
+                const isSelected4C = selectedFourCornerAnnotation?.id === ann.id;
+                const activeRect = isSelected4C && effectiveFourCornerAnn?.type === 'rect' ? effectiveFourCornerAnn : ann;
                 return (
                   <Rect
                     key={ann.id}
                     id={ann.id}
-                    x={ann.x}
-                    y={ann.y}
-                    width={ann.width}
-                    height={ann.height}
-                    scaleX={ann.scaleX ?? 1}
-                    scaleY={ann.scaleY ?? 1}
-                    rotation={ann.rotation ?? 0}
+                    x={activeRect.x}
+                    y={activeRect.y}
+                    width={activeRect.width}
+                    height={activeRect.height}
+                    scaleX={1}
+                    scaleY={1}
+                    rotation={activeRect.rotation ?? 0}
                     fill="rgba(0, 0, 0, 0.001)"
                     stroke={ann.stroke}
                     strokeWidth={ann.strokeWidth}
@@ -1692,13 +1711,13 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                         clampRectToBounds(
                           localX,
                           localY,
-                          ann.width,
-                          ann.height,
+                          activeRect.width,
+                          activeRect.height,
                           canvasWidth,
                           canvasHeight,
-                          ann.scaleX ?? 1,
-                          ann.scaleY ?? 1,
-                          ann.rotation ?? 0
+                          1,
+                          1,
+                          activeRect.rotation ?? 0
                         )
                       )
                     }
@@ -1713,17 +1732,19 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
               }
 
               if (ann.type === 'ellipse') {
+                const isSelected4C = selectedFourCornerAnnotation?.id === ann.id;
+                const activeEllipse = isSelected4C && effectiveFourCornerAnn?.type === 'ellipse' ? effectiveFourCornerAnn : ann;
                 return (
                   <Ellipse
                     key={ann.id}
                     id={ann.id}
-                    x={ann.x}
-                    y={ann.y}
-                    radiusX={ann.radiusX}
-                    radiusY={ann.radiusY}
-                    scaleX={ann.scaleX ?? 1}
-                    scaleY={ann.scaleY ?? 1}
-                    rotation={ann.rotation ?? 0}
+                    x={activeEllipse.x}
+                    y={activeEllipse.y}
+                    radiusX={activeEllipse.radiusX}
+                    radiusY={activeEllipse.radiusY}
+                    scaleX={1}
+                    scaleY={1}
+                    rotation={activeEllipse.rotation ?? 0}
                     fill="rgba(0, 0, 0, 0.001)"
                     stroke={ann.stroke}
                     strokeWidth={ann.strokeWidth}
@@ -1734,13 +1755,13 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                         clampEllipseToBounds(
                           localX,
                           localY,
-                          ann.radiusX,
-                          ann.radiusY,
+                          activeEllipse.radiusX,
+                          activeEllipse.radiusY,
                           canvasWidth,
                           canvasHeight,
-                          ann.scaleX ?? 1,
-                          ann.scaleY ?? 1,
-                          ann.rotation ?? 0
+                          1,
+                          1,
+                          activeEllipse.rotation ?? 0
                         )
                       )
                     }
@@ -2770,6 +2791,181 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                         }}
                       />
                     ))}
+                  </Group>
+                );
+              })()}
+
+            {/* Âncoras Minimalistas de 4 Cantos e Rotação Estilo Ferramenta de Captura do Windows para Retângulos e Elipses */}
+            {selectedFourCornerAnnotation &&
+              fourCornerPositions &&
+              !isLocked &&
+              !isCropping &&
+              !isDrawing &&
+              effectiveSelectedIds.length === 1 && (() => {
+                const corners = fourCornerPositions.corners;
+                const rotaterPos = fourCornerPositions.rotater;
+
+                return (
+                  <Group name="four-corner-controls-group">
+                    {/* Alça Superior de Rotação Estilo Windows Snipping Tool */}
+                    <Group
+                      name="four-corner-rotater"
+                      x={rotaterPos.x}
+                      y={rotaterPos.y}
+                      draggable={!isLocked}
+                      dragBoundFunc={(pos) => pos}
+                      onMouseEnter={() => {
+                        const stage = stageRef.current;
+                        if (stage) stage.container().style.cursor = 'grab';
+                      }}
+                      onMouseLeave={() => {
+                        const stage = stageRef.current;
+                        if (stage) stage.container().style.cursor = 'default';
+                      }}
+                      onDragStart={(e) => {
+                        e.cancelBubble = true;
+                        setIsRotating(true);
+                        const stage = stageRef.current;
+                        if (stage) stage.container().style.cursor = 'grabbing';
+                      }}
+                      onDragMove={(e) => {
+                        e.cancelBubble = true;
+                        const stage = e.target.getStage();
+                        const rawPos = stage?.getPointerPosition();
+                        if (rawPos) {
+                          const localPos = getTransformedPointerPosition(rawPos, zoomLevel);
+                          const newRot = updateShapeRotation(selectedFourCornerAnnotation, localPos);
+                          setLiveRotation(newRot);
+                        }
+                      }}
+                      onDragEnd={(e) => {
+                        e.cancelBubble = true;
+                        setIsRotating(false);
+                        const stage = stageRef.current;
+                        if (stage) stage.container().style.cursor = 'default';
+                        const stageObj = e.target.getStage();
+                        const rawPos = stageObj?.getPointerPosition();
+                        if (rawPos) {
+                          const localPos = getTransformedPointerPosition(rawPos, zoomLevel);
+                          const finalRot = updateShapeRotation(selectedFourCornerAnnotation, localPos);
+                          if (finalRot !== (selectedFourCornerAnnotation.rotation ?? 0)) {
+                            onUpdateAnnotation(selectedFourCornerAnnotation.id, { rotation: finalRot });
+                          }
+                        }
+                        setLiveRotation(null);
+                      }}
+                    >
+                      {/* Área de toque expandida invisível */}
+                      <Circle radius={18} fill="rgba(0,0,0,0.001)" />
+                      {/* Badge escuro estilo Windows Snipping Tool */}
+                      <Circle
+                        radius={13}
+                        fill="#262626"
+                        stroke="#52525b"
+                        strokeWidth={1.2}
+                        shadowColor="rgba(0,0,0,0.35)"
+                        shadowBlur={4}
+                        shadowOffsetY={1}
+                      />
+                      {/* Ícone de rotação ⟳ */}
+                      <Shape
+                        sceneFunc={(context, shape) => {
+                          const ctx = context._context as CanvasRenderingContext2D;
+                          ctx.save();
+                          ctx.beginPath();
+                          ctx.arc(0, 0, 6.5, -Math.PI * 0.85, Math.PI * 0.65, false);
+                          ctx.lineWidth = 1.6;
+                          ctx.strokeStyle = '#ffffff';
+                          ctx.lineCap = 'round';
+                          ctx.stroke();
+
+                          const endAngle = Math.PI * 0.65;
+                          const tipX = Math.cos(endAngle) * 6.5;
+                          const tipY = Math.sin(endAngle) * 6.5;
+                          ctx.beginPath();
+                          ctx.moveTo(tipX - 1.5, tipY - 3);
+                          ctx.lineTo(tipX + 2.5, tipY + 1.2);
+                          ctx.lineTo(tipX - 2.5, tipY + 2.5);
+                          ctx.closePath();
+                          ctx.fillStyle = '#ffffff';
+                          ctx.fill();
+                          ctx.restore();
+                          context.fillStrokeShape(shape);
+                        }}
+                        listening={false}
+                      />
+                    </Group>
+
+                    {/* 4 Âncoras Circulares nos Cantos (TL, TR, BR, BL) */}
+                    {corners.map((pos, idx) => {
+                      const cursors = ['nwse-resize', 'nesw-resize', 'nwse-resize', 'nesw-resize'];
+                      const cursorStyle = cursors[idx];
+                      return (
+                        <Circle
+                          key={`corner-anchor-${idx}`}
+                          name={`corner-anchor-${idx}`}
+                          x={pos.x}
+                          y={pos.y}
+                          radius={6}
+                          fill="#ffffff"
+                          stroke="#71717a"
+                          strokeWidth={1.5}
+                          hitStrokeWidth={18}
+                          shadowColor="rgba(0, 0, 0, 0.25)"
+                          shadowBlur={3}
+                          draggable={!isLocked}
+                          dragBoundFunc={(pos) => pos}
+                          onMouseEnter={() => {
+                            const stage = stageRef.current;
+                            if (stage) stage.container().style.cursor = cursorStyle;
+                          }}
+                          onMouseLeave={() => {
+                            const stage = stageRef.current;
+                            if (stage) stage.container().style.cursor = 'default';
+                          }}
+                          onDragStart={(e) => {
+                            e.cancelBubble = true;
+                            setDraggingCorner(idx as 0 | 1 | 2 | 3);
+                          }}
+                          onDragMove={(e) => {
+                            e.cancelBubble = true;
+                            const stage = e.target.getStage();
+                            const rawPos = stage?.getPointerPosition();
+                            if (rawPos) {
+                              const localPos = getTransformedPointerPosition(rawPos, zoomLevel);
+                              const update = updateCornerResize(
+                                selectedFourCornerAnnotation,
+                                idx as 0 | 1 | 2 | 3,
+                                localPos,
+                                canvasWidth,
+                                canvasHeight
+                              );
+                              setLiveFourCornerUpdate(update);
+                            }
+                          }}
+                          onDragEnd={(e) => {
+                            e.cancelBubble = true;
+                            setDraggingCorner(null);
+                            const stage = stageRef.current;
+                            if (stage) stage.container().style.cursor = 'default';
+                            const stageObj = e.target.getStage();
+                            const rawPos = stageObj?.getPointerPosition();
+                            if (rawPos) {
+                              const localPos = getTransformedPointerPosition(rawPos, zoomLevel);
+                              const update = updateCornerResize(
+                                selectedFourCornerAnnotation,
+                                idx as 0 | 1 | 2 | 3,
+                                localPos,
+                                canvasWidth,
+                                canvasHeight
+                              );
+                              onUpdateAnnotation(selectedFourCornerAnnotation.id, update);
+                            }
+                            setLiveFourCornerUpdate(null);
+                          }}
+                        />
+                      );
+                    })}
                   </Group>
                 );
               })()}

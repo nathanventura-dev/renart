@@ -30,6 +30,9 @@ import {
   getCurvedArrowAnchorPositions,
   updateTwoPointAnchor,
   getTwoPointAnchorPositions,
+  getFourCornerPositions,
+  updateCornerResize,
+  updateShapeRotation,
 } from '../src/utils/zoomAndCrop';
 import { Annotation } from '../src/state/editorStore';
 
@@ -532,23 +535,172 @@ describe('Pointer and Drag Coordinate Transformations Under Zoom', () => {
       expect(clampedMin.height).toBe(50);
     });
 
-    it('suppresses transformer for lines and all arrow styles while keeping it for 2D shapes', () => {
-      // Formas normais 2D acoplam o Transformer
-      expect(shouldAttachTransformer('rect')).toBe(true);
-      expect(shouldAttachTransformer('ellipse')).toBe(true);
-      expect(shouldAttachTransformer('text')).toBe(true);
-      expect(shouldAttachTransformer('image')).toBe(true);
-
-      // Ferramenta select não acopla
-      expect(shouldAttachTransformer('select')).toBe(false);
-
-      // Linhas e todas as setas NÃO acoplam o Transformer (usam âncoras pontuais dedicadas)
+    it('suppresses transformer for rect, ellipse, line and arrow (using native snipping tool handles)', () => {
+      // Elementos que usam âncoras dedicadas estilo Snipping Tool NÃO acoplam Transformer
+      expect(shouldAttachTransformer('rect')).toBe(false);
+      expect(shouldAttachTransformer('ellipse')).toBe(false);
       expect(shouldAttachTransformer('line')).toBe(false);
       expect(shouldAttachTransformer('arrow')).toBe(false);
       expect(shouldAttachTransformer('arrow', 'standard')).toBe(false);
       expect(shouldAttachTransformer('arrow', 'thin')).toBe(false);
       expect(shouldAttachTransformer('arrow', 'dashed')).toBe(false);
       expect(shouldAttachTransformer('arrow', 'curved')).toBe(false);
+
+      // Texto, imagem, crop e multi continuam usando Transformer
+      expect(shouldAttachTransformer('text')).toBe(true);
+      expect(shouldAttachTransformer('image')).toBe(true);
+      expect(shouldAttachTransformer('crop')).toBe(true);
+      expect(shouldAttachTransformer('multi')).toBe(true);
+
+      // Ferramenta select não acopla
+      expect(shouldAttachTransformer('select')).toBe(false);
+    });
+
+    it('calculates 4-corner positions and rotation handle for rect and ellipse', () => {
+      const rectAnn: Annotation = {
+        id: 'r1',
+        type: 'rect',
+        x: 100,
+        y: 100,
+        width: 200,
+        height: 100,
+        stroke: '#ff0000',
+        strokeWidth: 4,
+        rotation: 0,
+      };
+
+      const rectCorners = getFourCornerPositions(rectAnn);
+      expect(rectCorners.corners[0]).toEqual({ x: 100, y: 100 }); // TL
+      expect(rectCorners.corners[1]).toEqual({ x: 300, y: 100 }); // TR
+      expect(rectCorners.corners[2]).toEqual({ x: 300, y: 200 }); // BR
+      expect(rectCorners.corners[3]).toEqual({ x: 100, y: 200 }); // BL
+      expect(rectCorners.center).toEqual({ x: 200, y: 150 });
+      expect(rectCorners.rotater).toEqual({ x: 200, y: 72 }); // 100 - 28
+
+      const ellipseAnn: Annotation = {
+        id: 'e1',
+        type: 'ellipse',
+        x: 200,
+        y: 200,
+        radiusX: 50,
+        radiusY: 30,
+        stroke: '#00ff00',
+        strokeWidth: 4,
+        rotation: 0,
+      };
+
+      const ellipseCorners = getFourCornerPositions(ellipseAnn);
+      expect(ellipseCorners.corners[0]).toEqual({ x: 150, y: 170 }); // TL
+      expect(ellipseCorners.corners[1]).toEqual({ x: 250, y: 170 }); // TR
+      expect(ellipseCorners.corners[2]).toEqual({ x: 250, y: 230 }); // BR
+      expect(ellipseCorners.corners[3]).toEqual({ x: 150, y: 230 }); // BL
+      expect(ellipseCorners.center).toEqual({ x: 200, y: 200 });
+      expect(ellipseCorners.rotater).toEqual({ x: 200, y: 142 }); // 170 - 28
+    });
+
+    it('resizes rect keeping opposite corner firmly anchored', () => {
+      const rectAnn: Annotation = {
+        id: 'r1',
+        type: 'rect',
+        x: 100,
+        y: 100,
+        width: 200,
+        height: 100,
+        stroke: '#ff0000',
+        strokeWidth: 4,
+        rotation: 0,
+      };
+
+      // Arrastar BR (canto inferior direito, index 2) para a direita e para baixo
+      // O canto oposto TL (100, 100) DEVE ficar ancorado!
+      const updatedBR = updateCornerResize(rectAnn, 2, { x: 350, y: 250 }, 800, 600);
+      expect(updatedBR).toEqual({
+        x: 100,
+        y: 100,
+        width: 250,
+        height: 150,
+      });
+
+      // Arrastar TR (canto superior direito, index 1) para cima
+      // O canto oposto BL (100, 200) DEVE ficar ancorado!
+      const updatedTR = updateCornerResize(rectAnn, 1, { x: 350, y: 80 }, 800, 600);
+      expect(updatedTR).toEqual({
+        x: 100,
+        y: 80,
+        width: 250,
+        height: 120,
+      });
+
+      // Arrastar BL (canto inferior esquerdo, index 3) para a esquerda
+      // O canto oposto TR (300, 100) DEVE ficar ancorado!
+      const updatedBL = updateCornerResize(rectAnn, 3, { x: 80, y: 250 }, 800, 600);
+      expect(updatedBL).toEqual({
+        x: 80,
+        y: 100,
+        width: 220,
+        height: 150,
+      });
+
+      // Arrastar TL (canto superior esquerdo, index 0)
+      // O canto oposto BR (300, 200) DEVE ficar ancorado!
+      const updatedTL = updateCornerResize(rectAnn, 0, { x: 80, y: 80 }, 800, 600);
+      expect(updatedTL).toEqual({
+        x: 80,
+        y: 80,
+        width: 220,
+        height: 120,
+      });
+    });
+
+    it('resizes ellipse keeping opposite boundary firmly anchored', () => {
+      const ellipseAnn: Annotation = {
+        id: 'e1',
+        type: 'ellipse',
+        x: 200,
+        y: 200,
+        radiusX: 50,
+        radiusY: 30,
+        stroke: '#00ff00',
+        strokeWidth: 4,
+        rotation: 0,
+      };
+
+      // Arrastar BR (index 2): TL oposto estava em (150, 170)
+      // Arrastar para (280, 250): largura 130, altura 80 -> radiusX 65, radiusY 40, centro (215, 210)
+      const updatedBR = updateCornerResize(ellipseAnn, 2, { x: 280, y: 250 }, 800, 600);
+      expect(updatedBR).toEqual({
+        x: 215,
+        y: 210,
+        radiusX: 65,
+        radiusY: 40,
+      });
+    });
+
+    it('calculates 360-degree rotation angle around shape center smoothly', () => {
+      const rectAnn: Annotation = {
+        id: 'r1',
+        type: 'rect',
+        x: 100,
+        y: 100,
+        width: 200,
+        height: 100,
+        stroke: '#ff0000',
+        strokeWidth: 4,
+        rotation: 0,
+      };
+
+      // Centro é (200, 150).
+      // Cursor diretamente acima (200, 50): 0 graus
+      expect(updateShapeRotation(rectAnn, { x: 200, y: 50 })).toBeCloseTo(0, 0);
+
+      // Cursor diretamente à direita (300, 150): 90 graus
+      expect(updateShapeRotation(rectAnn, { x: 300, y: 150 })).toBeCloseTo(90, 0);
+
+      // Cursor diretamente abaixo (200, 250): 180 graus
+      expect(updateShapeRotation(rectAnn, { x: 200, y: 250 })).toBeCloseTo(180, 0);
+
+      // Cursor diretamente à esquerda (100, 150): 270 graus
+      expect(updateShapeRotation(rectAnn, { x: 100, y: 150 })).toBeCloseTo(270, 0);
     });
 
     it('extracts and updates 2-point anchor positions for line and straight arrows respecting image bounds', () => {

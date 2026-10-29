@@ -779,16 +779,263 @@ export function clampArrowResizeBox(
 
 /**
  * Define se o Transformer de redimensionamento do Konva deve ser acoplado ao tipo de bloco.
- * Formas 2D (retângulo, elipse, imagem, texto) e o quadro de recorte utilizam Transformer.
- * Linhas e flechas (retas ou curvas) NÃO utilizam Transformer, pois possuem âncoras pontuais dedicadas.
+ * Retângulos, elipses, linhas e flechas utilizam âncoras dedicadas e minimalistas
+ * estilo Snipping Tool do Windows (4 cantos livres e alça de rotação), suprimindo o Transformer retangular.
  */
 export function shouldAttachTransformer(
-  annotationType: ToolType,
+  annotationType: ToolType | 'multi' | 'crop',
   _arrowStyle?: ArrowStyle
 ): boolean {
   if (annotationType === 'select') return false;
-  if (annotationType === 'line' || annotationType === 'arrow') return false;
+  if (
+    annotationType === 'rect' ||
+    annotationType === 'ellipse' ||
+    annotationType === 'line' ||
+    annotationType === 'arrow'
+  ) {
+    return false;
+  }
   return true;
+}
+
+export interface FourCornerControls {
+  corners: [{ x: number; y: number }, { x: number; y: number }, { x: number; y: number }, { x: number; y: number }]; // 0: TL, 1: TR, 2: BR, 3: BL
+  center: { x: number; y: number };
+  rotater: { x: number; y: number };
+}
+
+/**
+ * Rotaciona um ponto (x, y) ao redor de um centro (cx, cy) por um ângulo em graus.
+ */
+export function rotatePointAround(
+  point: { x: number; y: number },
+  center: { x: number; y: number },
+  angleDeg: number
+): { x: number; y: number } {
+  if (angleDeg === 0) return { x: point.x, y: point.y };
+  const rad = (angleDeg * Math.PI) / 180;
+  const cos = Math.cos(rad);
+  const sin = Math.sin(rad);
+  const dx = point.x - center.x;
+  const dy = point.y - center.y;
+  return {
+    x: Math.round(center.x + dx * cos - dy * sin),
+    y: Math.round(center.y + dx * sin + dy * cos),
+  };
+}
+
+/**
+ * Calcula as posições dos 4 cantos e do botão de rotação superior para retângulo e elipse,
+ * suportando rotação livre ao redor do centro.
+ */
+export function getFourCornerPositions(ann: Annotation): FourCornerControls {
+  const rot = ann.rotation ?? 0;
+  let cx = 0;
+  let cy = 0;
+  let unrotatedTL = { x: 0, y: 0 };
+  let unrotatedTR = { x: 0, y: 0 };
+  let unrotatedBR = { x: 0, y: 0 };
+  let unrotatedBL = { x: 0, y: 0 };
+  let unrotatedRotater = { x: 0, y: 0 };
+
+  if (ann.type === 'rect') {
+    const w = ann.width;
+    const h = ann.height;
+    cx = ann.x + w / 2;
+    cy = ann.y + h / 2;
+    unrotatedTL = { x: ann.x, y: ann.y };
+    unrotatedTR = { x: ann.x + w, y: ann.y };
+    unrotatedBR = { x: ann.x + w, y: ann.y + h };
+    unrotatedBL = { x: ann.x, y: ann.y + h };
+    unrotatedRotater = { x: cx, y: ann.y - 28 };
+  } else if (ann.type === 'ellipse') {
+    cx = ann.x;
+    cy = ann.y;
+    const rx = ann.radiusX;
+    const ry = ann.radiusY;
+    unrotatedTL = { x: cx - rx, y: cy - ry };
+    unrotatedTR = { x: cx + rx, y: cy - ry };
+    unrotatedBR = { x: cx + rx, y: cy + ry };
+    unrotatedBL = { x: cx - rx, y: cy + ry };
+    unrotatedRotater = { x: cx, y: cy - ry - 28 };
+  }
+
+  const center = { x: cx, y: cy };
+  return {
+    corners: [
+      rotatePointAround(unrotatedTL, center, rot),
+      rotatePointAround(unrotatedTR, center, rot),
+      rotatePointAround(unrotatedBR, center, rot),
+      rotatePointAround(unrotatedBL, center, rot),
+    ],
+    center,
+    rotater: rotatePointAround(unrotatedRotater, center, rot),
+  };
+}
+
+/**
+ * Redimensiona retângulo ou elipse movendo um dos 4 cantos livres
+ * enquanto mantém o canto diagonalmente oposto firmemente ancorado.
+ */
+export function updateCornerResize(
+  ann: Annotation,
+  cornerIndex: 0 | 1 | 2 | 3, // 0: TL, 1: TR, 2: BR, 3: BL
+  pointer: { x: number; y: number },
+  canvasWidth: number,
+  canvasHeight: number
+): Partial<Annotation> {
+  const px = Math.max(0, Math.min(pointer.x, canvasWidth));
+  const py = Math.max(0, Math.min(pointer.y, canvasHeight));
+  const rot = ann.rotation ?? 0;
+
+  // Se rotação for 0, cálculo direto e exato
+  if (rot === 0) {
+    if (ann.type === 'rect') {
+      const minDim = 10;
+      if (cornerIndex === 2) {
+        // BR arrastado: TL (ann.x, ann.y) fica fixo
+        const w = Math.max(minDim, px - ann.x);
+        const h = Math.max(minDim, py - ann.y);
+        return { x: ann.x, y: ann.y, width: w, height: h };
+      }
+      if (cornerIndex === 1) {
+        // TR arrastado: BL (ann.x, ann.y + ann.height) fica fixo
+        const blY = ann.y + ann.height;
+        const w = Math.max(minDim, px - ann.x);
+        const h = Math.max(minDim, blY - py);
+        return { x: ann.x, y: blY - h, width: w, height: h };
+      }
+      if (cornerIndex === 3) {
+        // BL arrastado: TR (ann.x + ann.width, ann.y) fica fixo
+        const trX = ann.x + ann.width;
+        const w = Math.max(minDim, trX - px);
+        const h = Math.max(minDim, py - ann.y);
+        return { x: trX - w, y: ann.y, width: w, height: h };
+      }
+      if (cornerIndex === 0) {
+        // TL arrastado: BR (ann.x + ann.width, ann.y + ann.height) fica fixo
+        const brX = ann.x + ann.width;
+        const brY = ann.y + ann.height;
+        const w = Math.max(minDim, brX - px);
+        const h = Math.max(minDim, brY - py);
+        return { x: brX - w, y: brY - h, width: w, height: h };
+      }
+    } else if (ann.type === 'ellipse') {
+      const minRadius = 5;
+      if (cornerIndex === 2) {
+        // BR arrastado: TL (ann.x - ann.radiusX, ann.y - ann.radiusY) fica fixo
+        const tlX = ann.x - ann.radiusX;
+        const tlY = ann.y - ann.radiusY;
+        const w = Math.max(minRadius * 2, px - tlX);
+        const h = Math.max(minRadius * 2, py - tlY);
+        const rx = Math.round(w / 2);
+        const ry = Math.round(h / 2);
+        return { x: tlX + rx, y: tlY + ry, radiusX: rx, radiusY: ry };
+      }
+      if (cornerIndex === 1) {
+        // TR arrastado: BL (ann.x - ann.radiusX, ann.y + ann.radiusY) fica fixo
+        const blX = ann.x - ann.radiusX;
+        const blY = ann.y + ann.radiusY;
+        const w = Math.max(minRadius * 2, px - blX);
+        const h = Math.max(minRadius * 2, blY - py);
+        const rx = Math.round(w / 2);
+        const ry = Math.round(h / 2);
+        return { x: blX + rx, y: blY - ry, radiusX: rx, radiusY: ry };
+      }
+      if (cornerIndex === 3) {
+        // BL arrastado: TR (ann.x + ann.radiusX, ann.y - ann.radiusY) fica fixo
+        const trX = ann.x + ann.radiusX;
+        const trY = ann.y - ann.radiusY;
+        const w = Math.max(minRadius * 2, trX - px);
+        const h = Math.max(minRadius * 2, py - trY);
+        const rx = Math.round(w / 2);
+        const ry = Math.round(h / 2);
+        return { x: trX - rx, y: trY + ry, radiusX: rx, radiusY: ry };
+      }
+      if (cornerIndex === 0) {
+        // TL arrastado: BR (ann.x + ann.radiusX, ann.y + ann.radiusY) fica fixo
+        const brX = ann.x + ann.radiusX;
+        const brY = ann.y + ann.radiusY;
+        const w = Math.max(minRadius * 2, brX - px);
+        const h = Math.max(minRadius * 2, brY - py);
+        const rx = Math.round(w / 2);
+        const ry = Math.round(h / 2);
+        return { x: brX - rx, y: brY - ry, radiusX: rx, radiusY: ry };
+      }
+    }
+  }
+
+  // Se tipo não for rect ou ellipse, ignora
+  if (ann.type !== 'rect' && ann.type !== 'ellipse') {
+    return {};
+  }
+
+  // Com rotação não-nula: converte o ponteiro para o sistema de coordenadas local
+  const cx = ann.type === 'rect' ? ann.x + ann.width / 2 : ann.x;
+  const cy = ann.type === 'rect' ? ann.y + ann.height / 2 : ann.y;
+  const localPointer = rotatePointAround({ x: px, y: py }, { x: cx, y: cy }, -rot);
+
+  // Calcula no sistema não-rotacionado
+  const unrotatedAnn: Annotation =
+    ann.type === 'rect'
+      ? { ...ann, rotation: 0 }
+      : { ...ann, rotation: 0 };
+  const unrotatedRes = updateCornerResize(unrotatedAnn, cornerIndex, localPointer, canvasWidth, canvasHeight);
+
+  if (ann.type === 'rect') {
+    const rectRes = unrotatedRes as { x?: number; y?: number; width?: number; height?: number };
+    if (rectRes.width !== undefined && rectRes.height !== undefined && rectRes.x !== undefined && rectRes.y !== undefined) {
+      const unrotatedNewCenter = {
+        x: rectRes.x + rectRes.width / 2,
+        y: rectRes.y + rectRes.height / 2,
+      };
+      const worldNewCenter = rotatePointAround(unrotatedNewCenter, { x: cx, y: cy }, rot);
+      const rad = (rot * Math.PI) / 180;
+      const w = rectRes.width;
+      const h = rectRes.height;
+      const newRectX = Math.round(worldNewCenter.x - (w / 2) * Math.cos(rad) + (h / 2) * Math.sin(rad));
+      const newRectY = Math.round(worldNewCenter.y - (w / 2) * Math.sin(rad) - (h / 2) * Math.cos(rad));
+      return {
+        x: newRectX,
+        y: newRectY,
+        width: w,
+        height: h,
+      };
+    }
+  } else if (ann.type === 'ellipse') {
+    const ellipseRes = unrotatedRes as { x?: number; y?: number; radiusX?: number; radiusY?: number };
+    if (ellipseRes.x !== undefined && ellipseRes.y !== undefined && ellipseRes.radiusX !== undefined && ellipseRes.radiusY !== undefined) {
+      const worldNewCenter = rotatePointAround({ x: ellipseRes.x, y: ellipseRes.y }, { x: cx, y: cy }, rot);
+      return {
+        x: worldNewCenter.x,
+        y: worldNewCenter.y,
+        radiusX: ellipseRes.radiusX,
+        radiusY: ellipseRes.radiusY,
+      };
+    }
+  }
+
+  return {};
+}
+
+/**
+ * Calcula o ângulo de rotação de 0 a 360 graus ao arrastar a alça circular superior ao redor do centro da forma.
+ */
+export function updateShapeRotation(
+  ann: Annotation,
+  pointer: { x: number; y: number }
+): number {
+  let cx = ann.x ?? 0;
+  let cy = ann.y ?? 0;
+  if (ann.type === 'rect') {
+    cx = ann.x + ann.width / 2;
+    cy = ann.y + ann.height / 2;
+  }
+  const dx = pointer.x - cx;
+  const dy = pointer.y - cy;
+  let deg = Math.round((Math.atan2(dy, dx) * 180) / Math.PI) + 90;
+  deg = ((deg % 360) + 360) % 360;
+  return deg;
 }
 
 export type TwoPointAnchorType = 'start' | 'end';
