@@ -37,6 +37,7 @@ import {
   snapAngleToStep,
   snapLinePointsWithShift,
   snapRectWithShift,
+  getTwoPointAnchorDragBound,
 } from '../src/utils/zoomAndCrop';
 import { Annotation } from '../src/state/editorStore';
 
@@ -900,6 +901,28 @@ describe('Pointer and Drag Coordinate Transformations Under Zoom', () => {
       // Arrastando para cima-esquerda
       const sqUpLeft = snapRectWithShift(200, 200, 150, 120); // dx=-50, dy=-80
       expect(sqUpLeft).toEqual({ width: -80, height: -80 });
+    });
+
+    it('calculates two-point anchor drag bound clamping to canvas and locking straight axis when Shift is held', () => {
+      const fixedPoint = { x: 100, y: 100 };
+      const canvasWidth = 800;
+      const canvasHeight = 600;
+
+      // Sem shift: livre para seguir o mouse (apenas com clamp de canvas)
+      const freeDrag = getTwoPointAnchorDragBound(250, 115, fixedPoint, false, canvasWidth, canvasHeight);
+      expect(freeDrag).toEqual({ x: 250, y: 115 });
+
+      // Com shift: quase horizontal para a direita trava estritamente em y = 100
+      const shiftedHoriz = getTwoPointAnchorDragBound(250, 115, fixedPoint, true, canvasWidth, canvasHeight);
+      expect(shiftedHoriz).toEqual({ x: 250, y: 100 });
+
+      // Com shift: quase vertical para baixo trava estritamente em x = 100
+      const shiftedVert = getTwoPointAnchorDragBound(110, 300, fixedPoint, true, canvasWidth, canvasHeight);
+      expect(shiftedVert).toEqual({ x: 100, y: 300 });
+
+      // Com clamp nos limites do canvas quando arrastado para fora
+      const clampedShifted = getTwoPointAnchorDragBound(900, 105, fixedPoint, true, canvasWidth, canvasHeight);
+      expect(clampedShifted).toEqual({ x: 800, y: 100 });
     });
   });
 });

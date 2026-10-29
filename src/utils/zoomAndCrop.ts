@@ -1237,3 +1237,30 @@ export function snapRectWithShift(
     height: (rawH < 0 ? -1 : 1) * size,
   };
 }
+
+/**
+ * Calcula a posição delimitada e com suporte a snapping de Shift para uma âncora de 2 pontos (linha/seta).
+ * Garante que a âncora permaneça travada no eixo reto (horizontal, vertical ou 45°) e dentro dos limites do canvas.
+ */
+export function getTwoPointAnchorDragBound(
+  localX: number,
+  localY: number,
+  fixedPoint: { x: number; y: number },
+  isShift: boolean,
+  canvasWidth: number,
+  canvasHeight: number
+): { x: number; y: number } {
+  let targetX = localX;
+  let targetY = localY;
+
+  if (isShift) {
+    const snapped = snapLinePointsWithShift(fixedPoint.x, fixedPoint.y, targetX, targetY);
+    targetX = snapped.x;
+    targetY = snapped.y;
+  }
+
+  return {
+    x: Math.max(0, Math.min(targetX, canvasWidth)),
+    y: Math.max(0, Math.min(targetY, canvasHeight)),
+  };
+}

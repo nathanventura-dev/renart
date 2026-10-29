@@ -11,6 +11,7 @@ import {
   snapAngleToStep,
   snapLinePointsWithShift,
   snapRectWithShift,
+  getTwoPointAnchorDragBound,
 } from '../src/utils/zoomAndCrop';
 import { getAnnotationSelectionOutline } from '../src/utils/magnifierAndHover';
 
@@ -453,7 +454,42 @@ describe('Integration Flow', () => {
       expect(lineAnn.points).toEqual([100, 100, 250, 100]);
     }
 
-    // 2. Ajuste de âncora com Shift para linha vertical:
+    // 2. Ajuste de âncora com Shift para linha:
+    // O ponto de redimensionamento (âncora) e o endpoint da linha se movem juntos e colados
+    // Ponto fixo em (100, 100), cursor arrastado até (280, 120) com Shift
+    const anchorDragShifted = getTwoPointAnchorDragBound(280, 120, { x: 100, y: 100 }, true, 800, 600);
+    // Deve travar no eixo perfeitamente horizontal (y = 100)
+    expect(anchorDragShifted).toEqual({ x: 280, y: 100 });
+
+    const updatedPoints = updateTwoPointAnchor(
+      lineAnn?.type === 'line' ? lineAnn.points : [],
+      1,
+      anchorDragShifted.x,
+      anchorDragShifted.y,
+      800,
+      600
+    );
+    expect(updatedPoints).toEqual([100, 100, 280, 100]);
+    // A âncora (anchorDragShifted) e o endpoint da linha (updatedPoints[2], updatedPoints[3]) são idênticos:
+    expect(anchorDragShifted.x).toBe(updatedPoints[2]);
+    expect(anchorDragShifted.y).toBe(updatedPoints[3]);
+
+    // Sem Shift, a âncora e a linha seguem livres juntas:
+    const anchorDragFree = getTwoPointAnchorDragBound(280, 120, { x: 100, y: 100 }, false, 800, 600);
+    expect(anchorDragFree).toEqual({ x: 280, y: 120 });
+    const freePoints = updateTwoPointAnchor(
+      lineAnn?.type === 'line' ? lineAnn.points : [],
+      1,
+      anchorDragFree.x,
+      anchorDragFree.y,
+      800,
+      600
+    );
+    expect(freePoints).toEqual([100, 100, 280, 120]);
+    expect(anchorDragFree.x).toBe(freePoints[2]);
+    expect(anchorDragFree.y).toBe(freePoints[3]);
+
+    // Ajuste de âncora com Shift para linha vertical:
     // Âncora oposta em (100, 100), arrasto até (112, 300)
     const snappedVerticalEnd = snapLinePointsWithShift(100, 100, 112, 300);
     expect(snappedVerticalEnd).toEqual({ x: 100, y: 300 });

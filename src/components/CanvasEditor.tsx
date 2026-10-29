@@ -69,6 +69,7 @@ import {
   snapAngleToStep,
   snapLinePointsWithShift,
   snapRectWithShift,
+  getTwoPointAnchorDragBound,
 } from '../utils/zoomAndCrop';
 
 interface CanvasEditorProps {
@@ -294,6 +295,7 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
   const crownDragRef = useRef<CrownDragState | null>(null);
   const focusDragRef = useRef<FocusDragState | null>(null);
   const onUpdateAnnotationRef = useRef(onUpdateAnnotation);
+  const isShiftPressedRef = useRef(false);
   const multiDragStartRef = useRef<{
     draggedId: string;
     initialPositions: Record<string, { x: number; y: number }>;
@@ -479,9 +481,12 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
     };
   }, [isDraggingFocus]);
 
-  // Tecla ESC para desselecionar e fechar edição inline
+  // Tecla ESC para desselecionar e rastreamento da tecla Shift para snapping de precisão
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Shift') {
+        isShiftPressedRef.current = true;
+      }
       if (e.key === 'Escape') {
         applySelectionIds([]);
         if (editingText) {
@@ -489,8 +494,22 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
         }
       }
     };
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.key === 'Shift') {
+        isShiftPressedRef.current = false;
+      }
+    };
+    const handleBlur = () => {
+      isShiftPressedRef.current = false;
+    };
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    window.addEventListener('blur', handleBlur);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+      window.removeEventListener('blur', handleBlur);
+    };
   }, [editingText]);
 
   // Atualiza a seleção simples ou múltipla no Transformer do Konva (ou acopla ao quadro de recorte)
@@ -1693,10 +1712,10 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
 
   const effectiveCurvedPoints = useMemo(() => {
     if (!selectedCurvedArrow) return null;
-    const rawPoints =
-      liveAnchorPoints && draggingAnchor?.id === selectedCurvedArrow.id
-        ? liveAnchorPoints
-        : selectedCurvedArrow.points;
+    if (liveAnchorPoints && draggingAnchor?.id === selectedCurvedArrow.id) {
+      return liveAnchorPoints;
+    }
+    const rawPoints = selectedCurvedArrow.points;
     const ox = selectedCurvedArrow.x || 0;
     const oy = selectedCurvedArrow.y || 0;
     if (ox !== 0 || oy !== 0) {
@@ -1716,10 +1735,10 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
 
   const effectiveTwoPointPoints = useMemo(() => {
     if (!selectedTwoPointAnnotation) return null;
-    const rawPoints =
-      liveTwoPointPoints && draggingTwoPointAnchor?.id === selectedTwoPointAnnotation.id
-        ? liveTwoPointPoints
-        : selectedTwoPointAnnotation.points;
+    if (liveTwoPointPoints && draggingTwoPointAnchor?.id === selectedTwoPointAnnotation.id) {
+      return liveTwoPointPoints;
+    }
+    const rawPoints = selectedTwoPointAnnotation.points;
     const ox = selectedTwoPointAnnotation.x || 0;
     const oy = selectedTwoPointAnnotation.y || 0;
     if (ox !== 0 || oy !== 0) {
@@ -3051,11 +3070,20 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                         shadowBlur={3}
                         hitStrokeWidth={16}
                         draggable={!isLocked}
-                        dragBoundFunc={(absolutePos) =>
-                          getTransformedDragBound(absolutePos, zoomLevel, (localX, localY) => ({
-                            x: Math.max(0, Math.min(localX, canvasWidth)),
-                            y: Math.max(0, Math.min(localY, canvasHeight)),
-                          }))
+                        dragBoundFunc={(absolutePos: Konva.Vector2d) =>
+                          getTransformedDragBound(absolutePos, zoomLevel, (localX, localY) => {
+                            const isShift = isShiftPressedRef.current;
+                            const fixedX = index === 0 ? effectiveTwoPointPoints[2] : effectiveTwoPointPoints[0];
+                            const fixedY = index === 0 ? effectiveTwoPointPoints[3] : effectiveTwoPointPoints[1];
+                            return getTwoPointAnchorDragBound(
+                              localX,
+                              localY,
+                              { x: fixedX, y: fixedY },
+                              isShift,
+                              canvasWidth,
+                              canvasHeight
+                            );
+                          })
                         }
                         onMouseEnter={() => setHoveredTwoPointAnchor(index)}
                         onMouseLeave={() => setHoveredTwoPointAnchor((prev) => (prev === index ? null : prev))}
@@ -3066,21 +3094,23 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                         }}
                         onDragMove={(e) => {
                           e.cancelBubble = true;
-                          const isShift = (e.evt as MouseEvent)?.shiftKey ?? false;
-                          let targetX = e.target.x();
-                          let targetY = e.target.y();
-                          if (isShift) {
-                            const fixedX = index === 0 ? effectiveTwoPointPoints[2] : effectiveTwoPointPoints[0];
-                            const fixedY = index === 0 ? effectiveTwoPointPoints[3] : effectiveTwoPointPoints[1];
-                            const snapped = snapLinePointsWithShift(fixedX, fixedY, targetX, targetY);
-                            targetX = snapped.x;
-                            targetY = snapped.y;
-                          }
+                          const isShift = (e.evt as MouseEvent)?.shiftKey ?? isShiftPressedRef.current;
+                          const fixedX = index === 0 ? effectiveTwoPointPoints[2] : effectiveTwoPointPoints[0];
+                          const fixedY = index === 0 ? effectiveTwoPointPoints[3] : effectiveTwoPointPoints[1];
+                          const bounded = getTwoPointAnchorDragBound(
+                            e.target.x(),
+                            e.target.y(),
+                            { x: fixedX, y: fixedY },
+                            isShift,
+                            canvasWidth,
+                            canvasHeight
+                          );
+                          e.target.position({ x: bounded.x, y: bounded.y });
                           const nextPoints = updateTwoPointAnchor(
                             effectiveTwoPointPoints,
                             index,
-                            targetX,
-                            targetY,
+                            bounded.x,
+                            bounded.y,
                             canvasWidth,
                             canvasHeight
                           );
@@ -3088,21 +3118,23 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                         }}
                         onDragEnd={(e) => {
                           e.cancelBubble = true;
-                          const isShift = (e.evt as MouseEvent)?.shiftKey ?? false;
-                          let targetX = e.target.x();
-                          let targetY = e.target.y();
-                          if (isShift) {
-                            const fixedX = index === 0 ? effectiveTwoPointPoints[2] : effectiveTwoPointPoints[0];
-                            const fixedY = index === 0 ? effectiveTwoPointPoints[3] : effectiveTwoPointPoints[1];
-                            const snapped = snapLinePointsWithShift(fixedX, fixedY, targetX, targetY);
-                            targetX = snapped.x;
-                            targetY = snapped.y;
-                          }
+                          const isShift = (e.evt as MouseEvent)?.shiftKey ?? isShiftPressedRef.current;
+                          const fixedX = index === 0 ? effectiveTwoPointPoints[2] : effectiveTwoPointPoints[0];
+                          const fixedY = index === 0 ? effectiveTwoPointPoints[3] : effectiveTwoPointPoints[1];
+                          const bounded = getTwoPointAnchorDragBound(
+                            e.target.x(),
+                            e.target.y(),
+                            { x: fixedX, y: fixedY },
+                            isShift,
+                            canvasWidth,
+                            canvasHeight
+                          );
+                          e.target.position({ x: bounded.x, y: bounded.y });
                           const finalPoints = updateTwoPointAnchor(
                             liveTwoPointPoints || effectiveTwoPointPoints,
                             index,
-                            targetX,
-                            targetY,
+                            bounded.x,
+                            bounded.y,
                             canvasWidth,
                             canvasHeight
                           );
