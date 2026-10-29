@@ -297,6 +297,9 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const exportMenuRef = useRef<HTMLDivElement>(null);
   const paletteContainerRef = useRef<HTMLDivElement>(null);
+  const arrowContainerRef = useRef<HTMLDivElement>(null);
+  const textContainerRef = useRef<HTMLDivElement>(null);
+  const magnifierContainerRef = useRef<HTMLDivElement>(null);
   const copyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [hoveredAction, setHoveredAction] = useState<HoveredToolbarAction>(null);
@@ -323,8 +326,21 @@ export const Toolbar: React.FC<ToolbarProps> = ({
       if (exportMenuRef.current && !exportMenuRef.current.contains(targetNode)) {
         setIsExportMenuOpen(false);
       }
-      if (paletteContainerRef.current && !paletteContainerRef.current.contains(targetNode)) {
-        setOpenMenu((prev) => (prev === 'palette' ? null : prev));
+      if (openMenu) {
+        const activeContainer =
+          openMenu === 'palette'
+            ? paletteContainerRef.current
+            : openMenu === 'arrow'
+            ? arrowContainerRef.current
+            : openMenu === 'magnifier'
+            ? magnifierContainerRef.current
+            : openMenu === 'text'
+            ? textContainerRef.current
+            : null;
+
+        if (activeContainer && !activeContainer.contains(targetNode)) {
+          setOpenMenu(null);
+        }
       }
     };
     window.addEventListener('mousedown', handleClickOutside);
@@ -470,23 +486,143 @@ export const Toolbar: React.FC<ToolbarProps> = ({
           <Minus size={16} />
         </button>
 
-        <button
-          type="button"
-          title="Flecha"
-          onClick={() => onSelectTool('arrow')}
-          style={getToolButtonStyle(activeTool === 'arrow')}
+        {/* Flecha com submenu horizontal flutuante */}
+        <div
+          ref={arrowContainerRef}
+          style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}
         >
-          <ArrowRight size={16} />
-        </button>
+          <button
+            type="button"
+            title="Flecha"
+            onClick={() => {
+              onSelectTool('arrow');
+              setOpenMenu((prev) => resolveActiveToolbarMenu(prev, 'arrow'));
+            }}
+            style={getToolButtonStyle(activeTool === 'arrow')}
+          >
+            <ArrowRight size={16} />
+          </button>
+          <HorizontalFloatingMenu
+            isOpen={openMenu === 'arrow'}
+            testId="horizontal-floating-menu-arrow"
+          >
+            {ARROW_STYLE_OPTIONS.map((opt) => {
+              const isSelected = effectiveArrowStyle === opt.id;
+              return (
+                <button
+                  key={opt.id}
+                  type="button"
+                  title={opt.tooltip}
+                  onClick={() => onSelectArrowStyle?.(opt.id)}
+                  style={{
+                    height: '24px',
+                    padding: '0 8px',
+                    fontSize: '11px',
+                    fontWeight: 600,
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    backgroundColor: isSelected ? '#0071e3' : 'transparent',
+                    color: isSelected ? '#ffffff' : '#334155',
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  {opt.label}
+                </button>
+              );
+            })}
+            {showInvertCurve && (
+              <button
+                type="button"
+                title="Inverter direção do arco da flecha curva"
+                onClick={onToggleCurveDirection}
+                style={{
+                  height: '24px',
+                  padding: '0 8px',
+                  fontSize: '11px',
+                  fontWeight: 600,
+                  border: '1px solid #cbd5e1',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  backgroundColor: '#f8fafc',
+                  color: '#334155',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                }}
+              >
+                <RotateCw size={13} />
+                <span>Inverter arco</span>
+              </button>
+            )}
+          </HorizontalFloatingMenu>
+        </div>
 
-        <button
-          type="button"
-          title="Bloco de Texto"
-          onClick={() => onSelectTool('text')}
-          style={getToolButtonStyle(activeTool === 'text')}
+        {/* Bloco de Texto com submenu horizontal flutuante */}
+        <div
+          ref={textContainerRef}
+          style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}
         >
-          <Type size={16} />
-        </button>
+          <button
+            type="button"
+            title="Bloco de Texto"
+            onClick={() => {
+              onSelectTool('text');
+              setOpenMenu((prev) => resolveActiveToolbarMenu(prev, 'text'));
+            }}
+            style={getToolButtonStyle(activeTool === 'text')}
+          >
+            <Type size={16} />
+          </button>
+          <HorizontalFloatingMenu
+            isOpen={openMenu === 'text'}
+            testId="horizontal-floating-menu-text"
+          >
+            <select
+              title="Família da fonte"
+              value={fontFamily}
+              onChange={(e) => onSelectFontFamily?.(e.target.value)}
+              style={{
+                height: '24px',
+                boxSizing: 'border-box',
+                fontSize: '12px',
+                fontFamily,
+                padding: '0 6px',
+                borderRadius: '6px',
+                border: '1px solid #d1d1d6',
+                backgroundColor: '#ffffff',
+                cursor: 'pointer',
+              }}
+            >
+              {FONT_FAMILIES.map((font) => (
+                <option key={font} value={font} style={{ fontFamily: font }}>
+                  {font}
+                </option>
+              ))}
+            </select>
+            <select
+              title="Tamanho da fonte"
+              value={fontSize}
+              onChange={(e) => onSelectFontSize?.(Number(e.target.value))}
+              style={{
+                height: '24px',
+                boxSizing: 'border-box',
+                fontSize: '12px',
+                padding: '0 6px',
+                borderRadius: '6px',
+                border: '1px solid #d1d1d6',
+                backgroundColor: '#ffffff',
+                cursor: 'pointer',
+              }}
+            >
+              {FONT_SIZES.map((size) => (
+                <option key={size} value={size}>
+                  {size}
+                </option>
+              ))}
+            </select>
+          </HorizontalFloatingMenu>
+        </div>
 
         <button
           type="button"
@@ -504,14 +640,64 @@ export const Toolbar: React.FC<ToolbarProps> = ({
           onChange={handleImageFileChange}
         />
 
-        <button
-          type="button"
-          title="Lupa de Zoom"
-          onClick={() => onSelectTool('magnifier')}
-          style={getToolButtonStyle(activeTool === 'magnifier')}
+        {/* Lupa com submenu horizontal flutuante */}
+        <div
+          ref={magnifierContainerRef}
+          style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}
         >
-          <Search size={16} />
-        </button>
+          <button
+            type="button"
+            title="Lupa de Zoom"
+            onClick={() => {
+              onSelectTool('magnifier');
+              setOpenMenu((prev) => resolveActiveToolbarMenu(prev, 'magnifier'));
+            }}
+            style={getToolButtonStyle(activeTool === 'magnifier')}
+          >
+            <Search size={16} />
+          </button>
+          <HorizontalFloatingMenu
+            isOpen={openMenu === 'magnifier'}
+            testId="horizontal-floating-menu-magnifier"
+          >
+            <button
+              type="button"
+              title="Lupa Sem Foco: Amplia diretamente a área sob a lente (como tradicionalmente)"
+              onClick={() => onSelectMagnifierMode?.('without-focus')}
+              style={{
+                height: '24px',
+                padding: '0 8px',
+                fontSize: '11px',
+                fontWeight: 600,
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                backgroundColor: effectiveMagnifierMode === 'without-focus' ? '#0071e3' : 'transparent',
+                color: effectiveMagnifierMode === 'without-focus' ? '#ffffff' : '#334155',
+              }}
+            >
+              Sem foco
+            </button>
+            <button
+              type="button"
+              title="Lupa Com Foco: Clica no ponto de foco e puxa a lupa para o canto com rastro fosco"
+              onClick={() => onSelectMagnifierMode?.('with-focus')}
+              style={{
+                height: '24px',
+                padding: '0 8px',
+                fontSize: '11px',
+                fontWeight: 600,
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                backgroundColor: effectiveMagnifierMode === 'with-focus' ? '#0071e3' : 'transparent',
+                color: effectiveMagnifierMode === 'with-focus' ? '#ffffff' : '#334155',
+              }}
+            >
+              Com foco
+            </button>
+          </HorizontalFloatingMenu>
+        </div>
 
         <button
           type="button"

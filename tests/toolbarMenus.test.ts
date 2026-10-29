@@ -91,4 +91,86 @@ describe('Toolbar Horizontal Menus & Palette Dropdown', () => {
       expect(htmlOpen).toContain(`title="Cor ${color}"`);
     }
   });
+
+  it('renders arrow styles and invert curve button inside horizontal floating menu', () => {
+    const htmlArrow = renderToString(
+      React.createElement(Toolbar, {
+        activeTool: 'arrow',
+        onSelectTool: () => {},
+        strokeColor: '#ff3b30',
+        onSelectColor: () => {},
+        strokeWidth: 2,
+        onSelectStrokeWidth: () => {},
+        canUndo: false,
+        canRedo: false,
+        onUndo: () => {},
+        onRedo: () => {},
+        onNewCapture: () => {},
+        onCopy: () => {},
+        onExport: () => {},
+        onInsertImage: () => {},
+        arrowStyle: 'curved',
+        initialOpenMenu: 'arrow',
+      })
+    );
+
+    expect(htmlArrow).toContain('data-testid="horizontal-floating-menu-arrow"');
+    expect(htmlArrow).toContain('Padrão');
+    expect(htmlArrow).toContain('Fina');
+    expect(htmlArrow).toContain('Pontilhada');
+    expect(htmlArrow).toContain('Curva');
+    expect(htmlArrow).toContain('Inverter arco');
+  });
+
+  it('renders magnifier options (Sem foco / Com foco) inside horizontal floating menu', () => {
+    const htmlMag = renderToString(
+      React.createElement(Toolbar, {
+        activeTool: 'magnifier',
+        onSelectTool: () => {},
+        strokeColor: '#ff3b30',
+        onSelectColor: () => {},
+        strokeWidth: 2,
+        onSelectStrokeWidth: () => {},
+        canUndo: false,
+        canRedo: false,
+        onUndo: () => {},
+        onRedo: () => {},
+        onNewCapture: () => {},
+        onCopy: () => {},
+        onExport: () => {},
+        onInsertImage: () => {},
+        initialOpenMenu: 'magnifier',
+      })
+    );
+
+    expect(htmlMag).toContain('data-testid="horizontal-floating-menu-magnifier"');
+    expect(htmlMag).toContain('Sem foco');
+    expect(htmlMag).toContain('Com foco');
+  });
+
+  it('renders font family and font size selects inside horizontal floating menu for text tool', () => {
+    const htmlText = renderToString(
+      React.createElement(Toolbar, {
+        activeTool: 'text',
+        onSelectTool: () => {},
+        strokeColor: '#ff3b30',
+        onSelectColor: () => {},
+        strokeWidth: 2,
+        onSelectStrokeWidth: () => {},
+        canUndo: false,
+        canRedo: false,
+        onUndo: () => {},
+        onRedo: () => {},
+        onNewCapture: () => {},
+        onCopy: () => {},
+        onExport: () => {},
+        onInsertImage: () => {},
+        initialOpenMenu: 'text',
+      })
+    );
+
+    expect(htmlText).toContain('data-testid="horizontal-floating-menu-text"');
+    expect(htmlText).toContain('title="Família da fonte"');
+    expect(htmlText).toContain('title="Tamanho da fonte"');
+  });
 });
