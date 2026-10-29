@@ -4,6 +4,9 @@ import { createEditorStore } from '../src/state/editorStore';
 import { createGalleryStore } from '../src/state/galleryStore';
 import { calculateCropCoordinates, captureDesktopFrame } from '../src/services/screenCaptureService';
 import { CaptureMode } from '../src/types/capture';
+import { CaptureOverlay } from '../src/components/CaptureOverlay';
+import React from 'react';
+import { renderToString } from 'react-dom/server';
 import {
   resolveToolbarActionFeedback,
   getToolbarLayoutMetrics,
@@ -334,5 +337,41 @@ describe('App Enhanced Features & User Fixes', () => {
         writable: true,
       });
     }
+  });
+
+  it('renders Windows Snipping Tool style floating capture bar with Area, Window, Fullscreen and Cancel X', () => {
+    let switchedMode: CaptureMode | null = null;
+    let isCanceled = false;
+
+    const htmlOverlay = renderToString(
+      React.createElement(CaptureOverlay, {
+        mode: 'region',
+        backgroundDataUrl: 'data:image/png;base64,mockScreen',
+        onComplete: () => {},
+        onCancel: () => {
+          isCanceled = true;
+        },
+        onSwitchMode: (mode) => {
+          switchedMode = mode;
+        },
+      })
+    );
+
+    // Barra flutuante com estilo acrylic e botões de modo
+    expect(htmlOverlay).toContain('Área');
+    expect(htmlOverlay).toContain('Janela');
+    expect(htmlOverlay).toContain('Tela Inteira');
+
+    // Botão de fechar (X)
+    expect(htmlOverlay).toContain('Cancelar');
+
+    // Deve conter classes ou ícones de Área, Janela, Tela Inteira e X
+    expect(htmlOverlay).toContain('lucide-crop');
+    expect(htmlOverlay).toContain('lucide-app-window');
+    expect(htmlOverlay).toContain('lucide-monitor');
+    expect(htmlOverlay).toContain('lucide-x');
+
+    expect(switchedMode).toBeNull();
+    expect(isCanceled).toBe(false);
   });
 });

@@ -1,12 +1,14 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { CaptureMode, Point, RectBounds } from '../types/capture';
 import { calculateNormalizedRect, clampPointToScreen, simplifyFreeformPath } from '../utils/geometry';
+import { Crop, AppWindow, Monitor, X } from 'lucide-react';
 
 interface CaptureOverlayProps {
   mode: CaptureMode;
   backgroundDataUrl?: string | null;
   onComplete: (bounds: RectBounds | { freeformPoints: Point[] } | 'fullscreen') => void;
   onCancel: () => void;
+  onSwitchMode?: (mode: CaptureMode) => void;
 }
 
 export const CaptureOverlay: React.FC<CaptureOverlayProps> = ({
@@ -14,6 +16,7 @@ export const CaptureOverlay: React.FC<CaptureOverlayProps> = ({
   backgroundDataUrl,
   onComplete,
   onCancel,
+  onSwitchMode,
 }) => {
   const [isDragging, setIsDragging] = useState(false);
   const [startPoint, setStartPoint] = useState<Point | null>(null);
@@ -162,25 +165,134 @@ export const CaptureOverlay: React.FC<CaptureOverlayProps> = ({
         </svg>
       )}
 
-      {/* Dica para o usuário */}
-      {!isDragging && (
-        <div
+      {/* Barra Flutuante de Captura (Estilo Windows Snipping Tool) */}
+      <div
+        onMouseDown={(e) => e.stopPropagation()}
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          position: 'absolute',
+          top: '20px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '4px',
+          backgroundColor: 'rgba(32, 33, 36, 0.92)',
+          backdropFilter: 'blur(16px)',
+          border: '1px solid rgba(255, 255, 255, 0.14)',
+          borderRadius: '12px',
+          padding: '4px 6px',
+          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.45)',
+          zIndex: 10002,
+          pointerEvents: 'auto',
+          userSelect: 'none',
+        }}
+      >
+        {/* Modo Área Retangular */}
+        <button
+          type="button"
+          onClick={() => (onSwitchMode ? onSwitchMode('region') : undefined)}
+          title="Modo Retangular (Área)"
           style={{
-            position: 'absolute',
-            top: '20px',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            backgroundColor: 'rgba(0, 0, 0, 0.75)',
-            color: '#fff',
-            padding: '8px 16px',
-            borderRadius: '20px',
-            fontSize: '13px',
-            pointerEvents: 'none',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '6px 12px',
+            borderRadius: '8px',
+            border: 'none',
+            backgroundColor: mode === 'region' ? 'rgba(255, 255, 255, 0.18)' : 'transparent',
+            color: mode === 'region' ? '#ffffff' : 'rgba(255, 255, 255, 0.75)',
+            fontSize: '12px',
+            fontWeight: 600,
+            cursor: 'pointer',
+            transition: 'all 0.15s ease',
           }}
         >
-          {mode === 'region' ? 'Clique e arraste para selecionar a região' : 'Desenhe livremente a área de corte'} (ESC para cancelar)
-        </div>
-      )}
+          <Crop size={15} />
+          <span>Área</span>
+        </button>
+
+        {/* Modo Janela */}
+        <button
+          type="button"
+          onClick={() => (onSwitchMode ? onSwitchMode('window') : undefined)}
+          title="Capturar Janela do Sistema"
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '6px 12px',
+            borderRadius: '8px',
+            border: 'none',
+            backgroundColor: mode === 'window' ? 'rgba(255, 255, 255, 0.18)' : 'transparent',
+            color: mode === 'window' ? '#ffffff' : 'rgba(255, 255, 255, 0.75)',
+            fontSize: '12px',
+            fontWeight: 600,
+            cursor: 'pointer',
+            transition: 'all 0.15s ease',
+          }}
+        >
+          <AppWindow size={15} />
+          <span>Janela</span>
+        </button>
+
+        {/* Modo Tela Inteira */}
+        <button
+          type="button"
+          onClick={() => (onSwitchMode ? onSwitchMode('fullscreen') : onComplete('fullscreen'))}
+          title="Capturar Tela Inteira"
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '6px 12px',
+            borderRadius: '8px',
+            border: 'none',
+            backgroundColor: (mode as CaptureMode) === 'fullscreen' ? 'rgba(255, 255, 255, 0.18)' : 'transparent',
+            color: (mode as CaptureMode) === 'fullscreen' ? '#ffffff' : 'rgba(255, 255, 255, 0.75)',
+            fontSize: '12px',
+            fontWeight: 600,
+            cursor: 'pointer',
+            transition: 'all 0.15s ease',
+          }}
+        >
+          <Monitor size={15} />
+          <span>Tela Inteira</span>
+        </button>
+
+        {/* Separador Vertical */}
+        <div
+          style={{
+            width: '1px',
+            height: '18px',
+            backgroundColor: 'rgba(255, 255, 255, 0.18)',
+            margin: '0 2px',
+          }}
+        />
+
+        {/* Botão Cancelar (X) */}
+        <button
+          type="button"
+          onClick={onCancel}
+          title="Cancelar (Esc)"
+          aria-label="Cancelar"
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: '28px',
+            height: '28px',
+            borderRadius: '8px',
+            border: 'none',
+            backgroundColor: 'transparent',
+            color: 'rgba(255, 255, 255, 0.75)',
+            cursor: 'pointer',
+            transition: 'all 0.15s ease',
+          }}
+        >
+          <X size={16} />
+        </button>
+      </div>
     </div>
   );
 };
