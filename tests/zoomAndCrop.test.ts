@@ -34,6 +34,9 @@ import {
   updateCornerResize,
   updateShapeRotation,
   getCornerCursor,
+  snapAngleToStep,
+  snapLinePointsWithShift,
+  snapRectWithShift,
 } from '../src/utils/zoomAndCrop';
 import { Annotation } from '../src/state/editorStore';
 
@@ -850,6 +853,53 @@ describe('Pointer and Drag Coordinate Transformations Under Zoom', () => {
       expect(getCornerCursor(2, 90)).toBe('nesw-resize');
       // Canto BL (3) passa para posição TL -> nwse-resize
       expect(getCornerCursor(3, 90)).toBe('nwse-resize');
+    });
+
+    it('snaps rotation angles to 15-degree steps and wraps 360 to 0', () => {
+      expect(snapAngleToStep(0, 15)).toBe(0);
+      expect(snapAngleToStep(2, 15)).toBe(0);
+      expect(snapAngleToStep(14, 15)).toBe(15);
+      expect(snapAngleToStep(16, 15)).toBe(15);
+      expect(snapAngleToStep(88, 15)).toBe(90);
+      expect(snapAngleToStep(179, 15)).toBe(180);
+      expect(snapAngleToStep(268, 15)).toBe(270);
+      expect(snapAngleToStep(358, 15)).toBe(0);
+      expect(snapAngleToStep(360, 15)).toBe(0);
+    });
+
+    it('snaps line/arrow points to perfectly straight horizontal, vertical or 45-degree diagonal with Shift', () => {
+      const startX = 100;
+      const startY = 100;
+
+      // 1. Quase horizontal para a direita: trava em y = startY (horizontal perfeita)
+      const nearHorizRight = snapLinePointsWithShift(startX, startY, 250, 108);
+      expect(nearHorizRight).toEqual({ x: 250, y: 100 });
+
+      // 2. Quase horizontal para a esquerda: trava em y = startY
+      const nearHorizLeft = snapLinePointsWithShift(startX, startY, 20, 94);
+      expect(nearHorizLeft).toEqual({ x: 20, y: 100 });
+
+      // 3. Quase vertical para baixo: trava em x = startX (vertical perfeita)
+      const nearVertDown = snapLinePointsWithShift(startX, startY, 106, 260);
+      expect(nearVertDown).toEqual({ x: 100, y: 260 });
+
+      // 4. Quase vertical para cima: trava em x = startX
+      const nearVertUp = snapLinePointsWithShift(startX, startY, 95, 30);
+      expect(nearVertUp).toEqual({ x: 100, y: 30 });
+
+      // 5. Diagonal próxima a 45 graus (baixo-direita): dx === dy
+      const nearDiag = snapLinePointsWithShift(startX, startY, 200, 192); // dx=100, dy=92
+      expect(nearDiag).toEqual({ x: 200, y: 200 });
+    });
+
+    it('snaps rectangle to perfect 1:1 square dimensions with Shift preserving direction', () => {
+      // Arrastando para baixo-direita
+      const sqDownRight = snapRectWithShift(100, 100, 220, 170); // dx=120, dy=70
+      expect(sqDownRight).toEqual({ width: 120, height: 120 });
+
+      // Arrastando para cima-esquerda
+      const sqUpLeft = snapRectWithShift(200, 200, 150, 120); // dx=-50, dy=-80
+      expect(sqUpLeft).toEqual({ width: -80, height: -80 });
     });
   });
 });

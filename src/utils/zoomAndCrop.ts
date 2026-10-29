@@ -1164,3 +1164,76 @@ export function getCornerCursor(cornerIndex: 0 | 1 | 2 | 3, rotation: number = 0
   }
   return 'ns-resize';
 }
+
+/**
+ * Arredonda um ângulo em graus para o degrau mais próximo (padrão 15 graus)
+ * e normaliza [0..360), garantindo que 360 retorne 0.
+ */
+export function snapAngleToStep(angleDeg: number, stepDeg: number = 15): number {
+  const normalized = ((angleDeg % 360) + 360) % 360;
+  const snapped = Math.round(normalized / stepDeg) * stepDeg;
+  return snapped >= 360 ? 0 : snapped;
+}
+
+/**
+ * Trava o ponto final (currentX, currentY) de uma linha ou seta reta em relação à origem
+ * (startX, startY) para os eixos estritos: horizontal (0°/180°), vertical (90°/270°) ou diagonal de 45°,
+ * selecionando o eixo mais próximo do vetor atual.
+ */
+export function snapLinePointsWithShift(
+  startX: number,
+  startY: number,
+  currentX: number,
+  currentY: number
+): { x: number; y: number } {
+  const dx = currentX - startX;
+  const dy = currentY - startY;
+
+  if (dx === 0 && dy === 0) {
+    return { x: currentX, y: currentY };
+  }
+
+  // Ângulo em radianos e graus no intervalo [0, 360)
+  const angleRad = Math.atan2(dy, dx);
+  const angleDeg = ((angleRad * 180) / Math.PI + 360) % 360;
+
+  // Snapa para o múltiplo de 45 graus mais próximo (0, 45, 90, 135, 180, 225, 270, 315)
+  const snappedSector = Math.round(angleDeg / 45) % 8;
+
+  // Setores 0 e 4: Horizontal estrito (dy = 0)
+  if (snappedSector === 0 || snappedSector === 4) {
+    return { x: currentX, y: startY };
+  }
+
+  // Setores 2 e 6: Vertical estrito (dx = 0)
+  if (snappedSector === 2 || snappedSector === 6) {
+    return { x: startX, y: currentY };
+  }
+
+  // Setores 1, 3, 5, 7: Diagonal de 45 graus (|dx| === |dy|)
+  const dist = Math.max(Math.abs(dx), Math.abs(dy));
+  return {
+    x: startX + Math.sign(dx || 1) * dist,
+    y: startY + Math.sign(dy || 1) * dist,
+  };
+}
+
+/**
+ * Trava as dimensões de um retângulo para uma proporção quadrada perfeita 1:1 (|width| === |height|),
+ * preservando o sinal da direção em que o usuário está arrastando.
+ */
+export function snapRectWithShift(
+  startX: number,
+  startY: number,
+  currentX: number,
+  currentY: number
+): { width: number; height: number } {
+  const rawW = currentX - startX;
+  const rawH = currentY - startY;
+  const size = Math.max(Math.abs(rawW), Math.abs(rawH));
+
+  return {
+    width: (rawW < 0 ? -1 : 1) * size,
+    height: (rawH < 0 ? -1 : 1) * size,
+  };
+}
