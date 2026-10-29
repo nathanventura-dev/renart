@@ -703,6 +703,85 @@ describe('Pointer and Drag Coordinate Transformations Under Zoom', () => {
       expect(updateShapeRotation(rectAnn, { x: 100, y: 150 })).toBeCloseTo(270, 0);
     });
 
+    it('maintains 4 corners and rotater perfectly centered and attached under 90 degrees rotation', () => {
+      const rectAnn: Annotation = {
+        id: 'r1',
+        type: 'rect',
+        x: 100,
+        y: 100,
+        width: 200,
+        height: 100,
+        stroke: '#ff0000',
+        strokeWidth: 4,
+        rotation: 90,
+      };
+
+      const corners90 = getFourCornerPositions(rectAnn);
+      expect(corners90.center).toEqual({ x: 200, y: 150 });
+      expect(corners90.rotater.x).toBeCloseTo(278, 0);
+      expect(corners90.rotater.y).toBeCloseTo(150, 0);
+    });
+
+    it('keeps all 4 corners and rotater equidistant from center under any 360 degree rotation angle', () => {
+      const baseAnn: Annotation = {
+        id: 'r1',
+        type: 'rect',
+        x: 100,
+        y: 100,
+        width: 200,
+        height: 100,
+        stroke: '#ff0000',
+        strokeWidth: 4,
+        rotation: 0,
+      };
+
+      const c0 = getFourCornerPositions(baseAnn);
+      const expectedCornerDist = Math.hypot(c0.corners[0].x - c0.center.x, c0.corners[0].y - c0.center.y);
+      const expectedRotaterDist = Math.hypot(c0.rotater.x - c0.center.x, c0.rotater.y - c0.center.y);
+
+      for (const angle of [0, 30, 45, 90, 135, 180, 225, 270, 315, 360]) {
+        const rotated = getFourCornerPositions({ ...baseAnn, rotation: angle });
+        expect(rotated.center).toEqual({ x: 200, y: 150 });
+        for (let i = 0; i < 4; i++) {
+          const dist = Math.hypot(rotated.corners[i].x - rotated.center.x, rotated.corners[i].y - rotated.center.y);
+          expect(dist).toBeCloseTo(expectedCornerDist, 0);
+        }
+        const rotaterDist = Math.hypot(rotated.rotater.x - rotated.center.x, rotated.rotater.y - rotated.center.y);
+        expect(rotaterDist).toBeCloseTo(expectedRotaterDist, 0);
+      }
+    });
+
+    it('shifts all 4 corners and rotater when moving element center during drag', () => {
+      const movedAnn: Annotation = {
+        id: 'r1',
+        type: 'rect',
+        x: 250, // shifted +150
+        y: 180, // shifted +80
+        width: 200,
+        height: 100,
+        stroke: '#ff0000',
+        strokeWidth: 4,
+        rotation: 45,
+      };
+
+      const moved = getFourCornerPositions(movedAnn);
+      expect(moved.center).toEqual({ x: 350, y: 230 });
+      // Verify rotater is shifted consistently by (150, 80)
+      const baseAt45 = getFourCornerPositions({
+        id: 'r1',
+        type: 'rect',
+        x: 100,
+        y: 100,
+        width: 200,
+        height: 100,
+        stroke: '#ff0000',
+        strokeWidth: 4,
+        rotation: 45,
+      });
+      expect(moved.rotater.x).toBeCloseTo(baseAt45.rotater.x + 150, 4);
+      expect(moved.rotater.y).toBeCloseTo(baseAt45.rotater.y + 80, 4);
+    });
+
     it('extracts and updates 2-point anchor positions for line and straight arrows respecting image bounds', () => {
       const initialPoints = [50, 60, 200, 180];
       const anchors = getTwoPointAnchorPositions(initialPoints);

@@ -39,6 +39,7 @@ import {
   clampFocusPointToImageBounds,
   calculateResizedFontSize,
   clampTextResizeBox,
+  getAnnotationSelectionOutline,
 } from '../utils/magnifierAndHover';
 import {
   calculateFitToScreenScale,
@@ -519,36 +520,65 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
   // Resolve o estilo do cursor dinamicamente conforme hover em blocos, alça de foco ou coroa da lupa
   const pointerBehavior = resolveCanvasPointerBehavior(activeTool, isHoveringBlock, isLocked);
   const currentCursor =
-    draggingTwoPointAnchor || hoveredTwoPointAnchor !== null
-      ? 'crosshair'
-      : draggingAnchor
-        ? draggingAnchor.index === 1
-          ? 'grabbing'
-          : 'crosshair'
-        : hoveredAnchor !== null
-          ? hoveredAnchor === 1
-            ? 'grab'
-            : 'crosshair'
-          : crownDrag || isHoveringCrown
-            ? 'ew-resize'
-            : focusDrag
+    isRotating
+      ? 'grabbing'
+      : draggingCorner !== null
+        ? ['nwse-resize', 'nesw-resize', 'nwse-resize', 'nesw-resize'][draggingCorner]
+        : draggingTwoPointAnchor || hoveredTwoPointAnchor !== null
+          ? 'crosshair'
+          : draggingAnchor
+            ? draggingAnchor.index === 1
               ? 'grabbing'
-              : isHoveringFocus
+              : 'crosshair'
+            : hoveredAnchor !== null
+              ? hoveredAnchor === 1
                 ? 'grab'
-                : pointerBehavior.cursor;
+                : 'crosshair'
+              : crownDrag || isHoveringCrown
+                ? 'ew-resize'
+                : focusDrag
+                  ? 'grabbing'
+                  : isHoveringFocus
+                    ? 'grab'
+                    : isHoveringBlock && !isLocked
+                      ? 'move'
+                      : pointerBehavior.cursor;
+
+  // Garante que o cursor do contêiner interno do Konva esteja sempre sincronizado com o cursor atual
+  useEffect(() => {
+    const stage = stageRef.current;
+    if (stage) {
+      const container = stage.container();
+      if (container) {
+        container.style.cursor = currentCursor;
+      }
+    }
+  }, [currentCursor, stageRef]);
 
   const handleBlockMouseEnter = () => {
     if (!isLocked) {
       setIsHoveringBlock(true);
+      const stage = stageRef.current;
+      if (stage) {
+        stage.container().style.cursor = 'move';
+      }
     }
   };
 
   const handleBlockMouseLeave = () => {
     setIsHoveringBlock(false);
+    const stage = stageRef.current;
+    if (stage) {
+      stage.container().style.cursor = isLocked ? 'default' : resolveCanvasPointerBehavior(activeTool, false, isLocked).cursor;
+    }
   };
 
-  // Clique em um bloco: suporta Shift+Clique para adicionar/remover da multiseleção
+  // Clique em um bloco: suporta Shift+Clique para adicionar/remover da multiseleção e apresenta cursor 'move'
   const handleBlockClick = (id: string, e: Konva.KonvaEventObject<MouseEvent>) => {
+    const stage = stageRef.current;
+    if (stage && !isLocked) {
+      stage.container().style.cursor = 'move';
+    }
     if (e.evt.shiftKey && onToggleSelectId) {
       onToggleSelectId(id);
       return;
@@ -560,6 +590,10 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
 
   // Início do arraste de um bloco (suporta arrastar múltiplos blocos selecionados juntos)
   const handleBlockDragStart = (id: string) => {
+    const stage = stageRef.current;
+    if (stage && !isLocked) {
+      stage.container().style.cursor = 'move';
+    }
     let activeIds = effectiveSelectedIds;
     if (!activeIds.includes(id)) {
       activeIds = [id];
@@ -619,6 +653,18 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
         );
         lensContent.position({ x: nextTransform.x, y: nextTransform.y });
       }
+    }
+
+    if (draggedAnn?.type === 'rect') {
+      setLiveFourCornerUpdate({
+        x: draggedNode.x() - draggedAnn.width / 2,
+        y: draggedNode.y() - draggedAnn.height / 2,
+      });
+    } else if (draggedAnn?.type === 'ellipse') {
+      setLiveFourCornerUpdate({
+        x: draggedNode.x(),
+        y: draggedNode.y(),
+      });
     }
 
     const multi = multiDragStartRef.current;
@@ -722,6 +768,36 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
             const bakedPoints = ann.points.map((p, idx) => (idx % 2 === 0 ? p + dx : p + dy));
             node.position({ x: 0, y: 0 });
             updatesById[selId] = { x: 0, y: 0, points: bakedPoints };
+          } else if (ann.type === 'rect') {
+            const rawLeft = node.x() - ann.width / 2;
+            const rawTop = node.y() - ann.height / 2;
+            const clamped = clampRectToBounds(
+              rawLeft,
+              rawTop,
+              ann.width,
+              ann.height,
+              imgW,
+              imgH,
+              1,
+              1,
+              ann.rotation ?? 0
+            );
+            node.position({ x: clamped.x + ann.width / 2, y: clamped.y + ann.height / 2 });
+            updatesById[selId] = { x: clamped.x, y: clamped.y };
+          } else if (ann.type === 'ellipse') {
+            const clamped = clampEllipseToBounds(
+              node.x(),
+              node.y(),
+              ann.radiusX,
+              ann.radiusY,
+              imgW,
+              imgH,
+              1,
+              1,
+              ann.rotation ?? 0
+            );
+            node.position({ x: clamped.x, y: clamped.y });
+            updatesById[selId] = { x: clamped.x, y: clamped.y };
           } else {
             const clamped = clampAnnotationPositionToBounds(
               ann,
@@ -738,6 +814,7 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
         }
       }
       multiDragStartRef.current = null;
+      setLiveFourCornerUpdate(null);
       onUpdateAnnotations(updatesById);
       return;
     }
@@ -791,6 +868,48 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
     }
 
     if (draggedAnn) {
+      if (draggedAnn.type === 'rect') {
+        const rawLeft = e.currentTarget.x() - draggedAnn.width / 2;
+        const rawTop = e.currentTarget.y() - draggedAnn.height / 2;
+        const clamped = clampRectToBounds(
+          rawLeft,
+          rawTop,
+          draggedAnn.width,
+          draggedAnn.height,
+          imgW,
+          imgH,
+          1,
+          1,
+          draggedAnn.rotation ?? 0
+        );
+        e.currentTarget.position({ x: clamped.x + draggedAnn.width / 2, y: clamped.y + draggedAnn.height / 2 });
+        onUpdateAnnotation(id, {
+          x: clamped.x,
+          y: clamped.y,
+        });
+        setLiveFourCornerUpdate(null);
+        return;
+      }
+      if (draggedAnn.type === 'ellipse') {
+        const clamped = clampEllipseToBounds(
+          e.currentTarget.x(),
+          e.currentTarget.y(),
+          draggedAnn.radiusX,
+          draggedAnn.radiusY,
+          imgW,
+          imgH,
+          1,
+          1,
+          draggedAnn.rotation ?? 0
+        );
+        e.currentTarget.position({ x: clamped.x, y: clamped.y });
+        onUpdateAnnotation(id, {
+          x: clamped.x,
+          y: clamped.y,
+        });
+        setLiveFourCornerUpdate(null);
+        return;
+      }
       const clamped = clampAnnotationPositionToBounds(
         draggedAnn,
         e.currentTarget.x(),
@@ -805,11 +924,13 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
         x: clamped.x,
         y: clamped.y,
       });
+      setLiveFourCornerUpdate(null);
     } else {
       onUpdateAnnotation(id, {
         x: Math.max(0, Math.min(e.currentTarget.x(), imgW)),
         y: Math.max(0, Math.min(e.currentTarget.y(), imgH)),
       });
+      setLiveFourCornerUpdate(null);
     }
   };
 
@@ -1624,6 +1745,94 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
     return getFourCornerPositions(effectiveFourCornerAnn);
   }, [effectiveFourCornerAnn]);
 
+  // Gerenciamento da rotação 360 graus da forma através da alça de rotação (estilo Windows Snipping Tool)
+  useEffect(() => {
+    if (!isRotating || !selectedFourCornerAnnotation) return;
+
+    const handleWindowMouseMove = () => {
+      const stage = stageRef.current;
+      if (!stage) return;
+      const rawPos = stage.getPointerPosition();
+      if (!rawPos) return;
+      const localPos = getTransformedPointerPosition(rawPos, zoomLevel);
+      const newRot = updateShapeRotation(selectedFourCornerAnnotation, localPos);
+      setLiveRotation(newRot);
+    };
+
+    const handleWindowMouseUp = () => {
+      const stage = stageRef.current;
+      if (stage) {
+        const rawPos = stage.getPointerPosition();
+        if (rawPos) {
+          const localPos = getTransformedPointerPosition(rawPos, zoomLevel);
+          const finalRot = updateShapeRotation(selectedFourCornerAnnotation, localPos);
+          if (finalRot !== (selectedFourCornerAnnotation.rotation ?? 0)) {
+            onUpdateAnnotationRef.current(selectedFourCornerAnnotation.id, { rotation: finalRot });
+          }
+        }
+        stage.container().style.cursor = 'default';
+      }
+      setIsRotating(false);
+      setLiveRotation(null);
+    };
+
+    window.addEventListener('mousemove', handleWindowMouseMove);
+    window.addEventListener('mouseup', handleWindowMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', handleWindowMouseMove);
+      window.removeEventListener('mouseup', handleWindowMouseUp);
+    };
+  }, [isRotating, selectedFourCornerAnnotation, zoomLevel]);
+
+  // Gerenciamento do redimensionamento pelos 4 cantos mantendo o canto oposto firmemente ancorado
+  useEffect(() => {
+    if (draggingCorner === null || !selectedFourCornerAnnotation) return;
+
+    const handleWindowMouseMove = () => {
+      const stage = stageRef.current;
+      if (!stage) return;
+      const rawPos = stage.getPointerPosition();
+      if (!rawPos) return;
+      const localPos = getTransformedPointerPosition(rawPos, zoomLevel);
+      const update = updateCornerResize(
+        selectedFourCornerAnnotation,
+        draggingCorner,
+        localPos,
+        canvasWidth,
+        canvasHeight
+      );
+      setLiveFourCornerUpdate(update);
+    };
+
+    const handleWindowMouseUp = () => {
+      const stage = stageRef.current;
+      if (stage) {
+        const rawPos = stage.getPointerPosition();
+        if (rawPos) {
+          const localPos = getTransformedPointerPosition(rawPos, zoomLevel);
+          const update = updateCornerResize(
+            selectedFourCornerAnnotation,
+            draggingCorner,
+            localPos,
+            canvasWidth,
+            canvasHeight
+          );
+          onUpdateAnnotationRef.current(selectedFourCornerAnnotation.id, update);
+        }
+        stage.container().style.cursor = 'default';
+      }
+      setDraggingCorner(null);
+      setLiveFourCornerUpdate(null);
+    };
+
+    window.addEventListener('mousemove', handleWindowMouseMove);
+    window.addEventListener('mouseup', handleWindowMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', handleWindowMouseMove);
+      window.removeEventListener('mouseup', handleWindowMouseUp);
+    };
+  }, [draggingCorner, selectedFourCornerAnnotation, canvasWidth, canvasHeight, zoomLevel]);
+
   return (
     <div
       ref={containerRef}
@@ -1690,12 +1899,16 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
               if (ann.type === 'rect') {
                 const isSelected4C = selectedFourCornerAnnotation?.id === ann.id;
                 const activeRect = isSelected4C && effectiveFourCornerAnn?.type === 'rect' ? effectiveFourCornerAnn : ann;
+                const cx = activeRect.x + activeRect.width / 2;
+                const cy = activeRect.y + activeRect.height / 2;
                 return (
                   <Rect
                     key={ann.id}
                     id={ann.id}
-                    x={activeRect.x}
-                    y={activeRect.y}
+                    x={cx}
+                    y={cy}
+                    offsetX={activeRect.width / 2}
+                    offsetY={activeRect.height / 2}
                     width={activeRect.width}
                     height={activeRect.height}
                     scaleX={1}
@@ -1707,10 +1920,12 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                     strokeScaleEnabled={strokeScaleEnabled}
                     draggable={canDrag}
                     dragBoundFunc={(pos) =>
-                      getTransformedDragBound(pos, zoomLevel, (localX, localY) =>
-                        clampRectToBounds(
-                          localX,
-                          localY,
+                      getTransformedDragBound(pos, zoomLevel, (localX, localY) => {
+                        const rawLeft = localX - activeRect.width / 2;
+                        const rawTop = localY - activeRect.height / 2;
+                        const clamped = clampRectToBounds(
+                          rawLeft,
+                          rawTop,
                           activeRect.width,
                           activeRect.height,
                           canvasWidth,
@@ -1718,8 +1933,12 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                           1,
                           1,
                           activeRect.rotation ?? 0
-                        )
-                      )
+                        );
+                        return {
+                          x: clamped.x + activeRect.width / 2,
+                          y: clamped.y + activeRect.height / 2,
+                        };
+                      })
                     }
                     onMouseEnter={handleBlockMouseEnter}
                     onMouseLeave={handleBlockMouseLeave}
@@ -2411,6 +2630,69 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
               return null;
             })}
 
+            {/* Contornos visuais para todos os elementos selecionados na multiseleção */}
+            {effectiveSelectedIds.length > 1 && (
+              <Group name="multi-selection-outlines-group" listening={false}>
+                {annotations
+                  .filter((ann) => effectiveSelectedIds.includes(ann.id))
+                  .map((ann) => {
+                    const outline = getAnnotationSelectionOutline(ann);
+                    if (outline.type === 'rect') {
+                      return (
+                        <Rect
+                          key={`multi-outline-${ann.id}`}
+                          name={`multi-outline-${ann.id}`}
+                          x={outline.x}
+                          y={outline.y}
+                          width={outline.width}
+                          height={outline.height}
+                          offsetX={outline.offsetX}
+                          offsetY={outline.offsetY}
+                          rotation={outline.rotation}
+                          stroke="#0078d4"
+                          strokeWidth={1.5}
+                          dash={[4, 4]}
+                          listening={false}
+                        />
+                      );
+                    }
+                    if (outline.type === 'ellipse') {
+                      return (
+                        <Ellipse
+                          key={`multi-outline-${ann.id}`}
+                          name={`multi-outline-${ann.id}`}
+                          x={outline.x}
+                          y={outline.y}
+                          radiusX={outline.radiusX!}
+                          radiusY={outline.radiusY!}
+                          rotation={outline.rotation}
+                          stroke="#0078d4"
+                          strokeWidth={1.5}
+                          dash={[4, 4]}
+                          listening={false}
+                        />
+                      );
+                    }
+                    if (outline.type === 'circle') {
+                      return (
+                        <Circle
+                          key={`multi-outline-${ann.id}`}
+                          name={`multi-outline-${ann.id}`}
+                          x={outline.x}
+                          y={outline.y}
+                          radius={outline.radius!}
+                          stroke="#0078d4"
+                          strokeWidth={1.5}
+                          dash={[4, 4]}
+                          listening={false}
+                        />
+                      );
+                    }
+                    return null;
+                  })}
+              </Group>
+            )}
+
             {/* Anotação em processo de criação (arraste) */}
             {newAnnotation && (
               <>
@@ -2812,47 +3094,20 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                       name="four-corner-rotater"
                       x={rotaterPos.x}
                       y={rotaterPos.y}
-                      draggable={!isLocked}
-                      dragBoundFunc={(pos) => pos}
+                      draggable={false}
                       onMouseEnter={() => {
                         const stage = stageRef.current;
                         if (stage) stage.container().style.cursor = 'grab';
                       }}
                       onMouseLeave={() => {
                         const stage = stageRef.current;
-                        if (stage) stage.container().style.cursor = 'default';
+                        if (stage && !isRotating) stage.container().style.cursor = 'default';
                       }}
-                      onDragStart={(e) => {
+                      onMouseDown={(e) => {
                         e.cancelBubble = true;
                         setIsRotating(true);
                         const stage = stageRef.current;
                         if (stage) stage.container().style.cursor = 'grabbing';
-                      }}
-                      onDragMove={(e) => {
-                        e.cancelBubble = true;
-                        const stage = e.target.getStage();
-                        const rawPos = stage?.getPointerPosition();
-                        if (rawPos) {
-                          const localPos = getTransformedPointerPosition(rawPos, zoomLevel);
-                          const newRot = updateShapeRotation(selectedFourCornerAnnotation, localPos);
-                          setLiveRotation(newRot);
-                        }
-                      }}
-                      onDragEnd={(e) => {
-                        e.cancelBubble = true;
-                        setIsRotating(false);
-                        const stage = stageRef.current;
-                        if (stage) stage.container().style.cursor = 'default';
-                        const stageObj = e.target.getStage();
-                        const rawPos = stageObj?.getPointerPosition();
-                        if (rawPos) {
-                          const localPos = getTransformedPointerPosition(rawPos, zoomLevel);
-                          const finalRot = updateShapeRotation(selectedFourCornerAnnotation, localPos);
-                          if (finalRot !== (selectedFourCornerAnnotation.rotation ?? 0)) {
-                            onUpdateAnnotation(selectedFourCornerAnnotation.id, { rotation: finalRot });
-                          }
-                        }
-                        setLiveRotation(null);
                       }}
                     >
                       {/* Área de toque expandida invisível */}
@@ -2913,55 +3168,20 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                           hitStrokeWidth={18}
                           shadowColor="rgba(0, 0, 0, 0.25)"
                           shadowBlur={3}
-                          draggable={!isLocked}
-                          dragBoundFunc={(pos) => pos}
+                          draggable={false}
                           onMouseEnter={() => {
                             const stage = stageRef.current;
                             if (stage) stage.container().style.cursor = cursorStyle;
                           }}
                           onMouseLeave={() => {
                             const stage = stageRef.current;
-                            if (stage) stage.container().style.cursor = 'default';
+                            if (stage && draggingCorner === null) stage.container().style.cursor = 'default';
                           }}
-                          onDragStart={(e) => {
+                          onMouseDown={(e) => {
                             e.cancelBubble = true;
                             setDraggingCorner(idx as 0 | 1 | 2 | 3);
-                          }}
-                          onDragMove={(e) => {
-                            e.cancelBubble = true;
-                            const stage = e.target.getStage();
-                            const rawPos = stage?.getPointerPosition();
-                            if (rawPos) {
-                              const localPos = getTransformedPointerPosition(rawPos, zoomLevel);
-                              const update = updateCornerResize(
-                                selectedFourCornerAnnotation,
-                                idx as 0 | 1 | 2 | 3,
-                                localPos,
-                                canvasWidth,
-                                canvasHeight
-                              );
-                              setLiveFourCornerUpdate(update);
-                            }
-                          }}
-                          onDragEnd={(e) => {
-                            e.cancelBubble = true;
-                            setDraggingCorner(null);
                             const stage = stageRef.current;
-                            if (stage) stage.container().style.cursor = 'default';
-                            const stageObj = e.target.getStage();
-                            const rawPos = stageObj?.getPointerPosition();
-                            if (rawPos) {
-                              const localPos = getTransformedPointerPosition(rawPos, zoomLevel);
-                              const update = updateCornerResize(
-                                selectedFourCornerAnnotation,
-                                idx as 0 | 1 | 2 | 3,
-                                localPos,
-                                canvasWidth,
-                                canvasHeight
-                              );
-                              onUpdateAnnotation(selectedFourCornerAnnotation.id, update);
-                            }
-                            setLiveFourCornerUpdate(null);
+                            if (stage) stage.container().style.cursor = cursorStyle;
                           }}
                         />
                       );

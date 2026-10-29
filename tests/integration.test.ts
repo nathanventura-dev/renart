@@ -7,7 +7,9 @@ import {
   updateTwoPointAnchor,
   updateCornerResize,
   updateShapeRotation,
+  getFourCornerPositions,
 } from '../src/utils/zoomAndCrop';
+import { getAnnotationSelectionOutline } from '../src/utils/magnifierAndHover';
 
 describe('Integration Flow', () => {
   it('coordinates gallery selection with canvas editor state', () => {
@@ -357,5 +359,72 @@ describe('Integration Flow', () => {
       expect(updatedRect.width).toBe(200);
       expect(updatedRect.height).toBe(100);
     }
+  });
+
+  it('generates multi-selection outlines only for selected blocks and keeps anchor points glued during rotation and movement', () => {
+    const editor = createEditorStore();
+
+    // Adiciona 3 blocos diferentes
+    editor.addAnnotation({
+      id: 'block-rect',
+      type: 'rect',
+      x: 100,
+      y: 100,
+      width: 150,
+      height: 80,
+      stroke: '#ff0000',
+      strokeWidth: 4,
+      rotation: 45,
+    });
+    editor.addAnnotation({
+      id: 'block-ellipse',
+      type: 'ellipse',
+      x: 400,
+      y: 200,
+      radiusX: 60,
+      radiusY: 40,
+      stroke: '#00ff00',
+      strokeWidth: 3,
+      rotation: 0,
+    });
+    editor.addAnnotation({
+      id: 'block-unselected',
+      type: 'rect',
+      x: 600,
+      y: 300,
+      width: 100,
+      height: 100,
+      stroke: '#0000ff',
+      strokeWidth: 2,
+    });
+
+    // Seleciona múltiplos blocos: 'block-rect' e 'block-ellipse'
+    editor.setSelectedIds(['block-rect', 'block-ellipse']);
+    const selectedIds = editor.getState().selectedIds;
+    expect(selectedIds).toHaveLength(2);
+
+    const allAnnotations = editor.getState().annotations;
+    const outlines = allAnnotations
+      .filter((a) => selectedIds.includes(a.id))
+      .map((a) => ({ id: a.id, outline: getAnnotationSelectionOutline(a) }));
+
+    expect(outlines).toHaveLength(2);
+    expect(outlines.find((o) => o.id === 'block-rect')?.outline.type).toBe('rect');
+    expect(outlines.find((o) => o.id === 'block-ellipse')?.outline.type).toBe('ellipse');
+    // Bloco não selecionado não está na lista de contornos
+    expect(outlines.find((o) => o.id === 'block-unselected')).toBeUndefined();
+
+    // Verifica que os 4 cantos e o rotater permanecem colados durante rotação e movimentação
+    const rectAnn = allAnnotations.find((a) => a.id === 'block-rect')!;
+    const initialCorners = getFourCornerPositions(rectAnn);
+    expect(initialCorners.center).toEqual({ x: 175, y: 140 });
+
+    // Move o elemento para uma nova posição (ex: x + 100, y + 50)
+    editor.updateAnnotation('block-rect', { x: 200, y: 150 });
+    const movedRect = editor.getState().annotations.find((a) => a.id === 'block-rect')!;
+    const movedCorners = getFourCornerPositions(movedRect);
+    expect(movedCorners.center).toEqual({ x: 275, y: 190 });
+    expect(movedCorners.rotater.x).toBeCloseTo(initialCorners.rotater.x + 100, 0);
+    expect(movedCorners.rotater.y).toBeCloseTo(initialCorners.rotater.y + 50, 0);
   });
 });

@@ -22,6 +22,7 @@ import {
   snapToFontSizeStep,
   calculateResizedFontSize,
   clampTextResizeBox,
+  getAnnotationSelectionOutline,
 } from '../src/utils/magnifierAndHover';
 
 describe('Magnifier Zoom & Rotating Crown (Coroa Giratória)', () => {
@@ -348,5 +349,85 @@ describe('Text Block Stepped Font-Size Resizing (12..48 Sem Distorção)', () =>
       16
     );
     expect(overMaxAttempt).toEqual(boxAt48);
+  });
+
+  describe('Multi-Selection Outlines for All Shape and Element Blocks', () => {
+    it('generates centered rectangular outline for rect annotations with padding', () => {
+      const rectAnn: any = {
+        id: 'r1',
+        type: 'rect',
+        x: 100,
+        y: 100,
+        width: 200,
+        height: 100,
+        stroke: '#ff0000',
+        strokeWidth: 4,
+        rotation: 45,
+      };
+      const outline = getAnnotationSelectionOutline(rectAnn);
+      expect(outline.type).toBe('rect');
+      expect(outline.x).toBe(200); // 100 + 200/2
+      expect(outline.y).toBe(150); // 100 + 100/2
+      expect(outline.width).toBe(206); // 200 + 6
+      expect(outline.height).toBe(106); // 100 + 6
+      expect(outline.offsetX).toBe(103);
+      expect(outline.offsetY).toBe(53);
+      expect(outline.rotation).toBe(45);
+    });
+
+    it('generates ellipse outline for ellipse annotations with padding', () => {
+      const ellipseAnn: any = {
+        id: 'e1',
+        type: 'ellipse',
+        x: 300,
+        y: 250,
+        radiusX: 80,
+        radiusY: 50,
+        stroke: '#00ff00',
+        strokeWidth: 3,
+        rotation: 30,
+      };
+      const outline = getAnnotationSelectionOutline(ellipseAnn);
+      expect(outline.type).toBe('ellipse');
+      expect(outline.x).toBe(300);
+      expect(outline.y).toBe(250);
+      expect(outline.radiusX).toBe(84); // 80 + 4
+      expect(outline.radiusY).toBe(54); // 50 + 4
+      expect(outline.rotation).toBe(30);
+    });
+
+    it('generates circle outline for magnifier annotations with padding', () => {
+      const magAnn: any = {
+        id: 'm1',
+        type: 'magnifier',
+        x: 150,
+        y: 150,
+        radius: 60,
+        zoomLevel: 2,
+      };
+      const outline = getAnnotationSelectionOutline(magAnn);
+      expect(outline.type).toBe('circle');
+      expect(outline.x).toBe(150);
+      expect(outline.y).toBe(150);
+      expect(outline.radius).toBe(64); // 60 + 4
+    });
+
+    it('generates rectangular outline for line and arrow annotations enclosing their points', () => {
+      const lineAnn: any = {
+        id: 'l1',
+        type: 'line',
+        x: 0,
+        y: 0,
+        points: [50, 50, 200, 150],
+        stroke: '#0000ff',
+        strokeWidth: 2,
+      };
+      const outline = getAnnotationSelectionOutline(lineAnn);
+      expect(outline.type).toBe('rect');
+      expect(outline.x).toBe(125); // (50 + 200) / 2
+      expect(outline.y).toBe(100); // (50 + 150) / 2
+      expect(outline.width).toBe(158); // (200 - 50) + 8
+      expect(outline.height).toBe(108); // (150 - 50) + 8
+    });
   });
 });

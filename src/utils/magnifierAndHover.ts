@@ -466,3 +466,148 @@ export function resolveCanvasPointerBehavior(
     clickAction: 'create-new',
   };
 }
+
+export interface SelectionOutline {
+  type: 'rect' | 'ellipse' | 'circle';
+  x: number;
+  y: number;
+  width?: number;
+  height?: number;
+  offsetX?: number;
+  offsetY?: number;
+  radiusX?: number;
+  radiusY?: number;
+  radius?: number;
+  rotation?: number;
+}
+
+/**
+ * Retorna as coordenadas e geometria da linha de contorno (outline) de seleção
+ * para qualquer elemento/bloco selecionado (retângulo, elipse, linha, seta, texto, imagem ou lupa).
+ */
+export function getAnnotationSelectionOutline(ann: Annotation): SelectionOutline {
+  const rot = ann.rotation ?? 0;
+
+  if (ann.type === 'rect') {
+    const w = ann.width;
+    const h = ann.height;
+    const padding = 3;
+    const outW = w + padding * 2;
+    const outH = h + padding * 2;
+    return {
+      type: 'rect',
+      x: ann.x + w / 2,
+      y: ann.y + h / 2,
+      width: outW,
+      height: outH,
+      offsetX: outW / 2,
+      offsetY: outH / 2,
+      rotation: rot,
+    };
+  }
+
+  if (ann.type === 'ellipse') {
+    const padding = 4;
+    return {
+      type: 'ellipse',
+      x: ann.x,
+      y: ann.y,
+      radiusX: ann.radiusX + padding,
+      radiusY: ann.radiusY + padding,
+      rotation: rot,
+    };
+  }
+
+  if (ann.type === 'magnifier') {
+    const padding = 4;
+    return {
+      type: 'circle',
+      x: ann.x,
+      y: ann.y,
+      radius: ann.radius + padding,
+    };
+  }
+
+  if (ann.type === 'image') {
+    const padding = 3;
+    const outW = ann.width + padding * 2;
+    const outH = ann.height + padding * 2;
+    return {
+      type: 'rect',
+      x: ann.x + ann.width / 2,
+      y: ann.y + ann.height / 2,
+      width: outW,
+      height: outH,
+      offsetX: outW / 2,
+      offsetY: outH / 2,
+      rotation: rot,
+    };
+  }
+
+  if (ann.type === 'line' || ann.type === 'arrow') {
+    const ox = ann.x || 0;
+    const oy = ann.y || 0;
+    const pts = ann.points || [];
+    let minX = Infinity;
+    let maxX = -Infinity;
+    let minY = Infinity;
+    let maxY = -Infinity;
+    for (let i = 0; i < pts.length; i += 2) {
+      const px = ox + pts[i];
+      const py = oy + pts[i + 1];
+      if (px < minX) minX = px;
+      if (px > maxX) maxX = px;
+      if (py < minY) minY = py;
+      if (py > maxY) maxY = py;
+    }
+    if (minX === Infinity) {
+      minX = ox;
+      maxX = ox + 10;
+      minY = oy;
+      maxY = oy + 10;
+    }
+    const padding = 4;
+    const w = maxX - minX;
+    const h = maxY - minY;
+    const outW = w + padding * 2;
+    const outH = h + padding * 2;
+    return {
+      type: 'rect',
+      x: minX + w / 2,
+      y: minY + h / 2,
+      width: outW,
+      height: outH,
+      offsetX: outW / 2,
+      offsetY: outH / 2,
+      rotation: rot,
+    };
+  }
+
+  if (ann.type === 'text') {
+    const sx = Math.abs(ann.scaleX ?? 1);
+    const sy = Math.abs(ann.scaleY ?? 1);
+    const approxWidth = Math.max(40, ann.text.length * (ann.fontSize * 0.55) * sx);
+    const approxHeight = ann.fontSize * 1.3 * sy;
+    const padding = 4;
+    const outW = approxWidth + padding * 2;
+    const outH = approxHeight + padding * 2;
+    return {
+      type: 'rect',
+      x: ann.x + approxWidth / 2,
+      y: ann.y + approxHeight / 2,
+      width: outW,
+      height: outH,
+      offsetX: outW / 2,
+      offsetY: outH / 2,
+      rotation: rot,
+    };
+  }
+
+  return {
+    type: 'rect',
+    x: 0,
+    y: 0,
+    width: 0,
+    height: 0,
+  };
+}
