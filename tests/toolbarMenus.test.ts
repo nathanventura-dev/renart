@@ -309,8 +309,10 @@ describe('Toolbar Horizontal Menus & Palette Dropdown', () => {
     expect(htmlCapture).toContain('Janela');
     expect(htmlCapture).toContain('Tela Inteira');
 
-    // Posicionamento do menu à direita para desobstruir a galeria
+    // Estilo consistente com o menu horizontal de exportação (#f8fafc e transition:all 0.15s ease)
     expect(htmlCapture).toContain('left:100%');
+    expect(htmlCapture).toContain('transition:all 0.15s ease');
+    expect(htmlCapture).toContain('color:#475569');
   });
 
   it('renders minimalist horizontal export menu to the left of the blue active export button with .png, .jpeg, .pdf', () => {

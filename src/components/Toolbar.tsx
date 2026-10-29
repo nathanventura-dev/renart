@@ -490,8 +490,10 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 flexDirection: 'row',
                 alignItems: 'center',
                 gap: '4px',
-                backgroundColor: '#ffffff',
-                padding: '4px 6px',
+                backgroundColor: '#f8fafc',
+                padding: '2px 4px',
+                height: layoutMetrics.captureButtonHeight,
+                boxSizing: 'border-box',
                 borderRadius: '8px',
                 boxShadow: '0 4px 16px rgba(0, 0, 0, 0.12)',
                 border: '1px solid #e2e8f0',
@@ -509,16 +511,28 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 style={{
                   display: 'inline-flex',
                   alignItems: 'center',
+                  justifyContent: 'center',
                   gap: '6px',
-                  padding: '6px 10px',
-                  borderRadius: '6px',
+                  padding: '0 10px',
+                  height: '28px',
+                  borderRadius: '5px',
                   border: 'none',
                   backgroundColor: 'transparent',
-                  color: '#334155',
+                  color: '#475569',
                   fontSize: '12px',
-                  fontWeight: 500,
+                  fontWeight: 600,
                   cursor: 'pointer',
-                  transition: 'background-color 0.15s ease',
+                  transition: 'all 0.15s ease',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = '#ffffff';
+                  e.currentTarget.style.color = '#0071e3';
+                  e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.08)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                  e.currentTarget.style.color = '#475569';
+                  e.currentTarget.style.boxShadow = 'none';
                 }}
               >
                 <Crop size={14} />
@@ -534,16 +548,28 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 style={{
                   display: 'inline-flex',
                   alignItems: 'center',
+                  justifyContent: 'center',
                   gap: '6px',
-                  padding: '6px 10px',
-                  borderRadius: '6px',
+                  padding: '0 10px',
+                  height: '28px',
+                  borderRadius: '5px',
                   border: 'none',
                   backgroundColor: 'transparent',
-                  color: '#334155',
+                  color: '#475569',
                   fontSize: '12px',
-                  fontWeight: 500,
+                  fontWeight: 600,
                   cursor: 'pointer',
-                  transition: 'background-color 0.15s ease',
+                  transition: 'all 0.15s ease',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = '#ffffff';
+                  e.currentTarget.style.color = '#0071e3';
+                  e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.08)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                  e.currentTarget.style.color = '#475569';
+                  e.currentTarget.style.boxShadow = 'none';
                 }}
               >
                 <AppWindow size={14} />
@@ -559,16 +585,28 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 style={{
                   display: 'inline-flex',
                   alignItems: 'center',
+                  justifyContent: 'center',
                   gap: '6px',
-                  padding: '6px 10px',
-                  borderRadius: '6px',
+                  padding: '0 10px',
+                  height: '28px',
+                  borderRadius: '5px',
                   border: 'none',
                   backgroundColor: 'transparent',
-                  color: '#334155',
+                  color: '#475569',
                   fontSize: '12px',
-                  fontWeight: 500,
+                  fontWeight: 600,
                   cursor: 'pointer',
-                  transition: 'background-color 0.15s ease',
+                  transition: 'all 0.15s ease',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = '#ffffff';
+                  e.currentTarget.style.color = '#0071e3';
+                  e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.08)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                  e.currentTarget.style.color = '#475569';
+                  e.currentTarget.style.boxShadow = 'none';
                 }}
               >
                 <Monitor size={14} />
