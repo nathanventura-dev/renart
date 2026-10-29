@@ -332,6 +332,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   const textContainerRef = useRef<HTMLDivElement>(null);
   const magnifierContainerRef = useRef<HTMLDivElement>(null);
   const captureContainerRef = useRef<HTMLDivElement>(null);
+  const cropContainerRef = useRef<HTMLDivElement>(null);
   const copyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [hoveredAction, setHoveredAction] = useState<HoveredToolbarAction>(null);
@@ -887,37 +888,37 @@ export const Toolbar: React.FC<ToolbarProps> = ({
           </HorizontalFloatingMenu>
         </div>
 
-        <button
-          type="button"
-          title="Recortar Imagem (Crop)"
-          onClick={() => {
-            if (onToggleCrop) {
-              onToggleCrop();
-            } else {
-              onSelectTool('crop');
-            }
-          }}
-          style={getToolButtonStyle(activeTool === 'crop' || Boolean(isCropping))}
+        {/* Recortar Imagem (Crop) com menu horizontal flutuante abaixo do ícone */}
+        <div
+          ref={cropContainerRef}
+          style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}
         >
-          <Crop size={16} />
-        </button>
-
-        {isCropping && (
-          <div
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              height: INNER_CONTROL_HEIGHT,
-              gap: '4px',
-              boxSizing: 'border-box',
+          <button
+            type="button"
+            title="Recortar Imagem (Crop)"
+            onClick={() => {
+              setOpenMenu(null);
+              if (onToggleCrop) {
+                onToggleCrop();
+              } else {
+                onSelectTool('crop');
+              }
             }}
+            style={getToolButtonStyle(activeTool === 'crop' || Boolean(isCropping))}
+          >
+            <Crop size={16} />
+          </button>
+
+          <HorizontalFloatingMenu
+            isOpen={Boolean(isCropping)}
+            testId="horizontal-floating-menu-crop"
           >
             <button
               type="button"
               title="Confirmar Recorte (Enter)"
               onClick={onConfirmCrop}
               style={{
-                height: INNER_CONTROL_HEIGHT,
+                height: '24px',
                 padding: '0 8px',
                 fontSize: '11px',
                 fontWeight: 600,
@@ -930,6 +931,12 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 alignItems: 'center',
                 gap: '4px',
                 transition: 'all 0.15s ease',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = 'rgba(34, 197, 94, 0.2)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = 'rgba(34, 197, 94, 0.12)';
               }}
             >
               <Check size={14} strokeWidth={2.2} />
@@ -953,7 +960,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
               title="Cancelar Recorte (Esc)"
               onClick={onCancelCrop}
               style={{
-                height: INNER_CONTROL_HEIGHT,
+                height: '24px',
                 padding: '0 8px',
                 fontSize: '11px',
                 fontWeight: 600,
@@ -966,6 +973,12 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 alignItems: 'center',
                 gap: '4px',
                 transition: 'all 0.15s ease',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.16)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.08)';
               }}
             >
               <X size={14} strokeWidth={2.2} />
@@ -984,8 +997,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 esc
               </kbd>
             </button>
-          </div>
-        )}
+          </HorizontalFloatingMenu>
+        </div>
 
         <div style={{ width: '1px', height: '20px', backgroundColor: '#d1d1d6', margin: '0 4px' }} />
 

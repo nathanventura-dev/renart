@@ -210,7 +210,7 @@ describe('Toolbar Horizontal Menus & Palette Dropdown', () => {
     expect(shouldSwitchToolOnMenuClick('select', 'arrow', [])).toBe(true);
   });
 
-  it('renders minimalist translucent action buttons with keyboard shortcuts when cropping', () => {
+  it('renders minimalist translucent action buttons with keyboard shortcuts in a horizontal floating menu below crop icon', () => {
     const htmlCrop = renderToString(
       React.createElement(Toolbar, {
         activeTool: 'crop',
@@ -232,6 +232,10 @@ describe('Toolbar Horizontal Menus & Palette Dropdown', () => {
         onCancelCrop: () => {},
       })
     );
+
+    // Menu horizontal flutuante padronizado abaixo do ícone
+    expect(htmlCrop).toContain('data-testid="horizontal-floating-menu-crop"');
+    expect(htmlCrop).toContain('top:calc(100% + 6px)');
 
     expect(htmlCrop).toContain('Confirmar');
     expect(htmlCrop).toContain('Cancelar');
