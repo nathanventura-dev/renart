@@ -31,6 +31,7 @@ import {
   Save,
   Camera,
   RotateCw,
+  Palette,
 } from 'lucide-react';
 
 export type HoveredToolbarAction = 'copy' | 'export' | null;
@@ -181,9 +182,81 @@ interface ToolbarProps {
   onSelectArrowStyle?: (style: ArrowStyle) => void;
   onToggleCurveDirection?: () => void;
   selectedAnnotations?: Annotation[];
+  initialOpenMenu?: OpenToolbarMenu;
 }
 
-const COLORS = ['#ff3b30', '#ff9f0a', '#34c759', '#0071e3', '#5856d6', '#000000', '#ffffff'];
+export const TOOLBAR_COLORS = [
+  '#ff3b30',
+  '#ff9f0a',
+  '#34c759',
+  '#0071e3',
+  '#5856d6',
+  '#000000',
+  '#ffffff',
+];
+const COLORS = TOOLBAR_COLORS;
+
+export type OpenToolbarMenu = 'palette' | 'arrow' | 'magnifier' | 'text' | null;
+
+export function resolveActiveToolbarMenu(
+  currentMenu: OpenToolbarMenu,
+  targetMenu: OpenToolbarMenu
+): OpenToolbarMenu {
+  if (targetMenu === null) return null;
+  return currentMenu === targetMenu ? null : targetMenu;
+}
+
+export interface HorizontalFloatingMenuProps {
+  isOpen: boolean;
+  testId?: string;
+  align?: 'center' | 'left' | 'right';
+  children: React.ReactNode;
+}
+
+export const HorizontalFloatingMenu: React.FC<HorizontalFloatingMenuProps> = ({
+  isOpen,
+  testId,
+  align = 'center',
+  children,
+}) => {
+  if (!isOpen) return null;
+
+  const getTransform = () => {
+    if (align === 'left') return 'translateX(0)';
+    if (align === 'right') return 'translateX(-100%)';
+    return 'translateX(-50%)';
+  };
+
+  const getLeft = () => {
+    if (align === 'left') return '0';
+    if (align === 'right') return '100%';
+    return '50%';
+  };
+
+  return (
+    <div
+      data-testid={testId}
+      style={{
+        position: 'absolute',
+        top: 'calc(100% + 6px)',
+        left: getLeft(),
+        transform: getTransform(),
+        zIndex: 200,
+        backgroundColor: '#ffffff',
+        border: '1px solid #e5e5e7',
+        borderRadius: '8px',
+        boxShadow: '0 4px 14px rgba(0, 0, 0, 0.12)',
+        padding: '3px 6px',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '4px',
+        whiteSpace: 'nowrap',
+      }}
+    >
+      {children}
+    </div>
+  );
+};
 
 export const Toolbar: React.FC<ToolbarProps> = ({
   activeTool,
@@ -219,14 +292,17 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   onSelectArrowStyle,
   onToggleCurveDirection,
   selectedAnnotations = [],
+  initialOpenMenu = null,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const exportMenuRef = useRef<HTMLDivElement>(null);
+  const paletteContainerRef = useRef<HTMLDivElement>(null);
   const copyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [hoveredAction, setHoveredAction] = useState<HoveredToolbarAction>(null);
   const [isCopied, setIsCopied] = useState(false);
   const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
+  const [openMenu, setOpenMenu] = useState<OpenToolbarMenu>(initialOpenMenu);
 
   const feedback = resolveToolbarActionFeedback(hoveredAction, isCopied);
   const layoutMetrics = getToolbarLayoutMetrics();
@@ -243,8 +319,12 @@ export const Toolbar: React.FC<ToolbarProps> = ({
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (exportMenuRef.current && !exportMenuRef.current.contains(e.target as Node)) {
+      const targetNode = e.target as Node;
+      if (exportMenuRef.current && !exportMenuRef.current.contains(targetNode)) {
         setIsExportMenuOpen(false);
+      }
+      if (paletteContainerRef.current && !paletteContainerRef.current.contains(targetNode)) {
+        setOpenMenu((prev) => (prev === 'palette' ? null : prev));
       }
     };
     window.addEventListener('mousedown', handleClickOutside);
@@ -629,26 +709,63 @@ export const Toolbar: React.FC<ToolbarProps> = ({
 
         <div style={{ width: '1px', height: '20px', backgroundColor: '#d1d1d6', margin: '0 4px' }} />
 
-        {/* Cores (aplica nos blocos selecionados ou define padrão para novos) */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-          {COLORS.map((c) => (
-            <button
-              key={c}
-              type="button"
-              title={`Cor ${c}`}
-              onClick={() => onSelectColor(c)}
+        {/* Paleta de Cores: Botão com ícone que abre lista suspensa horizontal */}
+        <div
+          ref={paletteContainerRef}
+          style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}
+        >
+          <button
+            type="button"
+            data-testid="palette-trigger-button"
+            title="Paleta de cores"
+            onClick={() => setOpenMenu((prev) => resolveActiveToolbarMenu(prev, 'palette'))}
+            style={{
+              ...getToolButtonStyle(openMenu === 'palette'),
+              position: 'relative',
+            }}
+          >
+            <Palette size={16} />
+            <span
               style={{
-                width: '18px',
-                height: '18px',
-                boxSizing: 'border-box',
+                position: 'absolute',
+                bottom: '2px',
+                right: '2px',
+                width: '6px',
+                height: '6px',
                 borderRadius: '50%',
-                backgroundColor: c,
-                border: strokeColor === c ? '2px solid #0071e3' : '1px solid #ccc',
-                padding: 0,
-                cursor: 'pointer',
+                backgroundColor: strokeColor,
+                border: '1px solid #ffffff',
+                boxShadow: '0 0 1px rgba(0,0,0,0.5)',
               }}
             />
-          ))}
+          </button>
+
+          <HorizontalFloatingMenu
+            isOpen={openMenu === 'palette'}
+            testId="horizontal-floating-menu-palette"
+          >
+            {TOOLBAR_COLORS.map((c) => (
+              <button
+                key={c}
+                type="button"
+                title={`Cor ${c}`}
+                onClick={() => {
+                  onSelectColor(c);
+                  setOpenMenu(null);
+                }}
+                style={{
+                  width: '18px',
+                  height: '18px',
+                  boxSizing: 'border-box',
+                  borderRadius: '50%',
+                  backgroundColor: c,
+                  border: strokeColor === c ? '2px solid #0071e3' : '1px solid #ccc',
+                  padding: 0,
+                  cursor: 'pointer',
+                }}
+              />
+            ))}
+          </HorizontalFloatingMenu>
         </div>
 
         {showTextControls ? (
