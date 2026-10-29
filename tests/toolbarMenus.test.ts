@@ -209,4 +209,37 @@ describe('Toolbar Horizontal Menus & Palette Dropdown', () => {
     // Se é outra ferramenta e não há flecha selecionada, deve alternar a ferramenta
     expect(shouldSwitchToolOnMenuClick('select', 'arrow', [])).toBe(true);
   });
+
+  it('renders minimalist translucent action buttons with keyboard shortcuts when cropping', () => {
+    const htmlCrop = renderToString(
+      React.createElement(Toolbar, {
+        activeTool: 'crop',
+        onSelectTool: () => {},
+        strokeColor: '#ff3b30',
+        onSelectColor: () => {},
+        strokeWidth: 2,
+        onSelectStrokeWidth: () => {},
+        canUndo: false,
+        canRedo: false,
+        onUndo: () => {},
+        onRedo: () => {},
+        onNewCapture: () => {},
+        onCopy: () => {},
+        onExport: () => {},
+        onInsertImage: () => {},
+        isCropping: true,
+        onConfirmCrop: () => {},
+        onCancelCrop: () => {},
+      })
+    );
+
+    expect(htmlCrop).toContain('Confirmar');
+    expect(htmlCrop).toContain('Cancelar');
+    // Atalhos visuais de teclado
+    expect(htmlCrop).toContain('↵');
+    expect(htmlCrop).toContain('esc');
+    // Cores translúcidas elegantes em vez de cores sólidas saturadas
+    expect(htmlCrop).toContain('rgba(34, 197, 94, 0.12)');
+    expect(htmlCrop).toContain('rgba(239, 68, 68, 0.08)');
+  });
 });

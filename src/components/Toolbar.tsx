@@ -753,9 +753,6 @@ export const Toolbar: React.FC<ToolbarProps> = ({
               display: 'inline-flex',
               alignItems: 'center',
               height: INNER_CONTROL_HEIGHT,
-              backgroundColor: '#e2e8f0',
-              borderRadius: '6px',
-              padding: '2px',
               gap: '4px',
               boxSizing: 'border-box',
             }}
@@ -765,44 +762,72 @@ export const Toolbar: React.FC<ToolbarProps> = ({
               title="Confirmar Recorte (Enter)"
               onClick={onConfirmCrop}
               style={{
-                height: '24px',
+                height: INNER_CONTROL_HEIGHT,
                 padding: '0 8px',
                 fontSize: '11px',
                 fontWeight: 600,
-                border: 'none',
-                borderRadius: '4px',
+                border: '1px solid rgba(34, 197, 94, 0.25)',
+                borderRadius: '6px',
                 cursor: 'pointer',
-                backgroundColor: '#34c759',
-                color: '#ffffff',
+                backgroundColor: 'rgba(34, 197, 94, 0.12)',
+                color: '#15803d',
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: '4px',
+                transition: 'all 0.15s ease',
               }}
             >
-              <Check size={14} />
+              <Check size={14} strokeWidth={2.2} />
               <span>Confirmar</span>
+              <kbd
+                style={{
+                  fontSize: '9px',
+                  opacity: 0.75,
+                  padding: '1px 3px',
+                  borderRadius: '3px',
+                  backgroundColor: 'rgba(34, 197, 94, 0.15)',
+                  marginLeft: '2px',
+                  lineHeight: 1,
+                }}
+              >
+                ↵
+              </kbd>
             </button>
             <button
               type="button"
               title="Cancelar Recorte (Esc)"
               onClick={onCancelCrop}
               style={{
-                height: '24px',
+                height: INNER_CONTROL_HEIGHT,
                 padding: '0 8px',
                 fontSize: '11px',
                 fontWeight: 600,
-                border: 'none',
-                borderRadius: '4px',
+                border: '1px solid rgba(239, 68, 68, 0.2)',
+                borderRadius: '6px',
                 cursor: 'pointer',
-                backgroundColor: '#ef4444',
-                color: '#ffffff',
+                backgroundColor: 'rgba(239, 68, 68, 0.08)',
+                color: '#b91c1c',
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: '4px',
+                transition: 'all 0.15s ease',
               }}
             >
-              <X size={14} />
+              <X size={14} strokeWidth={2.2} />
               <span>Cancelar</span>
+              <kbd
+                style={{
+                  fontSize: '9px',
+                  opacity: 0.75,
+                  padding: '1px 3px',
+                  borderRadius: '3px',
+                  backgroundColor: 'rgba(239, 68, 68, 0.12)',
+                  marginLeft: '2px',
+                  lineHeight: 1,
+                }}
+              >
+                esc
+              </kbd>
             </button>
           </div>
         )}
