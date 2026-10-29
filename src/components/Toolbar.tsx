@@ -32,7 +32,6 @@ import {
   Camera,
   RotateCw,
   Palette,
-  ChevronDown,
   AppWindow,
   Monitor,
 } from 'lucide-react';
@@ -455,36 +454,25 @@ export const Toolbar: React.FC<ToolbarProps> = ({
           <button
             type="button"
             onClick={() => setOpenMenu((prev) => resolveActiveToolbarMenu(prev, 'capture'))}
-            title="Opções de Captura de Tela"
+            title="Nova Captura"
+            aria-label="Nova Captura"
             style={{
               display: 'inline-flex',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: '6px',
+              width: layoutMetrics.captureButtonHeight,
               height: layoutMetrics.captureButtonHeight,
               boxSizing: 'border-box',
               backgroundColor: openMenu === 'capture' ? 'rgba(0, 113, 227, 0.12)' : 'rgba(0, 0, 0, 0.04)',
               color: openMenu === 'capture' ? '#0071e3' : '#1e293b',
               border: openMenu === 'capture' ? '1px solid rgba(0, 113, 227, 0.3)' : '1px solid rgba(0, 0, 0, 0.08)',
               borderRadius: '8px',
-              padding: '0 12px',
-              fontWeight: 600,
-              fontSize: '13px',
-              whiteSpace: 'nowrap',
+              padding: 0,
               cursor: 'pointer',
               transition: 'all 0.15s ease',
             }}
           >
-            <Camera size={16} />
-            <span>Nova Captura</span>
-            <ChevronDown
-              size={14}
-              style={{
-                opacity: 0.6,
-                transform: openMenu === 'capture' ? 'rotate(180deg)' : 'none',
-                transition: 'transform 0.15s ease',
-              }}
-            />
+            <Camera size={18} />
           </button>
 
           {/* Menu Suspenso de Captura projetado para a Direita (desobstrui a galeria lateral) */}

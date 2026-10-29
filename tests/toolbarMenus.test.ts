@@ -276,8 +276,10 @@ describe('Toolbar Horizontal Menus & Palette Dropdown', () => {
     );
     expect(capturedMode).toBe('');
 
-    // Botão de captura com estilo minimalista (translúcido, sem azul saturado sólido de fundo)
-    expect(htmlCapture).toContain('Nova Captura');
+    // Botão de captura compacto minimalista (apenas ícone de câmera com hover title="Nova Captura")
+    expect(htmlCapture).toContain('title="Nova Captura"');
+    expect(htmlCapture).toContain('lucide-camera');
+    expect(htmlCapture).not.toContain('lucide-chevron-down');
     expect(htmlCapture).not.toContain('background-color:#0071e3;color:#fff;border:none');
 
     // Menu suspenso de captura à direita com as 3 opções
