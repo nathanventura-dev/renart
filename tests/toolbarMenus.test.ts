@@ -251,7 +251,29 @@ describe('Toolbar Horizontal Menus & Palette Dropdown', () => {
     activeMenu = resolveActiveToolbarMenu(activeMenu, 'capture');
     expect(activeMenu).toBeNull();
 
-    // 2. Renderiza a Toolbar com o menu de captura aberto (initialOpenMenu: 'capture')
+    // 2. Renderiza a Toolbar em estado fechado padrão (deve mostrar o texto "Nova Captura" com a câmera)
+    const htmlClosed = renderToString(
+      React.createElement(Toolbar, {
+        activeTool: 'select',
+        onSelectTool: () => {},
+        strokeColor: '#ff3b30',
+        onSelectColor: () => {},
+        strokeWidth: 2,
+        onSelectStrokeWidth: () => {},
+        canUndo: false,
+        canRedo: false,
+        onUndo: () => {},
+        onRedo: () => {},
+        onNewCapture: () => {},
+        onCopy: () => {},
+        onExport: () => {},
+        onInsertImage: () => {},
+      })
+    );
+    expect(htmlClosed).toContain('Nova Captura</span>');
+    expect(htmlClosed).toContain('lucide-camera');
+
+    // 3. Renderiza a Toolbar com o menu de captura aberto (initialOpenMenu: 'capture')
     let capturedMode = '';
     const htmlCapture = renderToString(
       React.createElement(Toolbar, {
@@ -276,11 +298,11 @@ describe('Toolbar Horizontal Menus & Palette Dropdown', () => {
     );
     expect(capturedMode).toBe('');
 
-    // Botão de captura compacto minimalista (apenas ícone de câmera com hover title="Nova Captura")
+    // Quando aberto: botão encolhe para apenas o ícone azul, sem o texto "Nova Captura</span>"
+    expect(htmlCapture).not.toContain('Nova Captura</span>');
     expect(htmlCapture).toContain('title="Nova Captura"');
     expect(htmlCapture).toContain('lucide-camera');
-    expect(htmlCapture).not.toContain('lucide-chevron-down');
-    expect(htmlCapture).not.toContain('background-color:#0071e3;color:#fff;border:none');
+    expect(htmlCapture).toContain('rgba(0, 113, 227, 0.12)');
 
     // Menu suspenso de captura à direita com as 3 opções
     expect(htmlCapture).toContain('Área');

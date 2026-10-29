@@ -460,19 +460,24 @@ export const Toolbar: React.FC<ToolbarProps> = ({
               display: 'inline-flex',
               alignItems: 'center',
               justifyContent: 'center',
-              width: layoutMetrics.captureButtonHeight,
+              gap: openMenu === 'capture' ? 0 : '6px',
+              width: openMenu === 'capture' ? layoutMetrics.captureButtonHeight : 'auto',
               height: layoutMetrics.captureButtonHeight,
               boxSizing: 'border-box',
               backgroundColor: openMenu === 'capture' ? 'rgba(0, 113, 227, 0.12)' : 'rgba(0, 0, 0, 0.04)',
               color: openMenu === 'capture' ? '#0071e3' : '#1e293b',
               border: openMenu === 'capture' ? '1px solid rgba(0, 113, 227, 0.3)' : '1px solid rgba(0, 0, 0, 0.08)',
               borderRadius: '8px',
-              padding: 0,
+              padding: openMenu === 'capture' ? 0 : '0 12px',
+              fontWeight: 600,
+              fontSize: '13px',
+              whiteSpace: 'nowrap',
               cursor: 'pointer',
-              transition: 'all 0.15s ease',
+              transition: 'all 0.18s cubic-bezier(0.4, 0, 0.2, 1)',
             }}
           >
-            <Camera size={18} />
+            <Camera size={openMenu === 'capture' ? 18 : 16} />
+            {openMenu !== 'capture' && <span>Nova Captura</span>}
           </button>
 
           {/* Menu Suspenso de Captura projetado para a Direita (desobstrui a galeria lateral) */}
