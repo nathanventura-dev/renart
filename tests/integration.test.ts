@@ -8,6 +8,9 @@ import {
   updateCornerResize,
   updateShapeRotation,
   getFourCornerPositions,
+  snapAngleToStep,
+  snapLinePointsWithShift,
+  snapRectWithShift,
 } from '../src/utils/zoomAndCrop';
 import { getAnnotationSelectionOutline } from '../src/utils/magnifierAndHover';
 
@@ -426,5 +429,79 @@ describe('Integration Flow', () => {
     expect(movedCorners.center).toEqual({ x: 275, y: 190 });
     expect(movedCorners.rotater.x).toBeCloseTo(initialCorners.rotater.x + 100, 0);
     expect(movedCorners.rotater.y).toBeCloseTo(initialCorners.rotater.y + 50, 0);
+  });
+
+  it('supports Shift snapping for straight horizontal/vertical lines, square proportions, 15-degree rotation steps and double-click straighten to 0 deg', () => {
+    const editor = createEditorStore();
+
+    // 1. Desenho de linha reta com Shift:
+    // Começa em (100, 100) e arrasta mouse até (250, 115) (pequeno desvio vertical)
+    const snappedLineEnd = snapLinePointsWithShift(100, 100, 250, 115);
+    // Deve travar perfeitamente na horizontal: dy = 0, y = 100
+    expect(snappedLineEnd).toEqual({ x: 250, y: 100 });
+
+    editor.addAnnotation({
+      id: 'straight-line-1',
+      type: 'line',
+      points: [100, 100, snappedLineEnd.x, snappedLineEnd.y],
+      stroke: '#0071e3',
+      strokeWidth: 3,
+    });
+    const lineAnn = editor.getState().annotations.find((a) => a.id === 'straight-line-1');
+    expect(lineAnn?.type).toBe('line');
+    if (lineAnn?.type === 'line') {
+      expect(lineAnn.points).toEqual([100, 100, 250, 100]);
+    }
+
+    // 2. Ajuste de âncora com Shift para linha vertical:
+    // Âncora oposta em (100, 100), arrasto até (112, 300)
+    const snappedVerticalEnd = snapLinePointsWithShift(100, 100, 112, 300);
+    expect(snappedVerticalEnd).toEqual({ x: 100, y: 300 });
+
+    // 3. Desenho de retângulo com Shift travando proporção 1:1 (quadrado perfeito):
+    // Começa em (50, 50) e arrasta até (180, 220) -> dx = 130, dy = 170 -> max = 170
+    const squareDimensions = snapRectWithShift(50, 50, 180, 220);
+    expect(squareDimensions).toEqual({ width: 170, height: 170 });
+    expect(Math.abs(squareDimensions.width)).toBe(Math.abs(squareDimensions.height));
+
+    editor.addAnnotation({
+      id: 'square-rect-1',
+      type: 'rect',
+      x: 50,
+      y: 50,
+      width: squareDimensions.width,
+      height: squareDimensions.height,
+      stroke: '#ff3b30',
+      strokeWidth: 2,
+      rotation: 0,
+    });
+    const squareAnn = editor.getState().annotations.find((a) => a.id === 'square-rect-1');
+    expect(squareAnn?.type).toBe('rect');
+    if (squareAnn?.type === 'rect') {
+      expect(squareAnn.width).toBe(170);
+      expect(squareAnn.height).toBe(170);
+    }
+
+    // 4. Rotação em degraus de 15° com tecla Shift:
+    // Ângulo levemente desalinhado (ex: 1.4° ou 88.6°) snapa com precisão
+    expect(snapAngleToStep(1.4, 15)).toBe(0);
+    expect(snapAngleToStep(14.8, 15)).toBe(15);
+    expect(snapAngleToStep(44.2, 15)).toBe(45);
+    expect(snapAngleToStep(88.6, 15)).toBe(90);
+
+    // Aplica rotação de 90° ao quadrado
+    editor.updateAnnotation('square-rect-1', { rotation: snapAngleToStep(88.6, 15) });
+    expect(editor.getState().annotations.find((a) => a.id === 'square-rect-1')!.rotation).toBe(90);
+
+    // 5. Duplo-clique no ícone de rotação para resetar para 0° (perfeitamente horizontal):
+    editor.updateAnnotation('square-rect-1', { rotation: 0 });
+    expect(editor.getState().annotations.find((a) => a.id === 'square-rect-1')!.rotation).toBe(0);
+
+    // 6. Suporte completo a Undo / Redo para o reset de rotação:
+    editor.undo();
+    expect(editor.getState().annotations.find((a) => a.id === 'square-rect-1')!.rotation).toBe(90);
+
+    editor.redo();
+    expect(editor.getState().annotations.find((a) => a.id === 'square-rect-1')!.rotation).toBe(0);
   });
 });
