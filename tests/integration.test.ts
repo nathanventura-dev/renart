@@ -15,6 +15,7 @@ import {
   clampRectToBounds,
   getTransformedDragBound,
   getOpenChevronArrowPoints,
+  getCropVisualGuides,
 } from '../src/utils/zoomAndCrop';
 import { getAnnotationSelectionOutline } from '../src/utils/magnifierAndHover';
 
@@ -695,5 +696,36 @@ describe('Integration Flow', () => {
 
     editor.redo(); // Refaz ajuste da cauda
     expect(getThinArrow()!.points).toEqual([20, 30, 250, 100]);
+  });
+
+  it('integrates minimalist crop guides synchronization with crop box manipulation and clamping', () => {
+    // 1. Quadro de recorte inicial
+    const initialCrop = { x: 50, y: 50, width: 400, height: 300 };
+    const guides = getCropVisualGuides(initialCrop, 14, 12);
+
+    expect(guides.corners).toHaveLength(4);
+    expect(guides.edgeBars).toHaveLength(4);
+    expect(guides.gridLines).toHaveLength(4);
+
+    // 2. Simula redimensionamento do recorte (ex: 80, 80, 300, 200)
+    const updatedCrop = { x: 80, y: 80, width: 300, height: 200 };
+    const updatedGuides = getCropVisualGuides(updatedCrop, 14, 12);
+
+    const tl = updatedGuides.corners.find((c) => c.name === 'crop-corner-tl')!;
+    expect(tl.points).toEqual([80, 94, 80, 80, 94, 80]);
+
+    const br = updatedGuides.corners.find((c) => c.name === 'crop-corner-br')!;
+    expect(br.points).toEqual([380 - 14, 280, 380, 280, 380, 280 - 14]);
+
+    // 3. Grid 3x3 sincronizado
+    const v1 = updatedGuides.gridLines.find((g) => g.name === 'crop-grid-v1')!;
+    expect(v1.points).toEqual([180, 80, 180, 280]);
+
+    // 4. Teste com caixa de corte mínima (16x16)
+    const minCrop = { x: 10, y: 10, width: 16, height: 16 };
+    const minGuides = getCropVisualGuides(minCrop, 14, 12);
+    // Cantos não ultrapassam a metade da largura (8px)
+    const minTL = minGuides.corners.find((c) => c.name === 'crop-corner-tl')!;
+    expect(minTL.points).toEqual([10, 18, 10, 10, 18, 10]);
   });
 });

@@ -71,6 +71,7 @@ import {
   snapRectWithShift,
   getTwoPointAnchorDragBound,
   getOpenChevronArrowPoints,
+  getCropVisualGuides,
 } from '../utils/zoomAndCrop';
 
 interface CanvasEditorProps {
@@ -3038,80 +3039,127 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
             )}
 
             {/* Modo de Recorte (Crop): Máscara Escurecida Externa e Quadro Interativo */}
-            {(activeTool === 'crop' || isCropping) && cropRect && (
-              <Group name="crop-overlay-group">
-                {/* 4 Retângulos escurecidos fora do quadro de recorte */}
-                <Rect
-                  x={0}
-                  y={0}
-                  width={canvasWidth}
-                  height={Math.max(0, cropRect.y)}
-                  fill="rgba(0, 0, 0, 0.55)"
-                  listening={false}
-                />
-                <Rect
-                  x={0}
-                  y={cropRect.y + cropRect.height}
-                  width={canvasWidth}
-                  height={Math.max(0, canvasHeight - (cropRect.y + cropRect.height))}
-                  fill="rgba(0, 0, 0, 0.55)"
-                  listening={false}
-                />
-                <Rect
-                  x={0}
-                  y={cropRect.y}
-                  width={Math.max(0, cropRect.x)}
-                  height={cropRect.height}
-                  fill="rgba(0, 0, 0, 0.55)"
-                  listening={false}
-                />
-                <Rect
-                  x={cropRect.x + cropRect.width}
-                  y={cropRect.y}
-                  width={Math.max(0, canvasWidth - (cropRect.x + cropRect.width))}
-                  height={cropRect.height}
-                  fill="rgba(0, 0, 0, 0.55)"
-                  listening={false}
-                />
+            {(activeTool === 'crop' || isCropping) && cropRect && (() => {
+              const guides = getCropVisualGuides(cropRect);
+              return (
+                <Group name="crop-overlay-group">
+                  {/* 4 Retângulos escurecidos fora do quadro de recorte */}
+                  <Rect
+                    x={0}
+                    y={0}
+                    width={canvasWidth}
+                    height={Math.max(0, cropRect.y)}
+                    fill="rgba(0, 0, 0, 0.55)"
+                    listening={false}
+                  />
+                  <Rect
+                    x={0}
+                    y={cropRect.y + cropRect.height}
+                    width={canvasWidth}
+                    height={Math.max(0, canvasHeight - (cropRect.y + cropRect.height))}
+                    fill="rgba(0, 0, 0, 0.55)"
+                    listening={false}
+                  />
+                  <Rect
+                    x={0}
+                    y={cropRect.y}
+                    width={Math.max(0, cropRect.x)}
+                    height={cropRect.height}
+                    fill="rgba(0, 0, 0, 0.55)"
+                    listening={false}
+                  />
+                  <Rect
+                    x={cropRect.x + cropRect.width}
+                    y={cropRect.y}
+                    width={Math.max(0, canvasWidth - (cropRect.x + cropRect.width))}
+                    height={cropRect.height}
+                    fill="rgba(0, 0, 0, 0.55)"
+                    listening={false}
+                  />
 
-                {/* Retângulo de recorte interativo com alças e borda tracejada */}
-                <Rect
-                  id="crop-box-rect"
-                  name="crop-box-rect"
-                  x={cropRect.x}
-                  y={cropRect.y}
-                  width={cropRect.width}
-                  height={cropRect.height}
-                  stroke="#ffffff"
-                  strokeWidth={2}
-                  dash={[6, 4]}
-                  draggable
-                  dragBoundFunc={(pos) =>
-                    getTransformedDragBound(pos, zoomLevel, (localX, localY) => ({
-                      x: Math.max(0, Math.min(localX, canvasWidth - cropRect.width)),
-                      y: Math.max(0, Math.min(localY, canvasHeight - cropRect.height)),
-                    }))
-                  }
-                  onDragMove={(e) => {
-                    const nextX = Math.round(e.target.x());
-                    const nextY = Math.round(e.target.y());
-                    setCropRect((prev) => (prev ? { ...prev, x: nextX, y: nextY } : null));
-                  }}
-                  onDragEnd={(e) => {
-                    const nextX = Math.round(e.target.x());
-                    const nextY = Math.round(e.target.y());
-                    const updated: CropBox = {
-                      x: nextX,
-                      y: nextY,
-                      width: cropRect.width,
-                      height: cropRect.height,
-                    };
-                    setCropRect(updated);
-                    onCropRectChange?.(updated);
-                  }}
-                />
-              </Group>
-            )}
+                  {/* Grade 3x3 de regra dos terços */}
+                  {guides.gridLines.map((line) => (
+                    <Line
+                      key={line.name}
+                      name={line.name}
+                      points={line.points}
+                      stroke="rgba(255, 255, 255, 0.22)"
+                      strokeWidth={1}
+                      listening={false}
+                    />
+                  ))}
+
+                  {/* Retângulo de recorte interativo com moldura nítida única */}
+                  <Rect
+                    id="crop-box-rect"
+                    name="crop-box-rect"
+                    x={cropRect.x}
+                    y={cropRect.y}
+                    width={cropRect.width}
+                    height={cropRect.height}
+                    stroke="rgba(255, 255, 255, 0.9)"
+                    strokeWidth={1.5}
+                    shadowColor="rgba(0, 0, 0, 0.4)"
+                    shadowBlur={3}
+                    draggable
+                    dragBoundFunc={(pos) =>
+                      getTransformedDragBound(pos, zoomLevel, (localX, localY) => ({
+                        x: Math.max(0, Math.min(localX, canvasWidth - cropRect.width)),
+                        y: Math.max(0, Math.min(localY, canvasHeight - cropRect.height)),
+                      }))
+                    }
+                    onDragMove={(e) => {
+                      const nextX = Math.round(e.target.x());
+                      const nextY = Math.round(e.target.y());
+                      setCropRect((prev) => (prev ? { ...prev, x: nextX, y: nextY } : null));
+                    }}
+                    onDragEnd={(e) => {
+                      const nextX = Math.round(e.target.x());
+                      const nextY = Math.round(e.target.y());
+                      const updated: CropBox = {
+                        x: nextX,
+                        y: nextY,
+                        width: cropRect.width,
+                        height: cropRect.height,
+                      };
+                      setCropRect(updated);
+                      onCropRectChange?.(updated);
+                    }}
+                  />
+
+                  {/* 4 Cantos clássicos em 'L' */}
+                  {guides.corners.map((corner) => (
+                    <Line
+                      key={corner.name}
+                      name={corner.name}
+                      points={corner.points}
+                      stroke="#ffffff"
+                      strokeWidth={3}
+                      lineCap="square"
+                      lineJoin="miter"
+                      shadowColor="rgba(0, 0, 0, 0.5)"
+                      shadowBlur={2}
+                      listening={false}
+                    />
+                  ))}
+
+                  {/* 4 Barras centrais nas arestas */}
+                  {guides.edgeBars.map((bar) => (
+                    <Line
+                      key={bar.name}
+                      name={bar.name}
+                      points={bar.points}
+                      stroke="#ffffff"
+                      strokeWidth={3}
+                      lineCap="round"
+                      shadowColor="rgba(0, 0, 0, 0.5)"
+                      shadowBlur={2}
+                      listening={false}
+                    />
+                  ))}
+                </Group>
+              );
+            })()}
 
             {/* Âncoras interativas de ajuste manual da flecha curva selecionada (1: Cauda/Origem, 2: Meio/Curvatura, 3: Ponta/Alvo) */}
             {selectedCurvedArrow &&
@@ -3502,13 +3550,13 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                     ]
                   : ['top-left', 'top-right', 'bottom-left', 'bottom-right']
               }
-              anchorSize={10}
-              anchorCornerRadius={5}
-              anchorFill="#ffffff"
-              anchorStroke="#71717a"
-              anchorStrokeWidth={1.5}
-              borderStroke="#0071e3"
-              borderStrokeWidth={1.5}
+              anchorSize={activeTool === 'crop' || isCropping ? 14 : 10}
+              anchorCornerRadius={activeTool === 'crop' || isCropping ? 0 : 5}
+              anchorFill={activeTool === 'crop' || isCropping ? 'rgba(255, 255, 255, 0.01)' : '#ffffff'}
+              anchorStroke={activeTool === 'crop' || isCropping ? 'rgba(0, 0, 0, 0.01)' : '#71717a'}
+              anchorStrokeWidth={activeTool === 'crop' || isCropping ? 0 : 1.5}
+              borderStroke={activeTool === 'crop' || isCropping ? 'transparent' : '#0071e3'}
+              borderStrokeWidth={activeTool === 'crop' || isCropping ? 0 : 1.5}
               rotateAnchorOffset={28}
               rotateAnchorCursor="grab"
               boundBoxFunc={(oldBox, newBox) => {
