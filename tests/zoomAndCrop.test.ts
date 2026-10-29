@@ -33,6 +33,7 @@ import {
   getFourCornerPositions,
   updateCornerResize,
   updateShapeRotation,
+  getCornerCursor,
 } from '../src/utils/zoomAndCrop';
 import { Annotation } from '../src/state/editorStore';
 
@@ -827,6 +828,28 @@ describe('Pointer and Drag Coordinate Transformations Under Zoom', () => {
       const clampedOutOfBounds = updateCurvedArrowAnchor(initialPoints, 2, 1000, -20, 800, 600);
       expect(clampedOutOfBounds[4]).toBe(800);
       expect(clampedOutOfBounds[5]).toBe(0);
+    });
+
+    it('returns appropriate diagonal double-arrow resize cursors for unrotated shapes (0 degrees)', () => {
+      // TL (index 0) e BR (index 2) -> nwse-resize (↖↘)
+      expect(getCornerCursor(0, 0)).toBe('nwse-resize');
+      expect(getCornerCursor(2, 0)).toBe('nwse-resize');
+
+      // TR (index 1) e BL (index 3) -> nesw-resize (↗↙)
+      expect(getCornerCursor(1, 0)).toBe('nesw-resize');
+      expect(getCornerCursor(3, 0)).toBe('nesw-resize');
+    });
+
+    it('adjusts double-arrow resize cursors smoothly when shape is rotated', () => {
+      // Ao girar 90 graus:
+      // Canto TL (0) passa para posição TR -> nesw-resize
+      expect(getCornerCursor(0, 90)).toBe('nesw-resize');
+      // Canto TR (1) passa para posição BR -> nwse-resize
+      expect(getCornerCursor(1, 90)).toBe('nwse-resize');
+      // Canto BR (2) passa para posição BL -> nesw-resize
+      expect(getCornerCursor(2, 90)).toBe('nesw-resize');
+      // Canto BL (3) passa para posição TL -> nwse-resize
+      expect(getCornerCursor(3, 90)).toBe('nwse-resize');
     });
   });
 });

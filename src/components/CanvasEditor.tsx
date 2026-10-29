@@ -65,6 +65,7 @@ import {
   getFourCornerPositions,
   updateCornerResize,
   updateShapeRotation,
+  getCornerCursor,
 } from '../utils/zoomAndCrop';
 
 interface CanvasEditorProps {
@@ -280,7 +281,9 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
   const [isDraggingTwoPointBody, setIsDraggingTwoPointBody] = useState(false);
   const [liveFourCornerUpdate, setLiveFourCornerUpdate] = useState<Partial<Annotation> | null>(null);
   const [draggingCorner, setDraggingCorner] = useState<0 | 1 | 2 | 3 | null>(null);
+  const [hoveredCorner, setHoveredCorner] = useState<0 | 1 | 2 | 3 | null>(null);
   const [isRotating, setIsRotating] = useState(false);
+  const [isHoveringRotater, setIsHoveringRotater] = useState(false);
   const [liveRotation, setLiveRotation] = useState<number | null>(null);
 
   const transformerRef = useRef<Konva.Transformer>(null);
@@ -409,6 +412,8 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
     setDraggingTwoPointAnchor(null);
     setHoveredTwoPointAnchor(null);
     setIsDraggingTwoPointBody(false);
+    setHoveredCorner(null);
+    setIsHoveringRotater(false);
   }, [activeTool, imageBase64, annotations.length]);
 
   const isDraggingCrown = Boolean(crownDrag);
@@ -517,32 +522,42 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
     }
   }, [effectiveSelectedIds, annotations, isLocked, stageRef, activeTool, isCropping, cropRect]);
 
+  const currentRotation =
+    effectiveSelectedIds.length === 1
+      ? annotations.find((a) => a.id === effectiveSelectedIds[0])?.rotation ?? 0
+      : 0;
+  const activeRotation = liveRotation !== null ? liveRotation : currentRotation;
+
   // Resolve o estilo do cursor dinamicamente conforme hover em blocos, alça de foco ou coroa da lupa
   const pointerBehavior = resolveCanvasPointerBehavior(activeTool, isHoveringBlock, isLocked);
   const currentCursor =
     isRotating
       ? 'grabbing'
-      : draggingCorner !== null
-        ? ['nwse-resize', 'nesw-resize', 'nwse-resize', 'nesw-resize'][draggingCorner]
-        : draggingTwoPointAnchor || hoveredTwoPointAnchor !== null
-          ? 'crosshair'
-          : draggingAnchor
-            ? draggingAnchor.index === 1
-              ? 'grabbing'
-              : 'crosshair'
-            : hoveredAnchor !== null
-              ? hoveredAnchor === 1
-                ? 'grab'
-                : 'crosshair'
-              : crownDrag || isHoveringCrown
-                ? 'ew-resize'
-                : focusDrag
+      : isHoveringRotater
+        ? 'grab'
+        : draggingCorner !== null
+          ? getCornerCursor(draggingCorner, activeRotation)
+          : hoveredCorner !== null
+            ? getCornerCursor(hoveredCorner, activeRotation)
+            : draggingTwoPointAnchor || hoveredTwoPointAnchor !== null
+              ? 'crosshair'
+              : draggingAnchor
+                ? draggingAnchor.index === 1
                   ? 'grabbing'
-                  : isHoveringFocus
+                  : 'crosshair'
+                : hoveredAnchor !== null
+                  ? hoveredAnchor === 1
                     ? 'grab'
-                    : isHoveringBlock && !isLocked
-                      ? 'move'
-                      : pointerBehavior.cursor;
+                    : 'crosshair'
+                  : crownDrag || isHoveringCrown
+                    ? 'ew-resize'
+                    : focusDrag
+                      ? 'grabbing'
+                      : isHoveringFocus
+                        ? 'grab'
+                        : isHoveringBlock && !isLocked
+                          ? 'move'
+                          : pointerBehavior.cursor;
 
   // Garante que o cursor do contêiner interno do Konva esteja sempre sincronizado com o cursor atual
   useEffect(() => {
@@ -559,7 +574,7 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
     if (!isLocked) {
       setIsHoveringBlock(true);
       const stage = stageRef.current;
-      if (stage) {
+      if (stage && hoveredCorner === null && !isHoveringRotater) {
         stage.container().style.cursor = 'move';
       }
     }
@@ -576,7 +591,7 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
   // Clique em um bloco: suporta Shift+Clique para adicionar/remover da multiseleção e apresenta cursor 'move'
   const handleBlockClick = (id: string, e: Konva.KonvaEventObject<MouseEvent>) => {
     const stage = stageRef.current;
-    if (stage && !isLocked) {
+    if (stage && !isLocked && hoveredCorner === null && !isHoveringRotater) {
       stage.container().style.cursor = 'move';
     }
     if (e.evt.shiftKey && onToggleSelectId) {
@@ -3095,13 +3110,18 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                       x={rotaterPos.x}
                       y={rotaterPos.y}
                       draggable={false}
-                      onMouseEnter={() => {
+                      onMouseEnter={(e) => {
+                        e.cancelBubble = true;
+                        setIsHoveringRotater(true);
                         const stage = stageRef.current;
                         if (stage) stage.container().style.cursor = 'grab';
                       }}
                       onMouseLeave={() => {
+                        setIsHoveringRotater(false);
                         const stage = stageRef.current;
-                        if (stage && !isRotating) stage.container().style.cursor = 'default';
+                        if (stage && !isRotating) {
+                          stage.container().style.cursor = isHoveringBlock && !isLocked ? 'move' : 'default';
+                        }
                       }}
                       onMouseDown={(e) => {
                         e.cancelBubble = true;
@@ -3153,8 +3173,10 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
 
                     {/* 4 Âncoras Circulares nos Cantos (TL, TR, BR, BL) */}
                     {corners.map((pos, idx) => {
-                      const cursors = ['nwse-resize', 'nesw-resize', 'nwse-resize', 'nesw-resize'];
-                      const cursorStyle = cursors[idx];
+                      const cursorStyle = getCornerCursor(
+                        idx as 0 | 1 | 2 | 3,
+                        effectiveFourCornerAnn?.rotation ?? 0
+                      );
                       return (
                         <Circle
                           key={`corner-anchor-${idx}`}
@@ -3169,13 +3191,18 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                           shadowColor="rgba(0, 0, 0, 0.25)"
                           shadowBlur={3}
                           draggable={false}
-                          onMouseEnter={() => {
+                          onMouseEnter={(e) => {
+                            e.cancelBubble = true;
+                            setHoveredCorner(idx as 0 | 1 | 2 | 3);
                             const stage = stageRef.current;
                             if (stage) stage.container().style.cursor = cursorStyle;
                           }}
                           onMouseLeave={() => {
+                            setHoveredCorner(null);
                             const stage = stageRef.current;
-                            if (stage && draggingCorner === null) stage.container().style.cursor = 'default';
+                            if (stage && draggingCorner === null) {
+                              stage.container().style.cursor = isHoveringBlock && !isLocked ? 'move' : 'default';
+                            }
                           }}
                           onMouseDown={(e) => {
                             e.cancelBubble = true;

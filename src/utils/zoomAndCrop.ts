@@ -1128,3 +1128,39 @@ export function updateCurvedArrowAnchor(
 
   return result;
 }
+
+/**
+ * Retorna o cursor de redimensionamento bidirecional (duas setas de cada lado) apropriado
+ * para um dos 4 cantos (0: TL, 1: TR, 2: BR, 3: BL), levando em consideração
+ * a rotação atual da forma (0 a 360 graus).
+ */
+export function getCornerCursor(cornerIndex: 0 | 1 | 2 | 3, rotation: number = 0): string {
+  // Ângulos base de cada canto relativo ao centro da forma
+  const baseAngles = [315, 45, 135, 225];
+  const angle = (baseAngles[cornerIndex] + rotation) % 360;
+  const normalized = (angle < 0 ? angle + 360 : angle) % 360;
+
+  // 8 setores de 45 graus cada (com offset de 22.5 graus)
+  if (normalized >= 22.5 && normalized < 67.5) {
+    return 'nesw-resize';
+  }
+  if (normalized >= 67.5 && normalized < 112.5) {
+    return 'ew-resize';
+  }
+  if (normalized >= 112.5 && normalized < 157.5) {
+    return 'nwse-resize';
+  }
+  if (normalized >= 157.5 && normalized < 202.5) {
+    return 'ns-resize';
+  }
+  if (normalized >= 202.5 && normalized < 247.5) {
+    return 'nesw-resize';
+  }
+  if (normalized >= 247.5 && normalized < 292.5) {
+    return 'ew-resize';
+  }
+  if (normalized >= 292.5 && normalized < 337.5) {
+    return 'nwse-resize';
+  }
+  return 'ns-resize';
+}
