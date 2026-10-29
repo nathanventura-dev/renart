@@ -66,6 +66,9 @@ import {
   updateCornerResize,
   updateShapeRotation,
   getCornerCursor,
+  snapAngleToStep,
+  snapLinePointsWithShift,
+  snapRectWithShift,
 } from '../utils/zoomAndCrop';
 
 interface CanvasEditorProps {
@@ -1534,18 +1537,27 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
     const imgH = bgImage ? bgImage.height : 600;
     const clampedDrawingX = Math.max(0, Math.min(pos.x, imgW));
     const clampedDrawingY = Math.max(0, Math.min(pos.y, imgH));
+    const isShift = e.evt?.shiftKey ?? false;
 
     if (newAnnotation.type === 'rect') {
-      const width = clampedDrawingX - newAnnotation.x;
-      const height = clampedDrawingY - newAnnotation.y;
-      setNewAnnotation({ ...newAnnotation, width, height });
+      if (isShift) {
+        const sq = snapRectWithShift(newAnnotation.x, newAnnotation.y, clampedDrawingX, clampedDrawingY);
+        setNewAnnotation({ ...newAnnotation, width: sq.width, height: sq.height });
+      } else {
+        const width = clampedDrawingX - newAnnotation.x;
+        const height = clampedDrawingY - newAnnotation.y;
+        setNewAnnotation({ ...newAnnotation, width, height });
+      }
     } else if (newAnnotation.type === 'ellipse') {
       const radiusX = Math.abs(clampedDrawingX - newAnnotation.x);
       const radiusY = Math.abs(clampedDrawingY - newAnnotation.y);
       setNewAnnotation({ ...newAnnotation, radiusX, radiusY });
     } else if (newAnnotation.type === 'line') {
       const p1 = newAnnotation.points;
-      setNewAnnotation({ ...newAnnotation, points: [p1[0], p1[1], clampedDrawingX, clampedDrawingY] });
+      const targetPt = isShift
+        ? snapLinePointsWithShift(p1[0], p1[1], clampedDrawingX, clampedDrawingY)
+        : { x: clampedDrawingX, y: clampedDrawingY };
+      setNewAnnotation({ ...newAnnotation, points: [p1[0], p1[1], targetPt.x, targetPt.y] });
     } else if (newAnnotation.type === 'arrow') {
       const p1 = newAnnotation.points;
       const startX = p1[0];
@@ -1560,7 +1572,10 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
         );
         setNewAnnotation({ ...newAnnotation, points: curvedPoints });
       } else {
-        setNewAnnotation({ ...newAnnotation, points: [startX, startY, clampedDrawingX, clampedDrawingY] });
+        const targetPt = isShift
+          ? snapLinePointsWithShift(startX, startY, clampedDrawingX, clampedDrawingY)
+          : { x: clampedDrawingX, y: clampedDrawingY };
+        setNewAnnotation({ ...newAnnotation, points: [startX, startY, targetPt.x, targetPt.y] });
       }
     } else if (newAnnotation.type === 'magnifier') {
       const clampedLens = clampMagnifierToImageBounds(pos.x, pos.y, newAnnotation.radius, imgW, imgH);
@@ -1764,23 +1779,25 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
   useEffect(() => {
     if (!isRotating || !selectedFourCornerAnnotation) return;
 
-    const handleWindowMouseMove = () => {
+    const handleWindowMouseMove = (e: MouseEvent) => {
       const stage = stageRef.current;
       if (!stage) return;
       const rawPos = stage.getPointerPosition();
       if (!rawPos) return;
       const localPos = getTransformedPointerPosition(rawPos, zoomLevel);
-      const newRot = updateShapeRotation(selectedFourCornerAnnotation, localPos);
+      const rawRot = updateShapeRotation(selectedFourCornerAnnotation, localPos);
+      const newRot = e.shiftKey ? snapAngleToStep(rawRot, 15) : rawRot;
       setLiveRotation(newRot);
     };
 
-    const handleWindowMouseUp = () => {
+    const handleWindowMouseUp = (e: MouseEvent) => {
       const stage = stageRef.current;
       if (stage) {
         const rawPos = stage.getPointerPosition();
         if (rawPos) {
           const localPos = getTransformedPointerPosition(rawPos, zoomLevel);
-          const finalRot = updateShapeRotation(selectedFourCornerAnnotation, localPos);
+          const rawRot = updateShapeRotation(selectedFourCornerAnnotation, localPos);
+          const finalRot = e.shiftKey ? snapAngleToStep(rawRot, 15) : rawRot;
           if (finalRot !== (selectedFourCornerAnnotation.rotation ?? 0)) {
             onUpdateAnnotationRef.current(selectedFourCornerAnnotation.id, { rotation: finalRot });
           }
@@ -3049,11 +3066,21 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                         }}
                         onDragMove={(e) => {
                           e.cancelBubble = true;
+                          const isShift = (e.evt as MouseEvent)?.shiftKey ?? false;
+                          let targetX = e.target.x();
+                          let targetY = e.target.y();
+                          if (isShift) {
+                            const fixedX = index === 0 ? effectiveTwoPointPoints[2] : effectiveTwoPointPoints[0];
+                            const fixedY = index === 0 ? effectiveTwoPointPoints[3] : effectiveTwoPointPoints[1];
+                            const snapped = snapLinePointsWithShift(fixedX, fixedY, targetX, targetY);
+                            targetX = snapped.x;
+                            targetY = snapped.y;
+                          }
                           const nextPoints = updateTwoPointAnchor(
                             effectiveTwoPointPoints,
                             index,
-                            e.target.x(),
-                            e.target.y(),
+                            targetX,
+                            targetY,
                             canvasWidth,
                             canvasHeight
                           );
@@ -3061,11 +3088,21 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                         }}
                         onDragEnd={(e) => {
                           e.cancelBubble = true;
+                          const isShift = (e.evt as MouseEvent)?.shiftKey ?? false;
+                          let targetX = e.target.x();
+                          let targetY = e.target.y();
+                          if (isShift) {
+                            const fixedX = index === 0 ? effectiveTwoPointPoints[2] : effectiveTwoPointPoints[0];
+                            const fixedY = index === 0 ? effectiveTwoPointPoints[3] : effectiveTwoPointPoints[1];
+                            const snapped = snapLinePointsWithShift(fixedX, fixedY, targetX, targetY);
+                            targetX = snapped.x;
+                            targetY = snapped.y;
+                          }
                           const finalPoints = updateTwoPointAnchor(
                             liveTwoPointPoints || effectiveTwoPointPoints,
                             index,
-                            e.target.x(),
-                            e.target.y(),
+                            targetX,
+                            targetY,
                             canvasWidth,
                             canvasHeight
                           );
@@ -3128,6 +3165,12 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                         setIsRotating(true);
                         const stage = stageRef.current;
                         if (stage) stage.container().style.cursor = 'grabbing';
+                      }}
+                      onDblClick={(e) => {
+                        e.cancelBubble = true;
+                        setIsRotating(false);
+                        setLiveRotation(null);
+                        onUpdateAnnotation(selectedFourCornerAnnotation.id, { rotation: 0 });
                       }}
                     >
                       {/* Área de toque expandida invisível */}
