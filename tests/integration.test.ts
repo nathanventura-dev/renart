@@ -2,7 +2,7 @@
 import { describe, it, expect } from 'vitest';
 import { createGalleryStore } from '../src/state/galleryStore';
 import { createEditorStore } from '../src/state/editorStore';
-import { updateCurvedArrowAnchor } from '../src/utils/zoomAndCrop';
+import { updateCurvedArrowAnchor, updateTwoPointAnchor } from '../src/utils/zoomAndCrop';
 
 describe('Integration Flow', () => {
   it('coordinates gallery selection with canvas editor state', () => {
@@ -169,5 +169,71 @@ describe('Integration Flow', () => {
     // 7. Redo reaplica
     editor.redo();
     expect(getCurvedPoints()[0]).toBe(80);
+  });
+
+  it('supports updating 2-point anchors of lines and straight arrows with undo and redo history', () => {
+    const editor = createEditorStore();
+
+    // 1. Linha reta com 4 coordenadas [x1, y1, x2, y2]
+    editor.addAnnotation({
+      id: 'line-test',
+      type: 'line',
+      points: [50, 50, 200, 50],
+      stroke: '#ff3b30',
+      strokeWidth: 4,
+    });
+    editor.setSelectedIds(['line-test']);
+
+    const getLinePoints = () => {
+      const ann = editor.getState().annotations.find((a) => a.id === 'line-test');
+      return ann?.type === 'line' ? ann.points : [];
+    };
+
+    // Ajusta a cauda da linha (âncora 0)
+    const lineTailUpdated = updateTwoPointAnchor(getLinePoints(), 0, 70, 90, 800, 600);
+    editor.updateAnnotation('line-test', { points: lineTailUpdated });
+    expect(getLinePoints()).toEqual([70, 90, 200, 50]);
+
+    // Ajusta a ponta da linha (âncora 1)
+    const lineTipUpdated = updateTwoPointAnchor(getLinePoints(), 1, 260, 150, 800, 600);
+    editor.updateAnnotation('line-test', { points: lineTipUpdated });
+    expect(getLinePoints()).toEqual([70, 90, 260, 150]);
+
+    // Undo desfaz ponta
+    editor.undo();
+    expect(getLinePoints()).toEqual([70, 90, 200, 50]);
+
+    // Undo desfaz cauda
+    editor.undo();
+    expect(getLinePoints()).toEqual([50, 50, 200, 50]);
+
+    // Redo reaplica cauda
+    editor.redo();
+    expect(getLinePoints()).toEqual([70, 90, 200, 50]);
+
+    // 2. Seta reta (standard) com 2 pontos
+    editor.addAnnotation({
+      id: 'arrow-straight-test',
+      type: 'arrow',
+      points: [100, 100, 250, 100],
+      stroke: '#0071e3',
+      strokeWidth: 4,
+      arrowStyle: 'standard',
+    });
+    editor.setSelectedIds(['arrow-straight-test']);
+
+    const getArrowPoints = () => {
+      const ann = editor.getState().annotations.find((a) => a.id === 'arrow-straight-test');
+      return ann?.type === 'arrow' ? ann.points : [];
+    };
+
+    // Ajusta a ponta da seta (mira do alvo)
+    const arrowTipUpdated = updateTwoPointAnchor(getArrowPoints(), 1, 300, 140, 800, 600);
+    editor.updateAnnotation('arrow-straight-test', { points: arrowTipUpdated });
+    expect(getArrowPoints()).toEqual([100, 100, 300, 140]);
+
+    // Undo desfaz ponta
+    editor.undo();
+    expect(getArrowPoints()).toEqual([100, 100, 250, 100]);
   });
 });

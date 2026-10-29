@@ -50,6 +50,8 @@ import {
   clampArrowResizeBox,
   updateCurvedArrowAnchor,
   getCurvedArrowAnchorPositions,
+  updateTwoPointAnchor,
+  getTwoPointAnchorPositions,
 } from '../utils/zoomAndCrop';
 
 interface CanvasEditorProps {
@@ -259,6 +261,10 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
   const [draggingAnchor, setDraggingAnchor] = useState<{ id: string; index: 0 | 1 | 2 } | null>(null);
   const [hoveredAnchor, setHoveredAnchor] = useState<0 | 1 | 2 | null>(null);
   const [isDraggingArrowBody, setIsDraggingArrowBody] = useState(false);
+  const [liveTwoPointPoints, setLiveTwoPointPoints] = useState<number[] | null>(null);
+  const [draggingTwoPointAnchor, setDraggingTwoPointAnchor] = useState<{ id: string; index: 0 | 1 } | null>(null);
+  const [hoveredTwoPointAnchor, setHoveredTwoPointAnchor] = useState<0 | 1 | null>(null);
+  const [isDraggingTwoPointBody, setIsDraggingTwoPointBody] = useState(false);
 
   const transformerRef = useRef<Konva.Transformer>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -382,6 +388,10 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
     setDraggingAnchor(null);
     setHoveredAnchor(null);
     setIsDraggingArrowBody(false);
+    setLiveTwoPointPoints(null);
+    setDraggingTwoPointAnchor(null);
+    setHoveredTwoPointAnchor(null);
+    setIsDraggingTwoPointBody(false);
   }, [activeTool, imageBase64, annotations.length]);
 
   const isDraggingCrown = Boolean(crownDrag);
@@ -493,21 +503,23 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
   // Resolve o estilo do cursor dinamicamente conforme hover em blocos, alça de foco ou coroa da lupa
   const pointerBehavior = resolveCanvasPointerBehavior(activeTool, isHoveringBlock, isLocked);
   const currentCursor =
-    draggingAnchor
-      ? draggingAnchor.index === 1
-        ? 'grabbing'
-        : 'crosshair'
-      : hoveredAnchor !== null
-        ? hoveredAnchor === 1
-          ? 'grab'
+    draggingTwoPointAnchor || hoveredTwoPointAnchor !== null
+      ? 'crosshair'
+      : draggingAnchor
+        ? draggingAnchor.index === 1
+          ? 'grabbing'
           : 'crosshair'
-        : crownDrag || isHoveringCrown
-          ? 'ew-resize'
-          : focusDrag
-            ? 'grabbing'
-            : isHoveringFocus
-              ? 'grab'
-              : pointerBehavior.cursor;
+        : hoveredAnchor !== null
+          ? hoveredAnchor === 1
+            ? 'grab'
+            : 'crosshair'
+          : crownDrag || isHoveringCrown
+            ? 'ew-resize'
+            : focusDrag
+              ? 'grabbing'
+              : isHoveringFocus
+                ? 'grab'
+                : pointerBehavior.cursor;
 
   const handleBlockMouseEnter = () => {
     if (!isLocked) {
@@ -541,6 +553,8 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
     const ann = annotations.find((a) => a.id === id);
     if (ann?.type === 'arrow' && ann.arrowStyle === 'curved') {
       setIsDraggingArrowBody(true);
+    } else if (ann?.type === 'line' || (ann?.type === 'arrow' && ann.arrowStyle !== 'curved')) {
+      setIsDraggingTwoPointBody(true);
     }
 
     if (activeIds.length > 1 && stageRef.current) {
@@ -649,6 +663,7 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
   const handleBlockDragEnd = (id: string, e: Konva.KonvaEventObject<DragEvent>) => {
     setLiveLensDrag(null);
     setIsDraggingArrowBody(false);
+    setIsDraggingTwoPointBody(false);
     const imgW = bgImage ? bgImage.width : 800;
     const imgH = bgImage ? bgImage.height : 600;
     const multi = multiDragStartRef.current;
@@ -674,7 +689,7 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
             updatesById[selId] = hasDetached
               ? { x: clamped.x, y: clamped.y }
               : { x: clamped.x, y: clamped.y, focusX: clamped.x, focusY: clamped.y };
-          } else if (ann.type === 'arrow' && ann.arrowStyle === 'curved') {
+          } else if (ann.type === 'arrow' || ann.type === 'line') {
             const clamped = clampAnnotationPositionToBounds(
               ann,
               node.x(),
@@ -735,7 +750,7 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
       return;
     }
 
-    if (draggedAnn?.type === 'arrow' && draggedAnn.arrowStyle === 'curved') {
+    if (draggedAnn?.type === 'arrow' || draggedAnn?.type === 'line') {
       const clamped = clampAnnotationPositionToBounds(
         draggedAnn,
         e.currentTarget.x(),
@@ -1519,6 +1534,29 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
     return rawPoints;
   }, [selectedCurvedArrow, liveAnchorPoints, draggingAnchor]);
 
+  const selectedTwoPointAnnotation = useMemo(() => {
+    if (effectiveSelectedIds.length !== 1) return null;
+    const ann = annotations.find((a) => a.id === effectiveSelectedIds[0]);
+    if (!ann) return null;
+    if (ann.type === 'line') return ann;
+    if (ann.type === 'arrow' && ann.arrowStyle !== 'curved') return ann;
+    return null;
+  }, [effectiveSelectedIds, annotations]);
+
+  const effectiveTwoPointPoints = useMemo(() => {
+    if (!selectedTwoPointAnnotation) return null;
+    const rawPoints =
+      liveTwoPointPoints && draggingTwoPointAnchor?.id === selectedTwoPointAnnotation.id
+        ? liveTwoPointPoints
+        : selectedTwoPointAnnotation.points;
+    const ox = selectedTwoPointAnnotation.x || 0;
+    const oy = selectedTwoPointAnnotation.y || 0;
+    if (ox !== 0 || oy !== 0) {
+      return rawPoints.map((p, idx) => (idx % 2 === 0 ? p + ox : p + oy));
+    }
+    return rawPoints;
+  }, [selectedTwoPointAnnotation, liveTwoPointPoints, draggingTwoPointAnchor]);
+
   return (
     <div
       ref={containerRef}
@@ -1666,13 +1704,18 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
               }
 
               if (ann.type === 'line') {
+                const isLineSelected = selectedTwoPointAnnotation?.id === ann.id;
+                const displayPoints = isLineSelected && liveTwoPointPoints ? liveTwoPointPoints : ann.points;
+                const displayX = isLineSelected && liveTwoPointPoints ? 0 : (ann.x || 0);
+                const displayY = isLineSelected && liveTwoPointPoints ? 0 : (ann.y || 0);
+
                 return (
                   <Line
                     key={ann.id}
                     id={ann.id}
-                    x={ann.x || 0}
-                    y={ann.y || 0}
-                    points={ann.points}
+                    x={displayX}
+                    y={displayY}
+                    points={displayPoints}
                     scaleX={ann.scaleX ?? 1}
                     scaleY={ann.scaleY ?? 1}
                     rotation={ann.rotation ?? 0}
@@ -1681,13 +1724,13 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                     strokeScaleEnabled={strokeScaleEnabled}
                     lineCap="round"
                     hitStrokeWidth={20}
-                    draggable={canDrag}
+                    draggable={canDrag && !draggingTwoPointAnchor}
                     dragBoundFunc={(pos) =>
                       getTransformedDragBound(pos, zoomLevel, (localX, localY) =>
                         clampLinePointsToBounds(
                           localX,
                           localY,
-                          ann.points,
+                          displayPoints,
                           canvasWidth,
                           canvasHeight,
                           ann.scaleX ?? 1,
@@ -1712,9 +1755,21 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                 const isDashed = currentArrowStyle === 'dashed';
                 const isCurved = currentArrowStyle === 'curved';
                 const isCurvedSelected = selectedCurvedArrow?.id === ann.id;
-                const displayPoints = isCurvedSelected && liveAnchorPoints ? liveAnchorPoints : ann.points;
-                const displayX = isCurvedSelected && liveAnchorPoints ? 0 : (ann.x || 0);
-                const displayY = isCurvedSelected && liveAnchorPoints ? 0 : (ann.y || 0);
+                const isStraightSelected = selectedTwoPointAnnotation?.id === ann.id;
+                const displayPoints =
+                  isCurvedSelected && liveAnchorPoints
+                    ? liveAnchorPoints
+                    : isStraightSelected && liveTwoPointPoints
+                      ? liveTwoPointPoints
+                      : ann.points;
+                const displayX =
+                  (isCurvedSelected && liveAnchorPoints) || (isStraightSelected && liveTwoPointPoints)
+                    ? 0
+                    : (ann.x || 0);
+                const displayY =
+                  (isCurvedSelected && liveAnchorPoints) || (isStraightSelected && liveTwoPointPoints)
+                    ? 0
+                    : (ann.y || 0);
 
                 return (
                   <Arrow
@@ -1735,7 +1790,7 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                     fill={ann.stroke}
                     pointerLength={headDims.pointerLength}
                     pointerWidth={headDims.pointerWidth}
-                    draggable={canDrag && !draggingAnchor}
+                    draggable={canDrag && !draggingAnchor && !draggingTwoPointAnchor}
                     dragBoundFunc={(pos) =>
                       getTransformedDragBound(pos, zoomLevel, (localX, localY) =>
                         clampLinePointsToBounds(
@@ -2572,6 +2627,95 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                           }
                           setLiveAnchorPoints(null);
                           setDraggingAnchor(null);
+                        }}
+                      />
+                    ))}
+                  </Group>
+                );
+              })()}
+
+            {/* Âncoras interativas de 2 pontos para linha reta e seta reta (1: Origem/Cauda, 2: Destino/Ponta) */}
+            {selectedTwoPointAnnotation &&
+              effectiveTwoPointPoints &&
+              effectiveTwoPointPoints.length >= 4 &&
+              !isLocked &&
+              !isCropping &&
+              !isDrawing &&
+              !isDraggingTwoPointBody &&
+              effectiveSelectedIds.length === 1 && (() => {
+                const anchors = getTwoPointAnchorPositions(effectiveTwoPointPoints);
+                const anchorList: Array<{ index: 0 | 1; pos: { x: number; y: number }; name: string }> = [
+                  { index: 0, pos: anchors.start, name: 'two-point-anchor-start' },
+                  { index: 1, pos: anchors.end, name: 'two-point-anchor-end' },
+                ];
+
+                return (
+                  <Group name="two-point-anchors-group">
+                    {anchorList.map(({ index, pos, name }) => (
+                      <Circle
+                        key={name}
+                        name={name}
+                        x={pos.x}
+                        y={pos.y}
+                        radius={6}
+                        fill="#ffffff"
+                        stroke="#0071e3"
+                        strokeWidth={2}
+                        shadowColor="rgba(0, 0, 0, 0.25)"
+                        shadowBlur={3}
+                        hitStrokeWidth={16}
+                        draggable={!isLocked}
+                        dragBoundFunc={(absolutePos) =>
+                          getTransformedDragBound(absolutePos, zoomLevel, (localX, localY) => ({
+                            x: Math.max(0, Math.min(localX, canvasWidth)),
+                            y: Math.max(0, Math.min(localY, canvasHeight)),
+                          }))
+                        }
+                        onMouseEnter={() => setHoveredTwoPointAnchor(index)}
+                        onMouseLeave={() => setHoveredTwoPointAnchor((prev) => (prev === index ? null : prev))}
+                        onDragStart={(e) => {
+                          e.cancelBubble = true;
+                          setDraggingTwoPointAnchor({ id: selectedTwoPointAnnotation.id, index });
+                          setLiveTwoPointPoints(effectiveTwoPointPoints);
+                        }}
+                        onDragMove={(e) => {
+                          e.cancelBubble = true;
+                          const nextPoints = updateTwoPointAnchor(
+                            effectiveTwoPointPoints,
+                            index,
+                            e.target.x(),
+                            e.target.y(),
+                            canvasWidth,
+                            canvasHeight
+                          );
+                          setLiveTwoPointPoints(nextPoints);
+                        }}
+                        onDragEnd={(e) => {
+                          e.cancelBubble = true;
+                          const finalPoints = updateTwoPointAnchor(
+                            liveTwoPointPoints || effectiveTwoPointPoints,
+                            index,
+                            e.target.x(),
+                            e.target.y(),
+                            canvasWidth,
+                            canvasHeight
+                          );
+                          const hasChanged = finalPoints.some(
+                            (val, i) => val !== selectedTwoPointAnnotation.points[i]
+                          );
+                          if (
+                            hasChanged ||
+                            (selectedTwoPointAnnotation.x && selectedTwoPointAnnotation.x !== 0) ||
+                            (selectedTwoPointAnnotation.y && selectedTwoPointAnnotation.y !== 0)
+                          ) {
+                            onUpdateAnnotation(selectedTwoPointAnnotation.id, {
+                              x: 0,
+                              y: 0,
+                              points: finalPoints,
+                            });
+                          }
+                          setLiveTwoPointPoints(null);
+                          setDraggingTwoPointAnchor(null);
                         }}
                       />
                     ))}

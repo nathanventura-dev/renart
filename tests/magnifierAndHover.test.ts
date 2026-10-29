@@ -101,14 +101,14 @@ describe('Magnifier Zoom & Rotating Crown (Coroa Giratória)', () => {
     expect(calculateZoomBarProgress(3.0)).toBe(1.0);
   });
 
-  it('allows attaching Transformer to magnifier as well as all other blocks for resizing', () => {
+  it('allows attaching Transformer to 2D shapes while suppressing it for lines and arrows', () => {
     expect(shouldAttachTransformer('magnifier')).toBe(true);
     expect(shouldAttachTransformer('rect')).toBe(true);
     expect(shouldAttachTransformer('ellipse')).toBe(true);
-    expect(shouldAttachTransformer('line')).toBe(true);
-    expect(shouldAttachTransformer('arrow')).toBe(true);
     expect(shouldAttachTransformer('text')).toBe(true);
     expect(shouldAttachTransformer('image')).toBe(true);
+    expect(shouldAttachTransformer('line')).toBe(false);
+    expect(shouldAttachTransformer('arrow')).toBe(false);
   });
 
   it('allows resizing magnifier radius freely while clamping radius and position to image boundaries', () => {
