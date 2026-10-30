@@ -1,4 +1,4 @@
-# Node
+# Node & Build Outputs
 node_modules/
 dist/
 dist-ssr/
@@ -6,8 +6,14 @@ dist-ssr/
 
 # Tauri / Rust
 src-tauri/target/
+*.exe
+*.msi
+*.deb
+*.AppImage
+*.dmg
 
-# Superpowers scratch / brainstorm
+# Assistentes & Plugins Locais
+.agents/
 .superpowers/
 
 # Logs & Environment
@@ -16,6 +22,12 @@ yarn-debug.log*
 yarn-error.log*
 .env
 .env*.local
+
+# IDEs & Editores
+.vscode/
+.idea/
+*.swp
+*.swo
 
 # OS files
 .DS_Store
