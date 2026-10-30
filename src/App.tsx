@@ -558,6 +558,8 @@ export const App: React.FC = () => {
             magnifierMode={editorState.magnifierMode}
             arrowStyle={editorState.arrowStyle}
             arrowCurveDirection={editorState.arrowCurveDirection}
+            redactionEffect={editorState.redactionEffect}
+            redactionMode={editorState.redactionMode}
             zoomLevel={zoomLevel}
             onZoomIn={handleZoomIn}
             onZoomOut={handleZoomOut}
