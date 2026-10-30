@@ -506,6 +506,10 @@ export const App: React.FC = () => {
         arrowStyle={editorState.arrowStyle}
         onSelectArrowStyle={(style) => editorStore.setArrowStyle(style)}
         onToggleCurveDirection={() => editorStore.toggleArrowCurveDirection()}
+        redactionEffect={editorState.redactionEffect}
+        onSelectRedactionEffect={(effect) => editorStore.setRedactionEffect(effect)}
+        redactionMode={editorState.redactionMode}
+        onSelectRedactionMode={(mode) => editorStore.setRedactionMode(mode)}
         selectedAnnotations={selectedAnnotations}
       />
 

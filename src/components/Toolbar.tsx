@@ -7,8 +7,12 @@ import {
   ArrowStyle,
   Annotation,
   MagnifierAnnotation,
+  RedactionAnnotation,
+  RedactionEffect,
+  RedactionMode,
   shouldShowArrowControls,
   shouldShowMagnifierControls,
+  shouldShowRedactionControls,
 } from '../state/editorStore';
 import { formatZoomPercentage } from '../utils/zoomAndCrop';
 import {
@@ -20,6 +24,7 @@ import {
   Type,
   Image as ImageIcon,
   Search,
+  ShieldAlert,
   Crop,
   Check,
   X,
@@ -151,6 +156,30 @@ export function resolveMagnifierToolbarState(
   };
 }
 
+export interface RedactionToolbarState {
+  showRedactionControls: boolean;
+  effectiveRedactionEffect: RedactionEffect;
+  effectiveRedactionMode: RedactionMode;
+}
+
+export function resolveRedactionToolbarState(
+  activeTool: ToolType,
+  selectedAnnotations: Annotation[] = [],
+  globalRedactionEffect: RedactionEffect = 'blackout',
+  globalRedactionMode: RedactionMode = 'rect'
+): RedactionToolbarState {
+  const showRedactionControls = shouldShowRedactionControls(activeTool, selectedAnnotations);
+  const selectedRedaction = selectedAnnotations.find((a) => a.type === 'redaction') as
+    | RedactionAnnotation
+    | undefined;
+
+  return {
+    showRedactionControls,
+    effectiveRedactionEffect: selectedRedaction?.effect || globalRedactionEffect,
+    effectiveRedactionMode: selectedRedaction?.mode || globalRedactionMode,
+  };
+}
+
 interface ToolbarProps {
   activeTool: ToolType;
   onSelectTool: (tool: ToolType) => void;
@@ -184,6 +213,10 @@ interface ToolbarProps {
   arrowStyle?: ArrowStyle;
   onSelectArrowStyle?: (style: ArrowStyle) => void;
   onToggleCurveDirection?: () => void;
+  redactionEffect?: RedactionEffect;
+  onSelectRedactionEffect?: (effect: RedactionEffect) => void;
+  redactionMode?: RedactionMode;
+  onSelectRedactionMode?: (mode: RedactionMode) => void;
   selectedAnnotations?: Annotation[];
   initialOpenMenu?: OpenToolbarMenu;
 }
@@ -199,7 +232,7 @@ export const TOOLBAR_COLORS = [
 ];
 export const COLORS = TOOLBAR_COLORS;
 
-export type OpenToolbarMenu = 'palette' | 'arrow' | 'magnifier' | 'text' | 'capture' | 'export' | null;
+export type OpenToolbarMenu = 'palette' | 'arrow' | 'magnifier' | 'redaction' | 'text' | 'capture' | 'export' | null;
 
 export function resolveActiveToolbarMenu(
   currentMenu: OpenToolbarMenu,
@@ -215,6 +248,7 @@ export function isClickOutsideActiveMenu(
     palette?: Node | null;
     arrow?: Node | null;
     magnifier?: Node | null;
+    redaction?: Node | null;
     text?: Node | null;
     capture?: Node | null;
     export?: Node | null;
@@ -322,6 +356,10 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   arrowStyle = 'standard',
   onSelectArrowStyle,
   onToggleCurveDirection,
+  redactionEffect = 'blackout',
+  onSelectRedactionEffect,
+  redactionMode = 'rect',
+  onSelectRedactionMode,
   selectedAnnotations = [],
   initialOpenMenu = null,
 }) => {
@@ -331,6 +369,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   const arrowContainerRef = useRef<HTMLDivElement>(null);
   const textContainerRef = useRef<HTMLDivElement>(null);
   const magnifierContainerRef = useRef<HTMLDivElement>(null);
+  const redactionContainerRef = useRef<HTMLDivElement>(null);
   const captureContainerRef = useRef<HTMLDivElement>(null);
   const cropContainerRef = useRef<HTMLDivElement>(null);
   const copyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -353,6 +392,12 @@ export const Toolbar: React.FC<ToolbarProps> = ({
     selectedAnnotations,
     magnifierMode
   );
+  const { effectiveRedactionEffect, effectiveRedactionMode } = resolveRedactionToolbarState(
+    activeTool,
+    selectedAnnotations,
+    redactionEffect,
+    redactionMode
+  );
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -365,6 +410,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
             palette: paletteContainerRef.current,
             arrow: arrowContainerRef.current,
             magnifier: magnifierContainerRef.current,
+            redaction: redactionContainerRef.current,
             text: textContainerRef.current,
             capture: captureContainerRef.current,
             export: exportMenuRef.current,
@@ -826,6 +872,109 @@ export const Toolbar: React.FC<ToolbarProps> = ({
           style={{ display: 'none' }}
           onChange={handleImageFileChange}
         />
+
+        {/* Ocultação / Censura (Tarja e Blur) com submenu horizontal flutuante */}
+        <div
+          ref={redactionContainerRef}
+          style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}
+        >
+          <button
+            type="button"
+            title="Ocultar Informações Confidenciais (Tarja / Blur)"
+            onClick={() => {
+              if (shouldSwitchToolOnMenuClick(activeTool, 'redaction', selectedAnnotations)) {
+                onSelectTool('redaction');
+              }
+              setOpenMenu((prev) => resolveActiveToolbarMenu(prev, 'redaction'));
+            }}
+            style={getToolButtonStyle(activeTool === 'redaction' || openMenu === 'redaction')}
+          >
+            <ShieldAlert size={16} />
+          </button>
+          <HorizontalFloatingMenu
+            isOpen={openMenu === 'redaction'}
+            testId="horizontal-floating-menu-redaction"
+          >
+            {/* Seletor de Efeito: Tarja vs Blur */}
+            <button
+              type="button"
+              title="Tarja Sólida: Bloco preto 100% opaco (Irreversível e seguro)"
+              onClick={() => onSelectRedactionEffect?.('blackout')}
+              style={{
+                height: '24px',
+                padding: '0 8px',
+                fontSize: '11px',
+                fontWeight: 600,
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                backgroundColor: effectiveRedactionEffect === 'blackout' ? '#0071e3' : 'transparent',
+                color: effectiveRedactionEffect === 'blackout' ? '#ffffff' : '#334155',
+              }}
+            >
+              Tarja
+            </button>
+            <button
+              type="button"
+              title="Blur: Desfoque destrutivo de alta densidade"
+              onClick={() => onSelectRedactionEffect?.('blur')}
+              style={{
+                height: '24px',
+                padding: '0 8px',
+                fontSize: '11px',
+                fontWeight: 600,
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                backgroundColor: effectiveRedactionEffect === 'blur' ? '#0071e3' : 'transparent',
+                color: effectiveRedactionEffect === 'blur' ? '#ffffff' : '#334155',
+              }}
+            >
+              Blur
+            </button>
+
+            {/* Divisor vertical suave */}
+            <div style={{ width: '1px', height: '16px', backgroundColor: '#e2e8f0', margin: '0 4px' }} />
+
+            {/* Seletor de Modo: Retângulo vs Pincel */}
+            <button
+              type="button"
+              title="Retângulo: Caixa ajustável para cobrir campos e documentos"
+              onClick={() => onSelectRedactionMode?.('rect')}
+              style={{
+                height: '24px',
+                padding: '0 8px',
+                fontSize: '11px',
+                fontWeight: 600,
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                backgroundColor: effectiveRedactionMode === 'rect' ? '#0071e3' : 'transparent',
+                color: effectiveRedactionMode === 'rect' ? '#ffffff' : '#334155',
+              }}
+            >
+              Retângulo
+            </button>
+            <button
+              type="button"
+              title="Pincel: Traçado livre contínuo com a caneta"
+              onClick={() => onSelectRedactionMode?.('brush')}
+              style={{
+                height: '24px',
+                padding: '0 8px',
+                fontSize: '11px',
+                fontWeight: 600,
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                backgroundColor: effectiveRedactionMode === 'brush' ? '#0071e3' : 'transparent',
+                color: effectiveRedactionMode === 'brush' ? '#ffffff' : '#334155',
+              }}
+            >
+              Pincel
+            </button>
+          </HorizontalFloatingMenu>
+        </div>
 
         {/* Lupa com submenu horizontal flutuante */}
         <div

@@ -9,6 +9,7 @@ import {
   TOOLBAR_COLORS,
   isClickOutsideActiveMenu,
   shouldSwitchToolOnMenuClick,
+  resolveRedactionToolbarState,
 } from '../src/components/Toolbar';
 
 describe('Toolbar Horizontal Menus & Palette Dropdown', () => {
@@ -359,5 +360,50 @@ describe('Toolbar Horizontal Menus & Palette Dropdown', () => {
 
     // Não deve exibir o dropdown vertical antigo com min-width 140px
     expect(htmlExport).not.toContain('min-width:140px');
+  });
+
+  it('resolves redaction toolbar state and renders redaction menu controls in Toolbar', () => {
+    // 1. Testa resolveRedactionToolbarState
+    const activeState = resolveRedactionToolbarState('redaction', [], 'blackout', 'rect');
+    expect(activeState.showRedactionControls).toBe(true);
+    expect(activeState.effectiveRedactionEffect).toBe('blackout');
+    expect(activeState.effectiveRedactionMode).toBe('rect');
+
+    const selectedState = resolveRedactionToolbarState(
+      'select',
+      [{ id: 'r1', type: 'redaction', effect: 'blur', mode: 'brush' }],
+      'blackout',
+      'rect'
+    );
+    expect(selectedState.showRedactionControls).toBe(true);
+    expect(selectedState.effectiveRedactionEffect).toBe('blur');
+    expect(selectedState.effectiveRedactionMode).toBe('brush');
+
+    // 2. Renderiza Toolbar com o menu de redaction aberto
+    const html = renderToString(
+      React.createElement(Toolbar, {
+        activeTool: 'redaction',
+        onSelectTool: () => {},
+        strokeColor: '#ff3b30',
+        onSelectColor: () => {},
+        strokeWidth: 2,
+        onSelectStrokeWidth: () => {},
+        canUndo: false,
+        canRedo: false,
+        onUndo: () => {},
+        onRedo: () => {},
+        onNewCapture: () => {},
+        onCopy: () => {},
+        onExport: () => {},
+        onInsertImage: () => {},
+        initialOpenMenu: 'redaction',
+      })
+    );
+
+    // Deve conter o botão de censura/ocultação e opções de Tarja Sólida, Blur, Retângulo e Pincel
+    expect(html).toContain('Tarja');
+    expect(html).toContain('Blur');
+    expect(html).toContain('Retângulo');
+    expect(html).toContain('Pincel');
   });
 });
