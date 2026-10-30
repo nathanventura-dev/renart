@@ -9,7 +9,8 @@ export type ToolType =
   | 'text'
   | 'image'
   | 'magnifier'
-  | 'crop';
+  | 'crop'
+  | 'redaction';
 
 export const STROKE_WIDTHS = [2, 3, 4, 5, 6, 7, 8, 9, 10] as const;
 
@@ -101,6 +102,21 @@ export interface MagnifierAnnotation extends BaseAnnotation {
   focusY?: number; // Coordenada Y do ponto focal (quando desacoplado do centro da lente)
 }
 
+export type RedactionEffect = 'blackout' | 'blur';
+export type RedactionMode = 'rect' | 'brush';
+
+export interface RedactionAnnotation extends BaseAnnotation {
+  type: 'redaction';
+  effect: RedactionEffect;
+  mode: RedactionMode;
+  x?: number;
+  y?: number;
+  width?: number;
+  height?: number;
+  points?: number[];
+  brushSize?: number;
+}
+
 export type Annotation =
   | RectAnnotation
   | EllipseAnnotation
@@ -108,7 +124,8 @@ export type Annotation =
   | ArrowAnnotation
   | TextAnnotation
   | ImageAnnotation
-  | MagnifierAnnotation;
+  | MagnifierAnnotation
+  | RedactionAnnotation;
 
 export type MagnifierMode = 'without-focus' | 'with-focus';
 
@@ -124,6 +141,8 @@ export interface EditorState {
   arrowStyle: ArrowStyle;
   arrowCurveDirection: ArrowCurveDirection;
   magnifierMode: MagnifierMode;
+  redactionEffect: RedactionEffect;
+  redactionMode: RedactionMode;
   isLocked: boolean;
 }
 
@@ -163,6 +182,18 @@ export function shouldShowMagnifierControls(
   return selectedAnnotations.some((ann) => ann.type === 'magnifier');
 }
 
+/**
+ * Determina se a barra superior deve exibir os seletores contextuais de Ocultação/Censura
+ * (quando a ferramenta 'redaction' está ativa ou há blocos 'redaction' selecionados).
+ */
+export function shouldShowRedactionControls(
+  activeTool: ToolType,
+  selectedAnnotations: Annotation[]
+): boolean {
+  if (activeTool === 'redaction') return true;
+  return selectedAnnotations.some((ann) => ann.type === 'redaction');
+}
+
 export interface HistorySnapshot {
   annotations: Annotation[];
   imageBase64?: string;
@@ -196,6 +227,8 @@ export function createEditorStore(
     arrowStyle: 'standard',
     arrowCurveDirection: 'right',
     magnifierMode: 'without-focus',
+    redactionEffect: 'blackout',
+    redactionMode: 'rect',
     isLocked: false,
     ...initialState,
   };
@@ -255,6 +288,9 @@ export function createEditorStore(
     const firstMag = annotations.find((a) => ids.includes(a.id) && a.type === 'magnifier') as
       | MagnifierAnnotation
       | undefined;
+    const firstRedaction = annotations.find((a) => ids.includes(a.id) && a.type === 'redaction') as
+      | RedactionAnnotation
+      | undefined;
     let nextMagMode = state.magnifierMode;
     if (firstMag) {
       const isDetached =
@@ -272,6 +308,8 @@ export function createEditorStore(
       arrowStyle: firstArrow ? firstArrow.arrowStyle || 'standard' : state.arrowStyle,
       arrowCurveDirection: firstArrow ? firstArrow.curveDirection || 'right' : state.arrowCurveDirection,
       magnifierMode: nextMagMode,
+      redactionEffect: firstRedaction ? firstRedaction.effect : state.redactionEffect,
+      redactionMode: firstRedaction ? firstRedaction.mode : state.redactionMode,
     };
   };
 
@@ -645,6 +683,60 @@ export function createEditorStore(
         }
       }
       state = { ...state, magnifierMode: mode };
+      notify();
+    },
+
+    setRedactionEffect: (effect: RedactionEffect) => {
+      if (state.selectedIds.length > 0 && !state.isLocked) {
+        const selectedSet = new Set(state.selectedIds);
+        const hasSelectedRedaction = state.annotations.some(
+          (ann) => selectedSet.has(ann.id) && ann.type === 'redaction'
+        );
+        if (hasSelectedRedaction) {
+          pushUndoSnapshot();
+          state = {
+            ...state,
+            redactionEffect: effect,
+            annotations: state.annotations.map((ann) => {
+              if (!selectedSet.has(ann.id) || ann.type !== 'redaction') return ann;
+              return {
+                ...ann,
+                effect,
+              };
+            }),
+          };
+          notify();
+          return;
+        }
+      }
+      state = { ...state, redactionEffect: effect };
+      notify();
+    },
+
+    setRedactionMode: (mode: RedactionMode) => {
+      if (state.selectedIds.length > 0 && !state.isLocked) {
+        const selectedSet = new Set(state.selectedIds);
+        const hasSelectedRedaction = state.annotations.some(
+          (ann) => selectedSet.has(ann.id) && ann.type === 'redaction'
+        );
+        if (hasSelectedRedaction) {
+          pushUndoSnapshot();
+          state = {
+            ...state,
+            redactionMode: mode,
+            annotations: state.annotations.map((ann) => {
+              if (!selectedSet.has(ann.id) || ann.type !== 'redaction') return ann;
+              return {
+                ...ann,
+                mode,
+              };
+            }),
+          };
+          notify();
+          return;
+        }
+      }
+      state = { ...state, redactionMode: mode };
       notify();
     },
 

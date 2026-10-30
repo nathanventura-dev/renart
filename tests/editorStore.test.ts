@@ -7,6 +7,7 @@ import {
   shouldShowTextControls,
   shouldShowArrowControls,
   shouldShowMagnifierControls,
+  shouldShowRedactionControls,
 } from '../src/state/editorStore';
 
 describe('Editor Store', () => {
@@ -608,5 +609,43 @@ describe('Editor Store', () => {
     expect(shouldShowMagnifierControls('magnifier', [])).toBe(true);
     expect(shouldShowMagnifierControls('select', [])).toBe(false);
     expect(shouldShowMagnifierControls('select', [magRestored!])).toBe(true);
+  });
+
+  it('manages redaction and blur annotations and settings in EditorStore', () => {
+    const store = createEditorStore();
+    expect(store.getState().redactionEffect).toBe('blackout');
+    expect(store.getState().redactionMode).toBe('rect');
+
+    store.setRedactionEffect('blur');
+    store.setRedactionMode('brush');
+    expect(store.getState().redactionEffect).toBe('blur');
+    expect(store.getState().redactionMode).toBe('brush');
+
+    const redactionRect: Annotation = {
+      id: 'redact-1',
+      type: 'redaction',
+      effect: 'blackout',
+      mode: 'rect',
+      x: 10,
+      y: 20,
+      width: 100,
+      height: 30,
+    };
+
+    store.addAnnotation(redactionRect);
+    expect(store.getState().annotations).toHaveLength(1);
+    expect(store.getState().annotations[0].id).toBe('redact-1');
+    expect(store.getState().annotations[0].type).toBe('redaction');
+
+    // Undo / Redo
+    store.undo();
+    expect(store.getState().annotations).toHaveLength(0);
+    store.redo();
+    expect(store.getState().annotations).toHaveLength(1);
+
+    // Helpers
+    expect(shouldShowRedactionControls('redaction', [])).toBe(true);
+    expect(shouldShowRedactionControls('select', [])).toBe(false);
+    expect(shouldShowRedactionControls('select', [redactionRect])).toBe(true);
   });
 });
