@@ -265,6 +265,21 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
   stageRef,
 }) => {
   const [bgImage, setBgImage] = useState<HTMLImageElement | null>(null);
+  const blurredBgCanvas = useMemo(() => {
+    if (!bgImage) return null;
+    try {
+      const canvas = document.createElement('canvas');
+      canvas.width = bgImage.width;
+      canvas.height = bgImage.height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return null;
+      ctx.filter = 'blur(22px)';
+      ctx.drawImage(bgImage, 0, 0);
+      return canvas;
+    } catch {
+      return null;
+    }
+  }, [bgImage]);
   const [isDrawing, setIsDrawing] = useState(false);
   const [newAnnotation, setNewAnnotation] = useState<Annotation | null>(null);
   const [marqueeBox, setMarqueeBox] = useState<MarqueeSelectionState | null>(null);
@@ -791,7 +806,7 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
             updatesById[selId] = hasDetached
               ? { x: clamped.x, y: clamped.y }
               : { x: clamped.x, y: clamped.y, focusX: clamped.x, focusY: clamped.y };
-          } else if (ann.type === 'arrow' || ann.type === 'line') {
+          } else if (ann.type === 'arrow' || ann.type === 'line' || (ann.type === 'redaction' && ann.mode === 'brush')) {
             const clamped = clampAnnotationPositionToBounds(
               ann,
               node.x(),
@@ -808,7 +823,7 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
             const bakedPoints = ann.points.map((p, idx) => (idx % 2 === 0 ? p + dx : p + dy));
             node.position({ x: 0, y: 0 });
             updatesById[selId] = { x: 0, y: 0, points: bakedPoints };
-          } else if (ann.type === 'rect') {
+          } else if (ann.type === 'rect' || (ann.type === 'redaction' && ann.mode === 'rect')) {
             const rawLeft = node.x() - ann.width / 2;
             const rawTop = node.y() - ann.height / 2;
             const clamped = clampRectToBounds(
@@ -908,7 +923,7 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
     }
 
     if (draggedAnn) {
-      if (draggedAnn.type === 'rect') {
+      if (draggedAnn.type === 'rect' || (draggedAnn.type === 'redaction' && draggedAnn.mode === 'rect')) {
         const rawLeft = e.currentTarget.x() - draggedAnn.width / 2;
         const rawTop = e.currentTarget.y() - draggedAnn.height / 2;
         const clamped = clampRectToBounds(
@@ -1468,6 +1483,21 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
         stroke: strokeColor,
         strokeWidth,
       });
+    } else if (activeTool === 'redaction') {
+      if (redactionMode === 'brush') {
+        setNewAnnotation(
+          createRedactionBrush(
+            [clampedStartX, clampedStartY],
+            redactionEffect,
+            strokeWidth ? strokeWidth * 4 : 24,
+            id
+          )
+        );
+      } else {
+        setNewAnnotation(
+          createRedactionRect(clampedStartX, clampedStartY, 1, 1, redactionEffect, id)
+        );
+      }
     } else if (activeTool === 'arrow') {
       const initialStroke = arrowStyle === 'thin' ? 2 : strokeWidth || 4;
       const initialPoints =
@@ -1603,6 +1633,15 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
           : { x: clampedDrawingX, y: clampedDrawingY };
         setNewAnnotation({ ...newAnnotation, points: [startX, startY, targetPt.x, targetPt.y] });
       }
+    } else if (newAnnotation.type === 'redaction') {
+      if (newAnnotation.mode === 'brush') {
+        const prevPoints = newAnnotation.points || [];
+        setNewAnnotation({ ...newAnnotation, points: [...prevPoints, clampedDrawingX, clampedDrawingY] });
+      } else {
+        const width = clampedDrawingX - (newAnnotation.x ?? 0);
+        const height = clampedDrawingY - (newAnnotation.y ?? 0);
+        setNewAnnotation({ ...newAnnotation, width, height });
+      }
     } else if (newAnnotation.type === 'magnifier') {
       const clampedLens = clampMagnifierToImageBounds(pos.x, pos.y, newAnnotation.radius, imgW, imgH);
       setNewAnnotation({
@@ -1628,6 +1667,35 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
 
     const imgW = bgImage ? bgImage.width : 800;
     const imgH = bgImage ? bgImage.height : 600;
+
+    if (newAnnotation.type === 'redaction') {
+      if (newAnnotation.mode === 'rect') {
+        if (Math.abs(newAnnotation.width || 0) > 4 && Math.abs(newAnnotation.height || 0) > 4) {
+          const clamped = clampRedactionRectToBounds(
+            newAnnotation.x || 0,
+            newAnnotation.y || 0,
+            newAnnotation.width || 0,
+            newAnnotation.height || 0,
+            imgW,
+            imgH
+          );
+          onAddAnnotation({
+            ...newAnnotation,
+            x: clamped.x,
+            y: clamped.y,
+            width: clamped.width,
+            height: clamped.height,
+          });
+          applySelectionIds([newAnnotation.id]);
+        }
+      } else if (newAnnotation.mode === 'brush') {
+        if ((newAnnotation.points || []).length >= 4) {
+          onAddAnnotation(newAnnotation);
+          applySelectionIds([newAnnotation.id]);
+        }
+      }
+      return;
+    }
 
     if (newAnnotation.type === 'rect' && Math.abs(newAnnotation.width) > 5 && Math.abs(newAnnotation.height) > 5) {
       const rawX = newAnnotation.width < 0 ? newAnnotation.x + newAnnotation.width : newAnnotation.x;
@@ -1757,7 +1825,7 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
   const selectedFourCornerAnnotation = useMemo(() => {
     if (effectiveSelectedIds.length !== 1) return null;
     const ann = annotations.find((a) => a.id === effectiveSelectedIds[0]);
-    if (ann && (ann.type === 'rect' || ann.type === 'ellipse')) {
+    if (ann && (ann.type === 'rect' || ann.type === 'ellipse' || (ann.type === 'redaction' && ann.mode === 'rect'))) {
       return ann;
     }
     return null;
@@ -1765,7 +1833,7 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
 
   const effectiveFourCornerAnn = useMemo(() => {
     if (!selectedFourCornerAnnotation) return null;
-    if (selectedFourCornerAnnotation.type === 'rect') {
+    if (selectedFourCornerAnnotation.type === 'rect' || (selectedFourCornerAnnotation.type === 'redaction' && selectedFourCornerAnnotation.mode === 'rect')) {
       const base = { ...selectedFourCornerAnnotation };
       if (liveFourCornerUpdate) {
         const update = liveFourCornerUpdate as Partial<RectAnnotation>;
@@ -2334,6 +2402,240 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                 );
               }
 
+              if (ann.type === 'redaction') {
+                if (ann.mode === 'rect') {
+                  const isSelected4C = selectedFourCornerAnnotation?.id === ann.id;
+                  const activeRect =
+                    isSelected4C && effectiveFourCornerAnn && effectiveFourCornerAnn.type === 'redaction' && effectiveFourCornerAnn.mode === 'rect'
+                      ? (effectiveFourCornerAnn as RedactionAnnotation)
+                      : ann;
+                  const w = activeRect.width || 0;
+                  const h = activeRect.height || 0;
+                  const cx = (activeRect.x || 0) + w / 2;
+                  const cy = (activeRect.y || 0) + h / 2;
+
+                  if (ann.effect === 'blackout') {
+                    return (
+                      <Rect
+                        key={ann.id}
+                        id={ann.id}
+                        x={cx}
+                        y={cy}
+                        offsetX={w / 2}
+                        offsetY={h / 2}
+                        width={w}
+                        height={h}
+                        scaleX={1}
+                        scaleY={1}
+                        rotation={activeRect.rotation ?? 0}
+                        fill="#000000"
+                        cornerRadius={2}
+                        draggable={canDrag}
+                        dragBoundFunc={(pos) =>
+                          getTransformedDragBound(pos, zoomLevel, (localX, localY) => {
+                            const rawLeft = localX - w / 2;
+                            const rawTop = localY - h / 2;
+                            const clamped = clampRectToBounds(
+                              rawLeft,
+                              rawTop,
+                              w,
+                              h,
+                              canvasWidth,
+                              canvasHeight,
+                              1,
+                              1,
+                              activeRect.rotation ?? 0
+                            );
+                            return {
+                              x: clamped.x + w / 2,
+                              y: clamped.y + h / 2,
+                            };
+                          })
+                        }
+                        onMouseEnter={handleBlockMouseEnter}
+                        onMouseLeave={handleBlockMouseLeave}
+                        onClick={(e) => handleBlockClick(ann.id, e)}
+                        onDragStart={() => handleBlockDragStart(ann.id)}
+                        onDragMove={(e) => handleBlockDragMove(ann.id, e)}
+                        onDragEnd={(e) => handleBlockDragEnd(ann.id, e)}
+                      />
+                    );
+                  } else {
+                    return (
+                      <Group
+                        key={ann.id}
+                        id={ann.id}
+                        x={cx}
+                        y={cy}
+                        offsetX={w / 2}
+                        offsetY={h / 2}
+                        width={w}
+                        height={h}
+                        rotation={activeRect.rotation ?? 0}
+                        draggable={canDrag}
+                        dragBoundFunc={(pos) =>
+                          getTransformedDragBound(pos, zoomLevel, (localX, localY) => {
+                            const rawLeft = localX - w / 2;
+                            const rawTop = localY - h / 2;
+                            const clamped = clampRectToBounds(
+                              rawLeft,
+                              rawTop,
+                              w,
+                              h,
+                              canvasWidth,
+                              canvasHeight,
+                              1,
+                              1,
+                              activeRect.rotation ?? 0
+                            );
+                            return {
+                              x: clamped.x + w / 2,
+                              y: clamped.y + h / 2,
+                            };
+                          })
+                        }
+                        onMouseEnter={handleBlockMouseEnter}
+                        onMouseLeave={handleBlockMouseLeave}
+                        onClick={(e) => handleBlockClick(ann.id, e)}
+                        onDragStart={() => handleBlockDragStart(ann.id)}
+                        onDragMove={(e) => handleBlockDragMove(ann.id, e)}
+                        onDragEnd={(e) => handleBlockDragEnd(ann.id, e)}
+                      >
+                        <Group
+                          clipFunc={(ctx) => {
+                            ctx.rect(0, 0, w, h);
+                          }}
+                        >
+                          {blurredBgCanvas ? (
+                            <KonvaImage
+                              image={blurredBgCanvas}
+                              x={-(activeRect.x || 0)}
+                              y={-(activeRect.y || 0)}
+                              width={canvasWidth}
+                              height={canvasHeight}
+                              listening={false}
+                            />
+                          ) : (
+                            <Rect width={w} height={h} fill="rgba(128, 128, 128, 0.85)" listening={false} />
+                          )}
+                        </Group>
+                        <Rect
+                          width={w}
+                          height={h}
+                          stroke="rgba(0, 0, 0, 0.15)"
+                          strokeWidth={1}
+                          listening={false}
+                        />
+                      </Group>
+                    );
+                  }
+                } else {
+                  const brushPts = ann.points || [];
+                  const bSize = ann.brushSize || 24;
+                  if (ann.effect === 'blackout') {
+                    return (
+                      <Line
+                        key={ann.id}
+                        id={ann.id}
+                        x={ann.x || 0}
+                        y={ann.y || 0}
+                        points={brushPts}
+                        stroke="#000000"
+                        strokeWidth={bSize}
+                        lineCap="round"
+                        lineJoin="round"
+                        draggable={canDrag}
+                        dragBoundFunc={(pos) =>
+                          getTransformedDragBound(pos, zoomLevel, (localX, localY) =>
+                            clampLinePointsToBounds(
+                              localX,
+                              localY,
+                              brushPts,
+                              canvasWidth,
+                              canvasHeight,
+                              1,
+                              1,
+                              0
+                            )
+                          )
+                        }
+                        onMouseEnter={handleBlockMouseEnter}
+                        onMouseLeave={handleBlockMouseLeave}
+                        onClick={(e) => handleBlockClick(ann.id, e)}
+                        onDragStart={() => handleBlockDragStart(ann.id)}
+                        onDragMove={(e) => handleBlockDragMove(ann.id, e)}
+                        onDragEnd={(e) => handleBlockDragEnd(ann.id, e)}
+                      />
+                    );
+                  } else {
+                    return (
+                      <Group
+                        key={ann.id}
+                        id={ann.id}
+                        x={ann.x || 0}
+                        y={ann.y || 0}
+                        draggable={canDrag}
+                        dragBoundFunc={(pos) =>
+                          getTransformedDragBound(pos, zoomLevel, (localX, localY) =>
+                            clampLinePointsToBounds(
+                              localX,
+                              localY,
+                              brushPts,
+                              canvasWidth,
+                              canvasHeight,
+                              1,
+                              1,
+                              0
+                            )
+                          )
+                        }
+                        onMouseEnter={handleBlockMouseEnter}
+                        onMouseLeave={handleBlockMouseLeave}
+                        onClick={(e) => handleBlockClick(ann.id, e)}
+                        onDragStart={() => handleBlockDragStart(ann.id)}
+                        onDragMove={(e) => handleBlockDragMove(ann.id, e)}
+                        onDragEnd={(e) => handleBlockDragEnd(ann.id, e)}
+                      >
+                        <Group
+                          clipFunc={(ctx) => {
+                            if (brushPts.length < 2) return;
+                            ctx.beginPath();
+                            ctx.moveTo(brushPts[0], brushPts[1]);
+                            for (let i = 2; i < brushPts.length; i += 2) {
+                              ctx.lineTo(brushPts[i], brushPts[i + 1]);
+                            }
+                            ctx.lineWidth = bSize;
+                            ctx.lineCap = 'round';
+                            ctx.lineJoin = 'round';
+                            ctx.stroke();
+                          }}
+                        >
+                          {blurredBgCanvas ? (
+                            <KonvaImage
+                              image={blurredBgCanvas}
+                              x={-(ann.x || 0)}
+                              y={-(ann.y || 0)}
+                              width={canvasWidth}
+                              height={canvasHeight}
+                              listening={false}
+                            />
+                          ) : (
+                            <Line
+                              points={brushPts}
+                              stroke="rgba(128, 128, 128, 0.85)"
+                              strokeWidth={bSize}
+                              lineCap="round"
+                              lineJoin="round"
+                              listening={false}
+                            />
+                          )}
+                        </Group>
+                      </Group>
+                    );
+                  }
+                }
+              }
+
               if (ann.type === 'magnifier') {
                 const activeZoom =
                   crownDrag && crownDrag.id === ann.id ? crownDrag.currentZoom : ann.zoomLevel;
@@ -2889,6 +3191,29 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
             {/* Anotação em processo de criação (arraste) */}
             {newAnnotation && (
               <>
+                {newAnnotation.type === 'redaction' && (
+                  newAnnotation.mode === 'brush' ? (
+                    <Line
+                      points={newAnnotation.points || []}
+                      stroke={newAnnotation.effect === 'blackout' ? '#000000' : 'rgba(100, 116, 139, 0.7)'}
+                      strokeWidth={newAnnotation.brushSize || 24}
+                      lineCap="round"
+                      lineJoin="round"
+                      dash={newAnnotation.effect === 'blur' ? [4, 4] : undefined}
+                    />
+                  ) : (
+                    <Rect
+                      x={newAnnotation.width! < 0 ? newAnnotation.x! + newAnnotation.width! : newAnnotation.x}
+                      y={newAnnotation.height! < 0 ? newAnnotation.y! + newAnnotation.height! : newAnnotation.y}
+                      width={Math.abs(newAnnotation.width!)}
+                      height={Math.abs(newAnnotation.height!)}
+                      fill={newAnnotation.effect === 'blackout' ? '#000000' : 'rgba(100, 116, 139, 0.4)'}
+                      stroke={newAnnotation.effect === 'blur' ? '#0071e3' : undefined}
+                      strokeWidth={1}
+                      dash={newAnnotation.effect === 'blur' ? [4, 4] : undefined}
+                    />
+                  )
+                )}
                 {newAnnotation.type === 'rect' && (
                   <Rect
                     x={newAnnotation.x}

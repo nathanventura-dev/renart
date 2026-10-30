@@ -506,6 +506,63 @@ export function getAnnotationSelectionOutline(ann: Annotation): SelectionOutline
     };
   }
 
+  if (ann.type === 'redaction') {
+    if (ann.mode === 'rect') {
+      const w = ann.width || 0;
+      const h = ann.height || 0;
+      const padding = 3;
+      const outW = w + padding * 2;
+      const outH = h + padding * 2;
+      return {
+        type: 'rect',
+        x: (ann.x || 0) + w / 2,
+        y: (ann.y || 0) + h / 2,
+        width: outW,
+        height: outH,
+        offsetX: outW / 2,
+        offsetY: outH / 2,
+        rotation: rot,
+      };
+    } else {
+      const ox = ann.x || 0;
+      const oy = ann.y || 0;
+      const pts = ann.points || [];
+      let minX = Infinity;
+      let maxX = -Infinity;
+      let minY = Infinity;
+      let maxY = -Infinity;
+      for (let i = 0; i < pts.length; i += 2) {
+        const px = ox + pts[i];
+        const py = oy + pts[i + 1];
+        if (px < minX) minX = px;
+        if (px > maxX) maxX = px;
+        if (py < minY) minY = py;
+        if (py > maxY) maxY = py;
+      }
+      if (minX === Infinity) {
+        minX = ox;
+        maxX = ox + 10;
+        minY = oy;
+        maxY = oy + 10;
+      }
+      const padding = (ann.brushSize || 24) / 2 + 2;
+      const w = maxX - minX;
+      const h = maxY - minY;
+      const outW = w + padding * 2;
+      const outH = h + padding * 2;
+      return {
+        type: 'rect',
+        x: minX + w / 2,
+        y: minY + h / 2,
+        width: outW,
+        height: outH,
+        offsetX: outW / 2,
+        offsetY: outH / 2,
+        rotation: rot,
+      };
+    }
+  }
+
   if (ann.type === 'ellipse') {
     const padding = 4;
     return {
