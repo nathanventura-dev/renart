@@ -13,6 +13,7 @@ import {
   snapRectWithShift,
   getTwoPointAnchorDragBound,
   clampRectToBounds,
+  convertToPerfectCircle,
   getTransformedDragBound,
   getOpenChevronArrowPoints,
   getCropVisualGuides,
@@ -826,5 +827,60 @@ describe('Integration Flow', () => {
 
     // Cancelar não gera nenhuma captura vazia na galeria
     expect(gallery.getState().captures).toHaveLength(2);
+  });
+
+  it('transforms ellipse to a perfect circle via convertToPerfectCircle and integrates with undo/redo history', () => {
+    const editor = createEditorStore();
+    const canvasWidth = 1000;
+    const canvasHeight = 800;
+
+    // 1. Adiciona uma elipse irregular (radiusX: 45, radiusY: 120)
+    editor.addAnnotation({
+      id: 'ellipse-1',
+      type: 'ellipse',
+      x: 300,
+      y: 300,
+      radiusX: 45,
+      radiusY: 120,
+      stroke: '#ff3b30',
+      strokeWidth: 3,
+    });
+
+    const initialAnn = editor.getState().annotations[0];
+    expect(initialAnn.type).toBe('ellipse');
+    if (initialAnn.type === 'ellipse') {
+      expect(initialAnn.radiusX).toBe(45);
+      expect(initialAnn.radiusY).toBe(120);
+    }
+
+    // 2. Simula duplo clique que calcula círculo perfeito e atualiza a anotação
+    if (initialAnn.type === 'ellipse') {
+      const circleUpdate = convertToPerfectCircle(initialAnn, canvasWidth, canvasHeight);
+      editor.updateAnnotation('ellipse-1', circleUpdate);
+    }
+
+    const updatedAnn = editor.getState().annotations[0];
+    if (updatedAnn.type === 'ellipse') {
+      expect(updatedAnn.radiusX).toBe(120);
+      expect(updatedAnn.radiusY).toBe(120);
+      expect(updatedAnn.x).toBe(300);
+      expect(updatedAnn.y).toBe(300);
+    }
+
+    // 3. Testa suporte a Desfazer (Undo)
+    editor.undo();
+    const undoneAnn = editor.getState().annotations[0];
+    if (undoneAnn.type === 'ellipse') {
+      expect(undoneAnn.radiusX).toBe(45);
+      expect(undoneAnn.radiusY).toBe(120);
+    }
+
+    // 4. Testa suporte a Refazer (Redo)
+    editor.redo();
+    const redoneAnn = editor.getState().annotations[0];
+    if (redoneAnn.type === 'ellipse') {
+      expect(redoneAnn.radiusX).toBe(120);
+      expect(redoneAnn.radiusY).toBe(120);
+    }
   });
 });

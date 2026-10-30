@@ -13,6 +13,7 @@ import {
   getTransformedDragBound,
   clampRectToBounds,
   clampEllipseToBounds,
+  convertToPerfectCircle,
   clampLinePointsToBounds,
   clampAnnotationPositionToBounds,
   toLocalBoundingBox,
@@ -378,6 +379,35 @@ describe('Pointer and Drag Coordinate Transformations Under Zoom', () => {
         x: 750,
         y: 560,
       });
+    });
+
+    it('converts an ellipse into a perfect circle adopting the largest radius and clamping to bounds', () => {
+      // 1. Elipse com radiusY > radiusX no centro do canvas
+      const tallEllipse = {
+        x: 200,
+        y: 200,
+        radiusX: 40,
+        radiusY: 90,
+      };
+      const circle1 = convertToPerfectCircle(tallEllipse, canvasWidth, canvasHeight);
+      expect(circle1.radiusX).toBe(90);
+      expect(circle1.radiusY).toBe(90);
+      expect(circle1.x).toBe(200);
+      expect(circle1.y).toBe(200);
+
+      // 2. Elipse com radiusX > radiusY perto da borda direita: ao expandir radiusY para 100, deve reclampar x
+      const wideNearEdge = {
+        x: 750,
+        y: 200,
+        radiusX: 100,
+        radiusY: 40,
+      };
+      const circle2 = convertToPerfectCircle(wideNearEdge, canvasWidth, canvasHeight);
+      expect(circle2.radiusX).toBe(100);
+      expect(circle2.radiusY).toBe(100);
+      // canvasWidth é 800, então max x para raio 100 é 800 - 100 = 700
+      expect(circle2.x).toBe(700);
+      expect(circle2.y).toBe(200);
     });
 
     it('clamps line and arrow point offsets so all vertices remain on-canvas', () => {

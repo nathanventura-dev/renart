@@ -51,6 +51,7 @@ import {
   toAbsoluteBoundingBox,
   clampRectToBounds,
   clampEllipseToBounds,
+  convertToPerfectCircle,
   clampLinePointsToBounds,
   clampAnnotationPositionToBounds,
   calculateProportionalResizeBox,
@@ -2072,6 +2073,13 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                     onMouseEnter={handleBlockMouseEnter}
                     onMouseLeave={handleBlockMouseLeave}
                     onClick={(e) => handleBlockClick(ann.id, e)}
+                    onDblClick={(e) => {
+                      e.cancelBubble = true;
+                      if (isLocked || isCropping) return;
+                      applySelectionIds([ann.id]);
+                      const circleUpdate = convertToPerfectCircle(ann, canvasWidth, canvasHeight);
+                      onUpdateAnnotation(ann.id, circleUpdate);
+                    }}
                     onDragStart={() => handleBlockDragStart(ann.id)}
                     onDragMove={(e) => handleBlockDragMove(ann.id, e)}
                     onDragEnd={(e) => handleBlockDragEnd(ann.id, e)}

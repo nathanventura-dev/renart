@@ -608,6 +608,50 @@ export function clampEllipseToBounds(
 }
 
 /**
+ * Converte uma elipse em um círculo perfeito adotando o maior raio (Math.max(radiusX, radiusY)),
+ * e reclampando o centro (x, y) aos limites do canvas para garantir que não ultrapasse a imagem.
+ */
+export function convertToPerfectCircle(
+  ann: {
+    x: number;
+    y: number;
+    radiusX: number;
+    radiusY: number;
+    rotation?: number;
+    scaleX?: number;
+    scaleY?: number;
+  },
+  canvasWidth: number,
+  canvasHeight: number
+): { radiusX: number; radiusY: number; x: number; y: number } {
+  const currentRx = Math.abs(ann.radiusX * (ann.scaleX ?? 1));
+  const currentRy = Math.abs(ann.radiusY * (ann.scaleY ?? 1));
+  const maxRadius = Math.max(currentRx, currentRy);
+
+  // Garante que o raio não exceda metade da largura ou altura do canvas
+  const targetRadius = Math.min(maxRadius, Math.min(canvasWidth / 2, canvasHeight / 2));
+
+  const clamped = clampEllipseToBounds(
+    ann.x,
+    ann.y,
+    targetRadius,
+    targetRadius,
+    canvasWidth,
+    canvasHeight,
+    1,
+    1,
+    ann.rotation ?? 0
+  );
+
+  return {
+    radiusX: targetRadius,
+    radiusY: targetRadius,
+    x: clamped.x,
+    y: clamped.y,
+  };
+}
+
+/**
  * Restringe o deslocamento (x, y) de uma linha ou seta para que todos os seus vértices (points),
  * considerando sua escala (scaleX, scaleY) e rotação (rotation), permaneçam estritamente
  * dentro da área total da imagem.
