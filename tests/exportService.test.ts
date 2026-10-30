@@ -146,4 +146,47 @@ describe('Export Service', () => {
       global.fetch = originalFetch;
     }
   });
+
+  it('guarantees that multi-selection outlines and transformer are hidden during export with redactions', async () => {
+    let outlinesVisible = true;
+    let transformerVisible = true;
+
+    const mockStage = {
+      scaleX: () => 1.0,
+      scaleY: () => 1.0,
+      width: () => 800,
+      height: () => 600,
+      findOne: (selector: string) => {
+        if (selector === 'Transformer') {
+          return {
+            visible: (v?: boolean) => {
+              if (v !== undefined) transformerVisible = v;
+              return transformerVisible;
+            },
+          };
+        }
+        if (selector === '.multi-selection-outlines-group') {
+          return {
+            visible: (v?: boolean) => {
+              if (v !== undefined) outlinesVisible = v;
+              return outlinesVisible;
+            },
+          };
+        }
+        return null;
+      },
+      batchDraw: () => {},
+      toDataURL: () => {
+        // Assegura que ambos estejam ocultados durante a rasterização
+        expect(transformerVisible).toBe(false);
+        expect(outlinesVisible).toBe(false);
+        return 'data:image/png;base64,mockFlatRasterImage';
+      },
+    };
+
+    await exportCanvas(mockStage as any, 'png', 'secure-redaction', 1.0);
+    // Restaurados após a exportação
+    expect(transformerVisible).toBe(true);
+    expect(outlinesVisible).toBe(true);
+  });
 });
