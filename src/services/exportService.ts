@@ -72,6 +72,7 @@ function toggleEditorOverlaysVisibility(stage: Konva.Stage, visible: boolean): A
     stage.findOne('.curved-arrow-anchors-group'),
     stage.findOne('.crop-overlay-group'),
     stage.findOne('.four-corner-anchors-group'),
+    stage.findOne('.four-corner-controls-group'),
     stage.findOne('.multi-selection-outlines-group'),
   ];
 

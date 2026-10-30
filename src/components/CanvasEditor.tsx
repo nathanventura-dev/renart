@@ -20,9 +20,17 @@ import {
   ImageAnnotation,
   RectAnnotation,
   EllipseAnnotation,
+  RedactionAnnotation,
+  RedactionEffect,
+  RedactionMode,
   ArrowStyle,
   ArrowCurveDirection,
 } from '../state/editorStore';
+import {
+  createRedactionBrush,
+  createRedactionRect,
+  clampRedactionRectToBounds,
+} from '../utils/redaction';
 import {
   calculateMagnifierImageTransform,
   calculateZoomFromCrownDrag,
@@ -89,6 +97,8 @@ interface CanvasEditorProps {
   magnifierMode?: 'without-focus' | 'with-focus';
   arrowStyle?: ArrowStyle;
   arrowCurveDirection?: ArrowCurveDirection;
+  redactionEffect?: RedactionEffect;
+  redactionMode?: RedactionMode;
   zoomLevel?: number;
   onZoomIn?: () => void;
   onZoomOut?: () => void;
@@ -250,6 +260,8 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
   magnifierMode = 'without-focus',
   arrowStyle = 'standard',
   arrowCurveDirection = 'right',
+  redactionEffect = 'blackout',
+  redactionMode = 'rect',
   zoomLevel = 1.0,
   onZoomIn,
   onZoomOut,
@@ -820,24 +832,27 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
             const oy = ann.y || 0;
             const dx = clamped.x - ox;
             const dy = clamped.y - oy;
-            const bakedPoints = ann.points.map((p, idx) => (idx % 2 === 0 ? p + dx : p + dy));
+            const annPts = ann.points || [];
+            const bakedPoints = annPts.map((p, idx) => (idx % 2 === 0 ? p + dx : p + dy));
             node.position({ x: 0, y: 0 });
             updatesById[selId] = { x: 0, y: 0, points: bakedPoints };
           } else if (ann.type === 'rect' || (ann.type === 'redaction' && ann.mode === 'rect')) {
-            const rawLeft = node.x() - ann.width / 2;
-            const rawTop = node.y() - ann.height / 2;
+            const annW = (ann as any).width || 0;
+            const annH = (ann as any).height || 0;
+            const rawLeft = node.x() - annW / 2;
+            const rawTop = node.y() - annH / 2;
             const clamped = clampRectToBounds(
               rawLeft,
               rawTop,
-              ann.width,
-              ann.height,
+              annW,
+              annH,
               imgW,
               imgH,
               1,
               1,
               ann.rotation ?? 0
             );
-            node.position({ x: clamped.x + ann.width / 2, y: clamped.y + ann.height / 2 });
+            node.position({ x: clamped.x + annW / 2, y: clamped.y + annH / 2 });
             updatesById[selId] = { x: clamped.x, y: clamped.y };
           } else if (ann.type === 'ellipse') {
             const clamped = clampEllipseToBounds(
@@ -924,20 +939,22 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
 
     if (draggedAnn) {
       if (draggedAnn.type === 'rect' || (draggedAnn.type === 'redaction' && draggedAnn.mode === 'rect')) {
-        const rawLeft = e.currentTarget.x() - draggedAnn.width / 2;
-        const rawTop = e.currentTarget.y() - draggedAnn.height / 2;
+        const dW = (draggedAnn as any).width || 0;
+        const dH = (draggedAnn as any).height || 0;
+        const rawLeft = e.currentTarget.x() - dW / 2;
+        const rawTop = e.currentTarget.y() - dH / 2;
         const clamped = clampRectToBounds(
           rawLeft,
           rawTop,
-          draggedAnn.width,
-          draggedAnn.height,
+          dW,
+          dH,
           imgW,
           imgH,
           1,
           1,
           draggedAnn.rotation ?? 0
         );
-        e.currentTarget.position({ x: clamped.x + draggedAnn.width / 2, y: clamped.y + draggedAnn.height / 2 });
+        e.currentTarget.position({ x: clamped.x + dW / 2, y: clamped.y + dH / 2 });
         onUpdateAnnotation(id, {
           x: clamped.x,
           y: clamped.y,
@@ -1694,6 +1711,7 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
           applySelectionIds([newAnnotation.id]);
         }
       }
+      setNewAnnotation(null);
       return;
     }
 
@@ -1893,30 +1911,32 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
           const rawRot = updateShapeRotation(selectedFourCornerAnnotation, localPos);
           const finalRot = e.shiftKey ? snapAngleToStep(rawRot, 15) : rawRot;
           if (finalRot !== (selectedFourCornerAnnotation.rotation ?? 0)) {
-            const clampedPos =
-              selectedFourCornerAnnotation.type === 'rect'
-                ? clampRectToBounds(
-                    selectedFourCornerAnnotation.x,
-                    selectedFourCornerAnnotation.y,
-                    selectedFourCornerAnnotation.width,
-                    selectedFourCornerAnnotation.height,
-                    canvasWidth,
-                    canvasHeight,
-                    1,
-                    1,
-                    finalRot
-                  )
-                : clampEllipseToBounds(
-                    selectedFourCornerAnnotation.x,
-                    selectedFourCornerAnnotation.y,
-                    selectedFourCornerAnnotation.radiusX,
-                    selectedFourCornerAnnotation.radiusY,
-                    canvasWidth,
-                    canvasHeight,
-                    1,
-                    1,
-                    finalRot
-                  );
+            const isRect4C =
+              selectedFourCornerAnnotation.type === 'rect' ||
+              (selectedFourCornerAnnotation.type === 'redaction' && (selectedFourCornerAnnotation as any).mode === 'rect');
+            const clampedPos = isRect4C
+              ? clampRectToBounds(
+                  selectedFourCornerAnnotation.x || 0,
+                  selectedFourCornerAnnotation.y || 0,
+                  (selectedFourCornerAnnotation as any).width || 0,
+                  (selectedFourCornerAnnotation as any).height || 0,
+                  canvasWidth,
+                  canvasHeight,
+                  1,
+                  1,
+                  finalRot
+                )
+              : clampEllipseToBounds(
+                  (selectedFourCornerAnnotation.x || 0),
+                  (selectedFourCornerAnnotation.y || 0),
+                  (selectedFourCornerAnnotation as EllipseAnnotation).radiusX,
+                  (selectedFourCornerAnnotation as EllipseAnnotation).radiusY,
+                  canvasWidth,
+                  canvasHeight,
+                  1,
+                  1,
+                  finalRot
+                );
             onUpdateAnnotationRef.current(selectedFourCornerAnnotation.id, {
               rotation: finalRot,
               x: clampedPos.x,
@@ -2501,6 +2521,12 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                         onDragMove={(e) => handleBlockDragMove(ann.id, e)}
                         onDragEnd={(e) => handleBlockDragEnd(ann.id, e)}
                       >
+                        {/* Área de toque interativa invisível para captura precisa de eventos no Konva */}
+                        <Rect
+                          width={w}
+                          height={h}
+                          fill="rgba(0, 0, 0, 0.001)"
+                        />
                         <Group
                           clipFunc={(ctx) => {
                             ctx.rect(0, 0, w, h);
@@ -2569,7 +2595,7 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                     );
                   } else {
                     return (
-                      <Group
+                      <Shape
                         key={ann.id}
                         id={ann.id}
                         x={ann.x || 0}
@@ -2595,42 +2621,59 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                         onDragStart={() => handleBlockDragStart(ann.id)}
                         onDragMove={(e) => handleBlockDragMove(ann.id, e)}
                         onDragEnd={(e) => handleBlockDragEnd(ann.id, e)}
-                      >
-                        <Group
-                          clipFunc={(ctx) => {
-                            if (brushPts.length < 2) return;
-                            ctx.beginPath();
-                            ctx.moveTo(brushPts[0], brushPts[1]);
-                            for (let i = 2; i < brushPts.length; i += 2) {
-                              ctx.lineTo(brushPts[i], brushPts[i + 1]);
+                        sceneFunc={(context) => {
+                          if (!brushPts || brushPts.length < 2) return;
+                          const rawCtx = (context as any)._context as CanvasRenderingContext2D;
+                          if (!rawCtx) return;
+
+                          rawCtx.save();
+                          rawCtx.beginPath();
+                          rawCtx.moveTo(brushPts[0], brushPts[1]);
+                          for (let i = 2; i < brushPts.length; i += 2) {
+                            rawCtx.lineTo(brushPts[i], brushPts[i + 1]);
+                          }
+                          rawCtx.lineWidth = bSize;
+                          rawCtx.lineCap = 'round';
+                          rawCtx.lineJoin = 'round';
+
+                          if (blurredBgCanvas) {
+                            try {
+                              const pattern = rawCtx.createPattern(blurredBgCanvas, 'no-repeat');
+                              if (pattern) {
+                                if (typeof DOMMatrix !== 'undefined' && (pattern as any).setTransform) {
+                                  const mat = new DOMMatrix();
+                                  mat.translateSelf(-(ann.x || 0), -(ann.y || 0));
+                                  (pattern as any).setTransform(mat);
+                                }
+                                rawCtx.strokeStyle = pattern;
+                                rawCtx.stroke();
+                              } else {
+                                rawCtx.strokeStyle = 'rgba(128, 128, 128, 0.85)';
+                                rawCtx.stroke();
+                              }
+                            } catch {
+                              rawCtx.strokeStyle = 'rgba(128, 128, 128, 0.85)';
+                              rawCtx.stroke();
                             }
-                            ctx.lineWidth = bSize;
-                            ctx.lineCap = 'round';
-                            ctx.lineJoin = 'round';
-                            ctx.stroke();
-                          }}
-                        >
-                          {blurredBgCanvas ? (
-                            <KonvaImage
-                              image={blurredBgCanvas}
-                              x={-(ann.x || 0)}
-                              y={-(ann.y || 0)}
-                              width={canvasWidth}
-                              height={canvasHeight}
-                              listening={false}
-                            />
-                          ) : (
-                            <Line
-                              points={brushPts}
-                              stroke="rgba(128, 128, 128, 0.85)"
-                              strokeWidth={bSize}
-                              lineCap="round"
-                              lineJoin="round"
-                              listening={false}
-                            />
-                          )}
-                        </Group>
-                      </Group>
+                          } else {
+                            rawCtx.strokeStyle = 'rgba(128, 128, 128, 0.85)';
+                            rawCtx.stroke();
+                          }
+                          rawCtx.restore();
+                        }}
+                        hitFunc={(context, shape) => {
+                          if (!brushPts || brushPts.length < 2) return;
+                          context.beginPath();
+                          context.moveTo(brushPts[0], brushPts[1]);
+                          for (let i = 2; i < brushPts.length; i += 2) {
+                            context.lineTo(brushPts[i], brushPts[i + 1]);
+                          }
+                          context.lineWidth = bSize;
+                          context.lineCap = 'round';
+                          context.lineJoin = 'round';
+                          context.strokeShape(shape);
+                        }}
+                      />
                     );
                   }
                 }
@@ -3200,6 +3243,7 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                       lineCap="round"
                       lineJoin="round"
                       dash={newAnnotation.effect === 'blur' ? [4, 4] : undefined}
+                      listening={false}
                     />
                   ) : (
                     <Rect
@@ -3211,6 +3255,7 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                       stroke={newAnnotation.effect === 'blur' ? '#0071e3' : undefined}
                       strokeWidth={1}
                       dash={newAnnotation.effect === 'blur' ? [4, 4] : undefined}
+                      listening={false}
                     />
                   )
                 )}
@@ -3743,30 +3788,32 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                         e.cancelBubble = true;
                         setIsRotating(false);
                         setLiveRotation(null);
-                        const clampedPos =
-                          selectedFourCornerAnnotation.type === 'rect'
-                            ? clampRectToBounds(
-                                selectedFourCornerAnnotation.x,
-                                selectedFourCornerAnnotation.y,
-                                selectedFourCornerAnnotation.width,
-                                selectedFourCornerAnnotation.height,
-                                canvasWidth,
-                                canvasHeight,
-                                1,
-                                1,
-                                0
-                              )
-                            : clampEllipseToBounds(
-                                selectedFourCornerAnnotation.x,
-                                selectedFourCornerAnnotation.y,
-                                selectedFourCornerAnnotation.radiusX,
-                                selectedFourCornerAnnotation.radiusY,
-                                canvasWidth,
-                                canvasHeight,
-                                1,
-                                1,
-                                0
-                              );
+                        const isRect4C =
+                          selectedFourCornerAnnotation.type === 'rect' ||
+                          (selectedFourCornerAnnotation.type === 'redaction' && (selectedFourCornerAnnotation as any).mode === 'rect');
+                        const clampedPos = isRect4C
+                          ? clampRectToBounds(
+                              selectedFourCornerAnnotation.x || 0,
+                              selectedFourCornerAnnotation.y || 0,
+                              (selectedFourCornerAnnotation as any).width || 0,
+                              (selectedFourCornerAnnotation as any).height || 0,
+                              canvasWidth,
+                              canvasHeight,
+                              1,
+                              1,
+                              0
+                            )
+                          : clampEllipseToBounds(
+                              (selectedFourCornerAnnotation.x || 0),
+                              (selectedFourCornerAnnotation.y || 0),
+                              (selectedFourCornerAnnotation as EllipseAnnotation).radiusX,
+                              (selectedFourCornerAnnotation as EllipseAnnotation).radiusY,
+                              canvasWidth,
+                              canvasHeight,
+                              1,
+                              1,
+                              0
+                            );
                         onUpdateAnnotation(selectedFourCornerAnnotation.id, {
                           rotation: 0,
                           x: clampedPos.x,

@@ -5,6 +5,11 @@ import {
   createRedactionBrush,
   clampRedactionRectToBounds,
 } from '../src/utils/redaction';
+import {
+  getFourCornerPositions,
+  updateCornerResize,
+  updateShapeRotation,
+} from '../src/utils/zoomAndCrop';
 
 describe('Redaction & Blur Tool Logic', () => {
   it('creates rect redaction with correct bounding box and properties', () => {
@@ -49,5 +54,33 @@ describe('Redaction & Blur Tool Logic', () => {
     expect(overflow.y).toBe(580);
     expect(overflow.width).toBe(50);
     expect(overflow.height).toBe(20);
+  });
+
+  it('computes 4-corner positions for rect redactions correctly', () => {
+    const ann = createRedactionRect(100, 100, 200, 100, 'blackout', 'redact-4c');
+    const controls = getFourCornerPositions(ann);
+    expect(controls.center).toEqual({ x: 200, y: 150 });
+    expect(controls.corners[0]).toEqual({ x: 100, y: 100 });
+    expect(controls.corners[1]).toEqual({ x: 300, y: 100 });
+    expect(controls.corners[2]).toEqual({ x: 300, y: 200 });
+    expect(controls.corners[3]).toEqual({ x: 100, y: 200 });
+  });
+
+  it('resizes rect redactions with corner drag correctly', () => {
+    const ann = createRedactionRect(100, 100, 200, 100, 'blur', 'redact-resize');
+    // Arrastar canto inferior direito (cornerIndex = 2) para (350, 250)
+    const updated = updateCornerResize(ann, 2, { x: 350, y: 250 }, 800, 600) as { width?: number; height?: number; x?: number; y?: number };
+    expect(updated.width).toBe(250);
+    expect(updated.height).toBe(150);
+    expect(updated.x).toBe(100);
+    expect(updated.y).toBe(100);
+  });
+
+  it('computes rotation for rect redaction correctly', () => {
+    const ann = createRedactionRect(100, 100, 200, 100, 'blur', 'redact-rot');
+    // Centro: (200, 150). Alça superior não rotacionada está em (200, 72)
+    // Se o ponteiro for para a direita do centro (300, 150): ângulo deve ser 90 graus
+    const angle = updateShapeRotation(ann, { x: 300, y: 150 });
+    expect(angle).toBe(90);
   });
 });

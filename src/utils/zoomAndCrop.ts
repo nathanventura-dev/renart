@@ -998,16 +998,18 @@ export function getFourCornerPositions(ann: Annotation): FourCornerControls {
   let unrotatedBL = { x: 0, y: 0 };
   let unrotatedRotater = { x: 0, y: 0 };
 
-  if (ann.type === 'rect') {
-    const w = ann.width;
-    const h = ann.height;
-    cx = ann.x + w / 2;
-    cy = ann.y + h / 2;
-    unrotatedTL = { x: ann.x, y: ann.y };
-    unrotatedTR = { x: ann.x + w, y: ann.y };
-    unrotatedBR = { x: ann.x + w, y: ann.y + h };
-    unrotatedBL = { x: ann.x, y: ann.y + h };
-    unrotatedRotater = { x: cx, y: ann.y - 28 };
+  if (ann.type === 'rect' || (ann.type === 'redaction' && ann.mode === 'rect')) {
+    const w = (ann as any).width || 0;
+    const h = (ann as any).height || 0;
+    const ax = ann.x || 0;
+    const ay = ann.y || 0;
+    cx = ax + w / 2;
+    cy = ay + h / 2;
+    unrotatedTL = { x: ax, y: ay };
+    unrotatedTR = { x: ax + w, y: ay };
+    unrotatedBR = { x: ax + w, y: ay + h };
+    unrotatedBL = { x: ax, y: ay + h };
+    unrotatedRotater = { x: cx, y: ay - 28 };
   } else if (ann.type === 'ellipse') {
     cx = ann.x;
     cy = ann.y;
@@ -1050,32 +1052,36 @@ export function updateCornerResize(
 
   // Se rotação for 0, cálculo direto e exato
   if (rot === 0) {
-    if (ann.type === 'rect') {
+    if (ann.type === 'rect' || (ann.type === 'redaction' && ann.mode === 'rect')) {
+      const ax = ann.x || 0;
+      const ay = ann.y || 0;
+      const aw = (ann as any).width || 0;
+      const ah = (ann as any).height || 0;
       const minDim = 10;
       if (cornerIndex === 2) {
-        // BR arrastado: TL (ann.x, ann.y) fica fixo
-        const w = Math.max(minDim, px - ann.x);
-        const h = Math.max(minDim, py - ann.y);
-        return { x: ann.x, y: ann.y, width: w, height: h };
+        // BR arrastado: TL (ax, ay) fica fixo
+        const w = Math.max(minDim, px - ax);
+        const h = Math.max(minDim, py - ay);
+        return { x: ax, y: ay, width: w, height: h };
       }
       if (cornerIndex === 1) {
-        // TR arrastado: BL (ann.x, ann.y + ann.height) fica fixo
-        const blY = ann.y + ann.height;
-        const w = Math.max(minDim, px - ann.x);
+        // TR arrastado: BL (ax, ay + ah) fica fixo
+        const blY = ay + ah;
+        const w = Math.max(minDim, px - ax);
         const h = Math.max(minDim, blY - py);
-        return { x: ann.x, y: blY - h, width: w, height: h };
+        return { x: ax, y: blY - h, width: w, height: h };
       }
       if (cornerIndex === 3) {
-        // BL arrastado: TR (ann.x + ann.width, ann.y) fica fixo
-        const trX = ann.x + ann.width;
+        // BL arrastado: TR (ax + aw, ay) fica fixo
+        const trX = ax + aw;
         const w = Math.max(minDim, trX - px);
-        const h = Math.max(minDim, py - ann.y);
-        return { x: trX - w, y: ann.y, width: w, height: h };
+        const h = Math.max(minDim, py - ay);
+        return { x: trX - w, y: ay, width: w, height: h };
       }
       if (cornerIndex === 0) {
-        // TL arrastado: BR (ann.x + ann.width, ann.y + ann.height) fica fixo
-        const brX = ann.x + ann.width;
-        const brY = ann.y + ann.height;
+        // TL arrastado: BR (ax + aw, ay + ah) fica fixo
+        const brX = ax + aw;
+        const brY = ay + ah;
         const w = Math.max(minDim, brX - px);
         const h = Math.max(minDim, brY - py);
         return { x: brX - w, y: brY - h, width: w, height: h };
@@ -1125,24 +1131,25 @@ export function updateCornerResize(
     }
   }
 
+  const isRectLike = ann.type === 'rect' || (ann.type === 'redaction' && ann.mode === 'rect');
+
   // Se tipo não for rect ou ellipse, ignora
-  if (ann.type !== 'rect' && ann.type !== 'ellipse') {
+  if (!isRectLike && ann.type !== 'ellipse') {
     return {};
   }
 
   // Com rotação não-nula: converte o ponteiro para o sistema de coordenadas local
-  const cx = ann.type === 'rect' ? ann.x + ann.width / 2 : ann.x;
-  const cy = ann.type === 'rect' ? ann.y + ann.height / 2 : ann.y;
+  const aw = (ann as any).width || 0;
+  const ah = (ann as any).height || 0;
+  const cx = isRectLike ? (ann.x || 0) + aw / 2 : (ann.x || 0);
+  const cy = isRectLike ? (ann.y || 0) + ah / 2 : (ann.y || 0);
   const localPointer = rotatePointAround({ x: px, y: py }, { x: cx, y: cy }, -rot);
 
   // Calcula no sistema não-rotacionado
-  const unrotatedAnn: Annotation =
-    ann.type === 'rect'
-      ? { ...ann, rotation: 0 }
-      : { ...ann, rotation: 0 };
+  const unrotatedAnn: Annotation = { ...ann, rotation: 0 };
   const unrotatedRes = updateCornerResize(unrotatedAnn, cornerIndex, localPointer, canvasWidth, canvasHeight);
 
-  if (ann.type === 'rect') {
+  if (isRectLike) {
     const rectRes = unrotatedRes as { x?: number; y?: number; width?: number; height?: number };
     if (rectRes.width !== undefined && rectRes.height !== undefined && rectRes.x !== undefined && rectRes.y !== undefined) {
       const unrotatedNewCenter = {
@@ -1208,9 +1215,9 @@ export function updateShapeRotation(
 ): number {
   let cx = ann.x ?? 0;
   let cy = ann.y ?? 0;
-  if (ann.type === 'rect') {
-    cx = ann.x + ann.width / 2;
-    cy = ann.y + ann.height / 2;
+  if (ann.type === 'rect' || (ann.type === 'redaction' && ann.mode === 'rect')) {
+    cx = (ann.x ?? 0) + (((ann as any).width || 0) / 2);
+    cy = (ann.y ?? 0) + (((ann as any).height || 0) / 2);
   }
   const dx = pointer.x - cx;
   const dy = pointer.y - cy;
