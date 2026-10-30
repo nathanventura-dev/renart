@@ -8,34 +8,31 @@ Este documento explica de forma clara, objetiva e detalhada toda a arquitetura d
 
 A aplicação é construída seguindo o modelo híbrido moderno viabilizado pelo **Tauri v2**:
 
-```
-+--------------------------------------------------------------+
-|                    Sistema Operacional                       |
-|          (Windows 10/11, macOS, Linux X11 / Wayland)         |
-+--------------------------------------------------------------+
-         ▲                                           ▲
-         │ (Telas, Monitores,                        │ (Atalhos Globais,
-         │  Permissões, Buffers)                     │  Sockets IPC)
-+--------┴-------------------------------------------┴---------+
-|                  CORE NATIVO EM RUST                         |
-|  - Módulo de Captura (xcap)                                  |
-|  - Módulo de Clipboard (arboard)                             |
-|  - Gerenciador de Instâncias (IPC Local - Máx 2)             |
-|  - Tauri Commands & Event Bridge                             |
-+------------------------------┬-------------------------------+
-                               │ (IPC Bridge JSON / Binary)
-                               ▼
-+--------------------------------------------------------------+
-|               FRONTEND WEBVIEW (React + TS)                  |
-|  - Overlay de Seleção (Região, Formato Livre, Tela Inteira)  |
-|  - Canvas Interativo 2D (Konva.js / react-konva)             |
-|    * Formas geométricas com handles de redimensionamento     |
-|    * Flechas vetoriais e blocos de texto inline              |
-|    * Ferramenta de Lupa com ampliação de pixels              |
-|    * Pilha de Undo / Redo                                    |
-|  - Galeria de Capturas (Máx 10 itens com FIFO)               |
-|  - Exportador (PNG, JPEG, JPG e PDF com jspdf)               |
-+--------------------------------------------------------------+
+```mermaid
+flowchart TD
+    subgraph OS ["🖥️ Sistema Operacional"]
+        direction TB
+        os_info["Windows 10/11 • macOS • Linux (X11 / Wayland)"]
+    end
+
+    subgraph Rust ["🦀 Core Nativo em Rust (Tauri v2)"]
+        direction TB
+        xcap["Módulo de Captura (xcap)"]
+        arboard["Módulo de Clipboard (arboard)"]
+        interprocess["Gerenciador de Instâncias (IPC Local - Máx 2)"]
+        tauri_bridge["Tauri Commands & Event Bridge"]
+    end
+
+    subgraph Frontend ["⚛️ Frontend WebView (React + TS)"]
+        direction TB
+        overlay["Overlay de Seleção (Região, Formato Livre, Tela Inteira)"]
+        canvas["Canvas Interativo 2D (Konva.js / react-konva)"]
+        stores["Galeria de Capturas (Máx 10 itens com FIFO) & Undo/Redo"]
+        export["Exportador (PNG, JPEG, JPG e PDF com jspdf)"]
+    end
+
+    OS <-->|"Telas, Monitores & Permissões / Buffers / Atalhos Globais"| Rust
+    Rust <-->|"IPC Bridge (JSON / Comandos e Eventos)"| Frontend
 ```
 
 ---
@@ -68,6 +65,11 @@ A aplicação é construída seguindo o modelo híbrido moderno viabilizado pelo
 ### 2.5. `jspdf` para Geração de PDF
 - **Por que foi escolhido:**
   - Permite gerar documentos PDF vetoriais diretamente a partir do Canvas em milissegundos, calculando o tamanho exato da folha de acordo com o aspect ratio da captura, sem precisar embutir ferramentas pesadas de conversão no backend.
+
+### 2.6. Módulo de Privacidade e Ocultação Segura (Tarja e Blur)
+- **Por que foi implementado:**
+  - Fornece duas opções de efeito visual (**Tarja Sólida** 100% opaca `#000000` e **Blur Destrutivo** de alta densidade) e dois modos ergonômicos (**Caixa Retangular** e **Pincel Livre**).
+  - Garante a irreversibilidade de dados sensíveis através do achatamento unificado (*flatten/bake*) na exportação (PNG, JPEG, PDF) e na cópia para o clipboard, prevenindo ataques de desofuscação por IA ou recuperação em visualizadores de PDF.
 
 ---
 

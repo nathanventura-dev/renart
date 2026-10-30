@@ -4,7 +4,7 @@
 [![Rust](https://img.shields.io/badge/Rust-Backend-orange?logo=rust)](https://www.rust-lang.org/)
 [![React 19](https://img.shields.io/badge/React-19-61dafb?logo=react)](https://react.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7-blue?logo=typescript)](https://www.typescriptlang.org/)
-[![Vitest](https://img.shields.io/badge/Tests-143%20Passed-brightgreen?logo=vitest)](https://vitest.dev/)
+[![Vitest](https://img.shields.io/badge/Tests-149%20Passed-brightgreen?logo=vitest)](https://vitest.dev/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 Uma ferramenta de captura de tela nativa, ultra-rápida e minimalista para **Windows**, **macOS** e **Linux**, combinando a leveza do **Tauri v2 (Rust)** com o poder de anotação vetorial e manipulação de imagem do **React 19 + HTML5 Canvas (Konva)**.
@@ -31,6 +31,7 @@ Uma ferramenta de captura de tela nativa, ultra-rápida e minimalista para **Win
   - **Lupa com e sem Foco:** Lente de ampliação direta dos pixels da imagem ou com ponto de foco e rastro fosco.
   - **Texto Inline:** Caixa de texto com fontes personalizáveis e redimensionamento dinâmico.
   - **Inserção de Imagens:** Adicione capturas secundárias ou ícones sobre o canvas.
+  - **🛡️ Ocultação de Dados Confidenciais (Tarja e Blur):** Ferramenta dedicada de privacidade com duas opções de efeito visual (**Tarja Sólida** 100% opaca `#000000` e **Blur Destrutivo** de alta densidade) e dois modos ergonômicos (**Caixa Retangular Ajustável** com alças de redimensionamento e **Pincel Livre** contínuo). Na exportação e cópia, os dados originais são achatados e destruídos sem possibilidade de reversão.
 
 - **✂️ Recorte de Imagem (Crop) com Menu Flutuante:**  
   Quadro de recorte com guias visuais e menu minimalista flutuante abaixo do ícone com botões translúcidos para confirmar (`↵ Enter`) ou cancelar (`esc`).
@@ -47,14 +48,14 @@ Uma ferramenta de captura de tela nativa, ultra-rápida e minimalista para **Win
 
 Este projeto nasceu como um **laboratório prático de Engenharia de Software**. 
 
-Como estudante da área, sempre me deparei com um desafio comum: **a lógica e a arquitetura faziam muito sentido na teoria, mas a codificação manual nunca foi o meu ponto forte**. A curva de aprendizado para transformar ideias complexas em código pronto para produção muitas vezes tornava o processo lento e desmotivador.
+Como estudante da área, sempre me deparei com dificuldades na arte de codar. A curva de aprendizado para transformar ideias complexas em código pronto para produção muitas vezes tornava o processo lento e desmotivador.
 
-Para mudar essa dinâmica, decidi adotar a Inteligência Artificial não como uma ferramenta de geração cega de código, mas como uma **tutora técnica e parceira de pair programming em tempo real**, aliando duas ferramentas avançadas de orquestração:
+Para mudar essa dinâmica, decidi adotar a IA não apenas como uma ferramenta de geração de código, mas como uma **tutora técnica e parceira de pair programming em tempo real**. Dessa maneira, posso criar aplicações e aprender na prática com um dev sênior me apoiando e explicando o passo a passo da entrega. A partir disso, utilizei duas ferramentas bem importantes na execução do projeto:
 
 ### Por que o uso do Superpowers com o Antigravity CLI?
 
 1. **Spec-Driven Development (SDD):**  
-   Em vez de pedir para a IA simplesmente "escrever código", o fluxo de trabalho exige a criação de uma **especificação clara e detalhada** (`docs/superpowers/specs`) e um **plano de execução em etapas** (`docs/superpowers/plans`) antes que qualquer linha de código seja tocada. Isso exercitou diretamente minha habilidade de arquitetura, levantamento de requisitos e visão de produto.
+   Em vez de pedir para a IA simplesmente "escrever código", o fluxo de trabalho exige a criação de uma **especificação clara e detalhada** (`docs/superpowers/specs`) e um **plano de execução em etapas** (`docs/superpowers/plans`) antes que qualquer linha de código seja criada. Isso com certeza exercitou diretamente minhas ainda não tão desenvolvidas habilidades de arquitetura, levantamento de requisitos e visão de produto.
 
 2. **Test-Driven Development (TDD) com Rigor Técnico:**  
    Com a metodologia do Superpowers, nenhuma funcionalidade ou correção é implementada sem que antes seja criado um **teste que falha (RED)**, seguido pela **implementação mínima necessária (GREEN)** e posterior refatoração. O resultado são **143 testes automatizados** que garantem que nenhuma alteração quebre recursos anteriores.
@@ -62,7 +63,7 @@ Para mudar essa dinâmica, decidi adotar a Inteligência Artificial não como um
 3. **Subagentes e Separação de Responsabilidades:**  
    Através do **Antigravity CLI**, o desenvolvimento foi dividido entre agentes especializados (pesquisa, planejamento, implementação e verificação). Isso permitiu explorar na prática conceitos corporativos modernos como isolamento de contexto, revisão de código por agentes e integração contínua.
 
-> 💡 **O Aprendizado:** O projeto provou na prática que o futuro da Engenharia de Software não se trata apenas de memorizar sintaxes, mas sim de **saber o que construir, como arquitetar, definir boas especificações, estabelecer barreiras de teste rigorosas e orquestrar ferramentas modernas para entregar software robusto e de alto valor.**
+> 💡 **O Aprendizado:** O projeto me mostrou na prática que o futuro da Engenharia de Software não está preso em memorizar sintaxes, mas sim em **saber o que construir, como arquitetar, definir boas especificações, estabelecer barreiras de teste rigorosas e orquestrar ferramentas modernas para entregar um software de qualidade.**
 
 ---
 
@@ -70,28 +71,30 @@ Para mudar essa dinâmica, decidi adotar a Inteligência Artificial não como um
 
 A aplicação segue uma arquitetura híbrida com separação estrita de camadas:
 
-```
-+--------------------------------------------------------------+
-|                    Sistema Operacional                       |
-|          (Windows 10/11, macOS, Linux X11 / Wayland)         |
-+--------------------------------------------------------------+
-         ▲                                           ▲
-         │ (Telas, Janelas, Monitores)               │ (Hooks Globais, Clipboard)
-+--------┴-------------------------------------------┴---------+
-|                  CORE NATIVO EM RUST (Tauri v2)              |
-|  - xcap: Captura unificada de monitores e janelas             |
-|  - arboard: Acesso de baixa latência ao Clipboard do SO      |
-|  - interprocess: Gestão e limite de instâncias por IPC        |
-+------------------------------┬-------------------------------+
-                               │ (IPC Bridge JSON / Binary)
-                               ▼
-+--------------------------------------------------------------+
-|               FRONTEND WEBVIEW (React 19 + TS)               |
-|  - Overlay de Captura com Barra Flutuante (Área, Janela, Tela)|
-|  - Canvas Interativo 2D (Konva.js / react-konva)             |
-|  - Stores Reativas (EditorStore com Undo/Redo e GalleryStore)|
-|  - exportService (Renderização nativa 1:1 em PNG, JPEG, PDF) |
-+--------------------------------------------------------------+
+```mermaid
+flowchart TD
+    subgraph OS ["🖥️ Sistema Operacional"]
+        direction TB
+        os_info["Windows 10/11 • macOS • Linux (X11 / Wayland)"]
+    end
+
+    subgraph Rust ["🦀 Core Nativo em Rust (Tauri v2)"]
+        direction TB
+        xcap["xcap: Captura unificada de monitores e janelas"]
+        arboard["arboard: Acesso de baixa latência ao Clipboard do SO"]
+        interprocess["interprocess: Gestão e limite de instâncias por IPC"]
+    end
+
+    subgraph Frontend ["⚛️ Frontend WebView (React 19 + TypeScript)"]
+        direction TB
+        overlay["Overlay de Captura com Barra Flutuante (Área, Janela, Tela)"]
+        canvas["Canvas Interativo 2D (Konva.js / react-konva)"]
+        stores["Stores Reativas (EditorStore com Undo/Redo e GalleryStore)"]
+        export["exportService (Renderização nativa 1:1 em PNG, JPEG, PDF)"]
+    end
+
+    OS <-->|"Telas, Janelas, Monitores & Hooks/Clipboard"| Rust
+    Rust <-->|"IPC Bridge (JSON / Comandos e Eventos)"| Frontend
 ```
 
 ---

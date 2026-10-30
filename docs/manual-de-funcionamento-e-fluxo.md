@@ -75,6 +75,16 @@ Se você desejar apontar, destacar ou enriquecer o print antes de salvar:
   - **Menu Suspenso Horizontal Flutuante (`[Fonte ▾]` e `[Tamanho ▾]`):** Ao clicar no ícone de Texto, abre-se logo abaixo do ícone um menu suspenso horizontal rente à barra contendo os seletores dedicados de **Família da Fonte** (`Arial`, `Segoe UI`, `Calibri`, `Verdana`, `Georgia`, `Times New Roman`, `Courier New`) e **Tamanho da Fonte** (`12`, `14`, `16`, `18`, `20`, `24`, `28`, `32`, `36`, `48`), sem empurrar os botões da barra de ferramentas.
   - **Redimensionamento Automático em Degraus de Tamanho (`12` a `48`) Sem Distorção:** Ao redimensionar um bloco de texto pelas âncoras de canto no canvas, o texto nunca estica nem distorce: ele aumenta ou diminui automaticamente em degraus nos tamanhos de fonte (`12` a `48`).
 - **Inserir Imagem / Figura (ImageIcon):** Permite anexar logos, selos, carimbos ou figuras externas sobre o print.
+- **Ferramenta de Ocultação de Dados Confidenciais (ShieldAlert - Tarja e Blur):**
+  - **Propósito:** Ocultar com segurança absoluta informações confidenciais (senhas, documentos, nomes, cartões).
+  - **Menu Suspenso Horizontal Flutuante:** Ao clicar no ícone de proteção, abre-se um menu contextual com seletores de:
+    - **Efeito Visual:**
+      - **`Tarja` (Blackout):** Bloco preto 100% opaco (`#000000`). Padrão ouro de segurança em que os pixels originais deixam matematicamente de existir.
+      - **`Blur` (Desfoque Destrutivo):** Filtro de desfoque de alta densidade (`blurRadius >= 20px`), destruindo a entropia dos caracteres e prevenindo ataques de desofuscação baseados em IA ou OCR reverso.
+    - **Modo de Aplicação:**
+      - **`Retângulo`:** Caixa retangular ajustável pelas alças nos 4 cantos para cobrir com precisão campos de texto e áreas delimitadas.
+      - **`Pincel`:** Caneta de arraste livre com traçado contínuo arredondado para cobrir linhas de texto irregulares.
+  - **Garantia de Irreversibilidade:** Tanto na cópia para o clipboard quanto na exportação (PNG, JPEG, PDF), o Canvas achata todas as anotações em uma imagem de bits plana, eliminando camadas vetoriais ou dados residuais.
 - **Ferramenta de Lupa com Menu Suspenso Horizontal (Zoom Lens):**
   - **Menu Suspenso Horizontal Flutuante:** Ao clicar no ícone da Lupa, abre-se logo abaixo do ícone o menu suspenso com as opções:
     - **`Sem foco`:** Mantém a lupa tradicional que amplia diretamente a região sob a própria lente.
