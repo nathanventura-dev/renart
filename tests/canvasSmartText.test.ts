@@ -62,4 +62,15 @@ describe('Smart Text Layout & Rendering Helpers', () => {
     expect(calculateSmartTextLayout(undefined, box, box)).toEqual([]);
     expect(calculateSmartTextLayout([], box, box)).toEqual([]);
   });
+
+  it('determines rotation handle visibility: disabled for smart-text, enabled for others', async () => {
+    const { shouldShowRotationHandle } = await import('../src/utils/zoomAndCrop');
+    
+    expect(shouldShowRotationHandle({ id: '1', type: 'rect', x: 0, y: 0, width: 50, height: 50, stroke: '#000', strokeWidth: 2 })).toBe(true);
+    expect(shouldShowRotationHandle({ id: '2', type: 'ellipse', x: 0, y: 0, radiusX: 50, radiusY: 50, stroke: '#000', strokeWidth: 2 })).toBe(true);
+    expect(shouldShowRotationHandle({ id: '3', type: 'redaction', mode: 'rect', x: 0, y: 0, width: 50, height: 50 })).toBe(true);
+    
+    // For smart-text, rotation handle MUST NOT be shown (resizing only)
+    expect(shouldShowRotationHandle({ id: '4', type: 'redaction', mode: 'smart-text', x: 0, y: 0, width: 50, height: 50 })).toBe(false);
+  });
 });

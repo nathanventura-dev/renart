@@ -1,4 +1,4 @@
-import type { Annotation, ArrowStyle, ToolType } from '../state/editorStore';
+import type { Annotation, ArrowStyle, ToolType, RedactionAnnotation } from '../state/editorStore';
 
 export const MIN_ZOOM_LEVEL = 0.25; // 25%
 export const MAX_ZOOM_LEVEL = 4.0; // 400%
@@ -955,6 +955,19 @@ export function shouldAttachTransformer(
     annotationType === 'line' ||
     annotationType === 'arrow' ||
     annotationType === 'redaction'
+  ) {
+    return false;
+  }
+  return true;
+}
+
+export function shouldShowRotationHandle(
+  annotation: Annotation | null | undefined
+): boolean {
+  if (!annotation) return false;
+  if (
+    annotation.type === 'redaction' &&
+    (annotation as RedactionAnnotation).mode === 'smart-text'
   ) {
     return false;
   }

@@ -79,6 +79,7 @@ import {
   updateTwoPointAnchor,
   getTwoPointAnchorPositions,
   getFourCornerPositions,
+  shouldShowRotationHandle,
   updateCornerResize,
   updateShapeRotation,
   getCornerCursor,
@@ -119,7 +120,6 @@ interface CanvasEditorProps {
   onAddAnnotation: (annotation: Annotation) => void;
   onUpdateAnnotation: (id: string, updates: Partial<Annotation>) => void;
   onUpdateAnnotations?: (updatesById: Record<string, Partial<Annotation>>) => void;
-  onRegenerateSmartText?: (id: string) => void;
   stageRef: React.RefObject<Konva.Stage | null>;
 }
 
@@ -284,7 +284,6 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
   onAddAnnotation,
   onUpdateAnnotation,
   onUpdateAnnotations,
-  onRegenerateSmartText,
   stageRef,
 }) => {
   const [bgImage, setBgImage] = useState<HTMLImageElement | null>(null);
@@ -2570,47 +2569,6 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                         />
                       )}
 
-                      {/* Botão flutuante para sortear novamente */}
-                      {isSelected4C && (
-                        <Group
-                          x={w / 2}
-                          y={-14}
-                          onClick={(e) => {
-                            e.cancelBubble = true;
-                            onRegenerateSmartText?.(ann.id);
-                          }}
-                          onTap={(e) => {
-                            e.cancelBubble = true;
-                            onRegenerateSmartText?.(ann.id);
-                          }}
-                        >
-                          <Rect
-                            x={-38}
-                            y={-10}
-                            width={76}
-                            height={20}
-                            fill="#0071e3"
-                            cornerRadius={10}
-                            shadowColor="#000000"
-                            shadowBlur={4}
-                            shadowOpacity={0.25}
-                          />
-                          <Text
-                            x={-38}
-                            y={-10}
-                            width={76}
-                            height={20}
-                            text="🎲 Sortear"
-                            fontSize={11}
-                            fontStyle="bold"
-                            fontFamily="-apple-system, BlinkMacSystemFont, sans-serif"
-                            fill="#ffffff"
-                            align="center"
-                            verticalAlign="middle"
-                            listening={false}
-                          />
-                        </Group>
-                      )}
 
                       {/* Renderização individual de cada palavra anonimizada com inpainting sob ela */}
                       {smartWords.map((word, idx) => (
@@ -3932,10 +3890,12 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
               effectiveSelectedIds.length === 1 && (() => {
                 const corners = fourCornerPositions.corners;
                 const rotaterPos = fourCornerPositions.rotater;
+                const showRotater = shouldShowRotationHandle(selectedFourCornerAnnotation);
 
                 return (
                   <Group name="four-corner-controls-group">
-                    {/* Alça Superior de Rotação Estilo Windows Snipping Tool */}
+                    {/* Alça Superior de Rotação Estilo Windows Snipping Tool (ocultada para texto inteligente) */}
+                    {showRotater && (
                     <Group
                       name="four-corner-rotater"
                       x={rotaterPos.x}
@@ -4037,6 +3997,7 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                         listening={false}
                       />
                     </Group>
+                    )}
 
                     {/* 4 Âncoras Circulares nos Cantos (TL, TR, BR, BL) */}
                     {corners.map((pos, idx) => {
