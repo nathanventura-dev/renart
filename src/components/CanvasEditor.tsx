@@ -34,6 +34,10 @@ import {
   resolveRedactionLevel,
   REDACTION_BLUR_RADII,
 } from '../utils/redaction';
+import { detectTextInImageRegion } from '../services/ocrService';
+import { anonymizeOcrLines } from '../utils/textAnonymizer';
+import { sampleRegionColors } from '../utils/colorSampling';
+import { calculateSmartTextLayout } from '../utils/smartTextLayout';
 import {
   calculateMagnifierImageTransform,
   calculateZoomFromCrownDrag,
@@ -1529,6 +1533,16 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
             id
           )
         );
+      } else if (redactionMode === 'smart-text') {
+        setNewAnnotation({
+          id,
+          type: 'redaction',
+          mode: 'smart-text',
+          x: clampedStartX,
+          y: clampedStartY,
+          width: 1,
+          height: 1,
+        });
       } else {
         setNewAnnotation(
           createRedactionRect(clampedStartX, clampedStartY, 1, 1, activeLevel, id)
@@ -1729,6 +1743,38 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
           });
           applySelectionIds([newAnnotation.id]);
         }
+      } else if (newAnnotation.mode === 'smart-text') {
+        if (Math.abs(newAnnotation.width || 0) > 4 && Math.abs(newAnnotation.height || 0) > 4) {
+          const clamped = clampRedactionRectToBounds(
+            newAnnotation.x || 0,
+            newAnnotation.y || 0,
+            newAnnotation.width || 0,
+            newAnnotation.height || 0,
+            imgW,
+            imgH
+          );
+          const colors = sampleRegionColors(
+            bgImage || { data: new Uint8ClampedArray(4), width: 1, height: 1 },
+            clamped
+          );
+          const annId = newAnnotation.id;
+          detectTextInImageRegion(imageBase64, clamped).then((ocrLines) => {
+            const anonymizedLines = anonymizeOcrLines(ocrLines);
+            onAddAnnotation({
+              id: annId,
+              type: 'redaction',
+              mode: 'smart-text',
+              x: clamped.x,
+              y: clamped.y,
+              width: clamped.width,
+              height: clamped.height,
+              bgColor: colors.bgColor,
+              textColor: colors.textColor,
+              lines: anonymizedLines,
+            });
+            applySelectionIds([annId]);
+          });
+        }
       } else if (newAnnotation.mode === 'brush') {
         if ((newAnnotation.points || []).length >= 4) {
           onAddAnnotation(newAnnotation);
@@ -1867,7 +1913,7 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
   const selectedFourCornerAnnotation = useMemo(() => {
     if (effectiveSelectedIds.length !== 1) return null;
     const ann = annotations.find((a) => a.id === effectiveSelectedIds[0]);
-    if (ann && (ann.type === 'rect' || ann.type === 'ellipse' || (ann.type === 'redaction' && ann.mode === 'rect'))) {
+    if (ann && (ann.type === 'rect' || ann.type === 'ellipse' || (ann.type === 'redaction' && (ann.mode === 'rect' || ann.mode === 'smart-text')))) {
       return ann;
     }
     return null;
@@ -1875,7 +1921,7 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
 
   const effectiveFourCornerAnn = useMemo(() => {
     if (!selectedFourCornerAnnotation) return null;
-    if (selectedFourCornerAnnotation.type === 'rect' || (selectedFourCornerAnnotation.type === 'redaction' && selectedFourCornerAnnotation.mode === 'rect')) {
+    if (selectedFourCornerAnnotation.type === 'rect' || (selectedFourCornerAnnotation.type === 'redaction' && (selectedFourCornerAnnotation.mode === 'rect' || selectedFourCornerAnnotation.mode === 'smart-text'))) {
       const base = { ...selectedFourCornerAnnotation };
       if (liveFourCornerUpdate) {
         const update = liveFourCornerUpdate as Partial<RectAnnotation>;
@@ -2447,6 +2493,99 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
               }
 
               if (ann.type === 'redaction') {
+                if (ann.mode === 'smart-text') {
+                  const isSelected4C = selectedFourCornerAnnotation?.id === ann.id;
+                  const activeRect =
+                    isSelected4C && effectiveFourCornerAnn && effectiveFourCornerAnn.type === 'redaction'
+                      ? (effectiveFourCornerAnn as RedactionAnnotation)
+                      : ann;
+                  const w = activeRect.width || 0;
+                  const h = activeRect.height || 0;
+                  const cx = (activeRect.x || 0) + w / 2;
+                  const cy = (activeRect.y || 0) + h / 2;
+                  const smartLines = calculateSmartTextLayout(
+                    ann.lines,
+                    { x: activeRect.x || 0, y: activeRect.y || 0, width: w, height: h },
+                    ann
+                  );
+
+                  return (
+                    <Group
+                      key={ann.id}
+                      id={ann.id}
+                      x={cx}
+                      y={cy}
+                      offsetX={w / 2}
+                      offsetY={h / 2}
+                      width={w}
+                      height={h}
+                      rotation={activeRect.rotation ?? 0}
+                      draggable={canDrag}
+                      dragBoundFunc={(pos) =>
+                        getTransformedDragBound(pos, zoomLevel, (localX, localY) => {
+                          const rawLeft = localX - w / 2;
+                          const rawTop = localY - h / 2;
+                          const clamped = clampRectToBounds(
+                            rawLeft,
+                            rawTop,
+                            w,
+                            h,
+                            canvasWidth,
+                            canvasHeight,
+                            1,
+                            1,
+                            activeRect.rotation ?? 0
+                          );
+                          return {
+                            x: clamped.x + w / 2,
+                            y: clamped.y + h / 2,
+                          };
+                        })
+                      }
+                      onMouseEnter={handleBlockMouseEnter}
+                      onMouseLeave={handleBlockMouseLeave}
+                      onClick={(e) => handleBlockClick(ann.id, e)}
+                      onDragStart={() => handleBlockDragStart(ann.id)}
+                      onDragMove={(e) => handleBlockDragMove(ann.id, e)}
+                      onDragEnd={(e) => handleBlockDragEnd(ann.id, e)}
+                    >
+                      <Rect
+                        width={w}
+                        height={h}
+                        fill={ann.bgColor || '#ffffff'}
+                        cornerRadius={2}
+                      />
+                      <Group
+                        clipFunc={(ctx) => {
+                          ctx.rect(0, 0, w, h);
+                        }}
+                      >
+                        {smartLines.map((line, idx) => (
+                          <Text
+                            key={`smart-line-${idx}`}
+                            text={line.text}
+                            x={line.x}
+                            y={line.y}
+                            width={line.width}
+                            height={line.height}
+                            fontSize={line.fontSize}
+                            fontFamily="sans-serif"
+                            fill={ann.textColor || '#1e293b'}
+                            listening={false}
+                          />
+                        ))}
+                      </Group>
+                      <Rect
+                        width={w}
+                        height={h}
+                        stroke="rgba(0, 0, 0, 0.12)"
+                        strokeWidth={1}
+                        listening={false}
+                      />
+                    </Group>
+                  );
+                }
+
                 if (ann.mode === 'rect') {
                   const isSelected4C = selectedFourCornerAnnotation?.id === ann.id;
                   const activeRect =

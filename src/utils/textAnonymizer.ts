@@ -144,7 +144,7 @@ function anonymizeDate(text: string): string {
  * Gera um e-mail sintético de tamanho proporcional.
  */
 function anonymizeEmail(text: string): string {
-  const [localPart, domainPart] = text.split('@');
+  const [, domainPart] = text.split('@');
   const domains = ['empresa.com', 'corporativo.net', 'portal.org', 'servicos.io', 'demo.corp'];
   const usernames = ['usuario', 'cliente', 'contato', 'gestor', 'alex.silva', 'mariana', 'suporte'];
 

@@ -63,7 +63,7 @@ describe('Contextual Synthetic Text Anonymizer', () => {
       const original = 'carlos@empresa.com';
       const anon = anonymizeWord(original);
       expect(anon).toContain('@');
-      expect(anon.endsWith('.com') || anon.endsWith('.net') || anon.endsWith('.org')).toBe(true);
+      expect(/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(anon)).toBe(true);
       expect(anon).not.toBe(original);
     });
 

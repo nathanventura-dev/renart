@@ -181,7 +181,7 @@ export function adjustAnnotationsForCrop(
   const adjustedList: Annotation[] = [];
 
   for (const ann of annotations) {
-    if (ann.type === 'rect' || ann.type === 'image' || (ann.type === 'redaction' && ann.mode === 'rect')) {
+    if (ann.type === 'rect' || ann.type === 'image' || (ann.type === 'redaction' && (ann.mode === 'rect' || ann.mode === 'smart-text'))) {
       const annW = (ann as any).width || 0;
       const annH = (ann as any).height || 0;
       const nextX = (ann.x || 0) - cropOffset.x;
@@ -1001,7 +1001,7 @@ export function getFourCornerPositions(ann: Annotation): FourCornerControls {
   let unrotatedBL = { x: 0, y: 0 };
   let unrotatedRotater = { x: 0, y: 0 };
 
-  if (ann.type === 'rect' || (ann.type === 'redaction' && ann.mode === 'rect')) {
+  if (ann.type === 'rect' || (ann.type === 'redaction' && (ann.mode === 'rect' || ann.mode === 'smart-text'))) {
     const w = (ann as any).width || 0;
     const h = (ann as any).height || 0;
     const ax = ann.x || 0;
@@ -1055,7 +1055,7 @@ export function updateCornerResize(
 
   // Se rotação for 0, cálculo direto e exato
   if (rot === 0) {
-    if (ann.type === 'rect' || (ann.type === 'redaction' && ann.mode === 'rect')) {
+    if (ann.type === 'rect' || (ann.type === 'redaction' && (ann.mode === 'rect' || ann.mode === 'smart-text'))) {
       const ax = ann.x || 0;
       const ay = ann.y || 0;
       const aw = (ann as any).width || 0;
@@ -1134,7 +1134,7 @@ export function updateCornerResize(
     }
   }
 
-  const isRectLike = ann.type === 'rect' || (ann.type === 'redaction' && ann.mode === 'rect');
+  const isRectLike = ann.type === 'rect' || (ann.type === 'redaction' && (ann.mode === 'rect' || ann.mode === 'smart-text'));
 
   // Se tipo não for rect ou ellipse, ignora
   if (!isRectLike && ann.type !== 'ellipse') {
@@ -1218,7 +1218,7 @@ export function updateShapeRotation(
 ): number {
   let cx = ann.x ?? 0;
   let cy = ann.y ?? 0;
-  if (ann.type === 'rect' || (ann.type === 'redaction' && ann.mode === 'rect')) {
+  if (ann.type === 'rect' || (ann.type === 'redaction' && (ann.mode === 'rect' || ann.mode === 'smart-text'))) {
     cx = (ann.x ?? 0) + (((ann as any).width || 0) / 2);
     cy = (ann.y ?? 0) + (((ann as any).height || 0) / 2);
   }
