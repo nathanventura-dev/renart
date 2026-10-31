@@ -43,6 +43,8 @@ import {
   Palette,
   AppWindow,
   Monitor,
+  Sparkles,
+  RefreshCw,
 } from 'lucide-react';
 import { CaptureMode } from '../types/capture';
 
@@ -239,6 +241,7 @@ interface ToolbarProps {
   onSelectRedactionEffect?: (effect: RedactionEffect) => void;
   redactionMode?: RedactionMode;
   onSelectRedactionMode?: (mode: RedactionMode) => void;
+  onRegenerateSmartText?: (id: string) => void;
   selectedAnnotations?: Annotation[];
   initialOpenMenu?: OpenToolbarMenu;
 }
@@ -384,6 +387,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   onSelectRedactionEffect: _onSelectRedactionEffect,
   redactionMode = 'rect',
   onSelectRedactionMode,
+  onRegenerateSmartText,
   selectedAnnotations = [],
   initialOpenMenu = null,
 }) => {
@@ -425,6 +429,10 @@ export const Toolbar: React.FC<ToolbarProps> = ({
     redactionLevel ?? redactionEffect ?? 4,
     redactionMode
   );
+
+  const selectedSmartText = selectedAnnotations.find(
+    (a) => a.type === 'redaction' && (a as RedactionAnnotation).mode === 'smart-text'
+  ) as RedactionAnnotation | undefined;
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -1046,6 +1054,55 @@ export const Toolbar: React.FC<ToolbarProps> = ({
             >
               Pincel
             </button>
+            <button
+              type="button"
+              title="Texto Inteligente: Substitui texto sensível por dados fictícios (OCR)"
+              onClick={() => onSelectRedactionMode?.('smart-text')}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px',
+                height: '24px',
+                padding: '0 8px',
+                fontSize: '11px',
+                fontWeight: 600,
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                backgroundColor: effectiveRedactionMode === 'smart-text' ? '#0071e3' : 'transparent',
+                color: effectiveRedactionMode === 'smart-text' ? '#ffffff' : '#334155',
+              }}
+            >
+              <Sparkles size={12} />
+              <span>Texto Inteligente</span>
+            </button>
+            {selectedSmartText && (
+              <>
+                <div style={{ width: '1px', height: '16px', backgroundColor: '#e2e8f0', margin: '0 2px' }} />
+                <button
+                  type="button"
+                  title="Sortear Novamente: Gera novos dados fictícios para este bloco"
+                  onClick={() => onRegenerateSmartText?.(selectedSmartText.id)}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    height: '24px',
+                    padding: '0 8px',
+                    fontSize: '11px',
+                    fontWeight: 600,
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    backgroundColor: '#f1f5f9',
+                    color: '#0f172a',
+                  }}
+                >
+                  <RefreshCw size={12} />
+                  <span>Sortear</span>
+                </button>
+              </>
+            )}
           </HorizontalFloatingMenu>
         </div>
 

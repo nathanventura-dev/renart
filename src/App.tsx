@@ -512,6 +512,7 @@ export const App: React.FC = () => {
         onSelectRedactionEffect={(effect) => editorStore.setRedactionEffect(effect)}
         redactionMode={editorState.redactionMode}
         onSelectRedactionMode={(mode) => editorStore.setRedactionMode(mode)}
+        onRegenerateSmartText={(id) => editorStore.regenerateSmartText(id)}
         selectedAnnotations={selectedAnnotations}
       />
 
