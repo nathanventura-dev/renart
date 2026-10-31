@@ -108,7 +108,7 @@ export type RedactionMode = 'rect' | 'brush';
 
 export interface RedactionAnnotation extends BaseAnnotation {
   type: 'redaction';
-  level: RedactionLevel;
+  level?: RedactionLevel;
   effect?: RedactionEffect;
   mode: RedactionMode;
   x?: number;

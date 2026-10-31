@@ -1,5 +1,5 @@
-// tests/toolbarRedactionLevels.test.tsx
-import { describe, it, expect, vi } from 'vitest';
+// tests/toolbarRedactionLevels.test.ts
+import { describe, it, expect } from 'vitest';
 import React from 'react';
 import { renderToString } from 'react-dom/server';
 import {
@@ -34,6 +34,18 @@ describe('Toolbar Redaction Levels UI', () => {
         redactionLevel: 3,
         redactionMode: 'rect',
         onSelectTool: () => {},
+        strokeColor: '#ff3b30',
+        onSelectColor: () => {},
+        strokeWidth: 2,
+        onSelectStrokeWidth: () => {},
+        canUndo: false,
+        canRedo: false,
+        onUndo: () => {},
+        onRedo: () => {},
+        onNewCapture: () => {},
+        onCopy: () => {},
+        onExport: () => {},
+        onInsertImage: () => {},
       })
     );
 

@@ -21,6 +21,7 @@ import {
   RectAnnotation,
   EllipseAnnotation,
   RedactionAnnotation,
+  RedactionLevel,
   RedactionEffect,
   RedactionMode,
   ArrowStyle,
@@ -30,6 +31,8 @@ import {
   createRedactionBrush,
   createRedactionRect,
   clampRedactionRectToBounds,
+  resolveRedactionLevel,
+  REDACTION_BLUR_RADII,
 } from '../utils/redaction';
 import {
   calculateMagnifierImageTransform,
@@ -97,6 +100,7 @@ interface CanvasEditorProps {
   magnifierMode?: 'without-focus' | 'with-focus';
   arrowStyle?: ArrowStyle;
   arrowCurveDirection?: ArrowCurveDirection;
+  redactionLevel?: RedactionLevel;
   redactionEffect?: RedactionEffect;
   redactionMode?: RedactionMode;
   zoomLevel?: number;
@@ -260,6 +264,7 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
   magnifierMode = 'without-focus',
   arrowStyle = 'standard',
   arrowCurveDirection = 'right',
+  redactionLevel = 4,
   redactionEffect = 'blackout',
   redactionMode = 'rect',
   zoomLevel = 1.0,
@@ -277,20 +282,27 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
   stageRef,
 }) => {
   const [bgImage, setBgImage] = useState<HTMLImageElement | null>(null);
-  const blurredBgCanvas = useMemo(() => {
-    if (!bgImage) return null;
-    try {
-      const canvas = document.createElement('canvas');
-      canvas.width = bgImage.width;
-      canvas.height = bgImage.height;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return null;
-      ctx.filter = 'blur(22px)';
-      ctx.drawImage(bgImage, 0, 0);
-      return canvas;
-    } catch {
-      return null;
-    }
+  const blurredBgCanvases = useMemo(() => {
+    if (!bgImage) return { 1: null, 2: null, 3: null };
+    const createBlurCanvas = (radius: number) => {
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = bgImage.width;
+        canvas.height = bgImage.height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return null;
+        ctx.filter = `blur(${radius}px)`;
+        ctx.drawImage(bgImage, 0, 0);
+        return canvas;
+      } catch {
+        return null;
+      }
+    };
+    return {
+      1: createBlurCanvas(REDACTION_BLUR_RADII[1]),
+      2: createBlurCanvas(REDACTION_BLUR_RADII[2]),
+      3: createBlurCanvas(REDACTION_BLUR_RADII[3]),
+    };
   }, [bgImage]);
   const [isDrawing, setIsDrawing] = useState(false);
   const [newAnnotation, setNewAnnotation] = useState<Annotation | null>(null);
@@ -1507,18 +1519,19 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
         strokeWidth,
       });
     } else if (activeTool === 'redaction') {
+      const activeLevel = redactionLevel ?? (redactionEffect === 'blur' ? 3 : 4);
       if (redactionMode === 'brush') {
         setNewAnnotation(
           createRedactionBrush(
             [clampedStartX, clampedStartY],
-            redactionEffect,
+            activeLevel,
             strokeWidth ? strokeWidth * 4 : 24,
             id
           )
         );
       } else {
         setNewAnnotation(
-          createRedactionRect(clampedStartX, clampedStartY, 1, 1, redactionEffect, id)
+          createRedactionRect(clampedStartX, clampedStartY, 1, 1, activeLevel, id)
         );
       }
     } else if (activeTool === 'arrow') {
@@ -2445,7 +2458,8 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                   const cx = (activeRect.x || 0) + w / 2;
                   const cy = (activeRect.y || 0) + h / 2;
 
-                  if (ann.effect === 'blackout') {
+                  const effectiveLevel = resolveRedactionLevel(ann);
+                  if (effectiveLevel === 4) {
                     return (
                       <Rect
                         key={ann.id}
@@ -2492,6 +2506,7 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                       />
                     );
                   } else {
+                    const currentBlurCanvas = blurredBgCanvases[effectiveLevel as 1 | 2 | 3];
                     return (
                       <Group
                         key={ann.id}
@@ -2543,9 +2558,9 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                             ctx.rect(0, 0, w, h);
                           }}
                         >
-                          {blurredBgCanvas ? (
+                          {currentBlurCanvas ? (
                             <KonvaImage
-                              image={blurredBgCanvas}
+                              image={currentBlurCanvas}
                               x={-(activeRect.x || 0)}
                               y={-(activeRect.y || 0)}
                               width={canvasWidth}
@@ -2569,7 +2584,8 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                 } else {
                   const brushPts = ann.points || [];
                   const bSize = ann.brushSize || 24;
-                  if (ann.effect === 'blackout') {
+                  const effectiveLevel = resolveRedactionLevel(ann);
+                  if (effectiveLevel === 4) {
                     return (
                       <Line
                         key={ann.id}
@@ -2581,57 +2597,18 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                         strokeWidth={bSize}
                         lineCap="round"
                         lineJoin="round"
-                        draggable={canDrag}
-                        dragBoundFunc={(pos) =>
-                          getTransformedDragBound(pos, zoomLevel, (localX, localY) =>
-                            clampLinePointsToBounds(
-                              localX,
-                              localY,
-                              brushPts,
-                              canvasWidth,
-                              canvasHeight,
-                              1,
-                              1,
-                              0
-                            )
-                          )
-                        }
-                        onMouseEnter={handleBlockMouseEnter}
-                        onMouseLeave={handleBlockMouseLeave}
-                        onClick={(e) => handleBlockClick(ann.id, e)}
-                        onDragStart={() => handleBlockDragStart(ann.id)}
-                        onDragMove={(e) => handleBlockDragMove(ann.id, e)}
-                        onDragEnd={(e) => handleBlockDragEnd(ann.id, e)}
+                        listening={false}
                       />
                     );
                   } else {
+                    const currentBlurCanvas = blurredBgCanvases[effectiveLevel as 1 | 2 | 3];
                     return (
                       <Shape
                         key={ann.id}
                         id={ann.id}
                         x={ann.x || 0}
                         y={ann.y || 0}
-                        draggable={canDrag}
-                        dragBoundFunc={(pos) =>
-                          getTransformedDragBound(pos, zoomLevel, (localX, localY) =>
-                            clampLinePointsToBounds(
-                              localX,
-                              localY,
-                              brushPts,
-                              canvasWidth,
-                              canvasHeight,
-                              1,
-                              1,
-                              0
-                            )
-                          )
-                        }
-                        onMouseEnter={handleBlockMouseEnter}
-                        onMouseLeave={handleBlockMouseLeave}
-                        onClick={(e) => handleBlockClick(ann.id, e)}
-                        onDragStart={() => handleBlockDragStart(ann.id)}
-                        onDragMove={(e) => handleBlockDragMove(ann.id, e)}
-                        onDragEnd={(e) => handleBlockDragEnd(ann.id, e)}
+                        listening={false}
                         sceneFunc={(context) => {
                           if (!brushPts || brushPts.length < 2) return;
                           const rawCtx = (context as any)._context as CanvasRenderingContext2D;
@@ -2647,9 +2624,9 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                           rawCtx.lineCap = 'round';
                           rawCtx.lineJoin = 'round';
 
-                          if (blurredBgCanvas) {
+                          if (currentBlurCanvas) {
                             try {
-                              const pattern = rawCtx.createPattern(blurredBgCanvas, 'no-repeat');
+                              const pattern = rawCtx.createPattern(currentBlurCanvas, 'no-repeat');
                               if (pattern) {
                                 if (typeof DOMMatrix !== 'undefined' && (pattern as any).setTransform) {
                                   const mat = new DOMMatrix();
@@ -2671,18 +2648,6 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                             rawCtx.stroke();
                           }
                           rawCtx.restore();
-                        }}
-                        hitFunc={(context, shape) => {
-                          if (!brushPts || brushPts.length < 2) return;
-                          context.beginPath();
-                          context.moveTo(brushPts[0], brushPts[1]);
-                          for (let i = 2; i < brushPts.length; i += 2) {
-                            context.lineTo(brushPts[i], brushPts[i + 1]);
-                          }
-                          context.lineWidth = bSize;
-                          context.lineCap = 'round';
-                          context.lineJoin = 'round';
-                          context.strokeShape(shape);
                         }}
                       />
                     );
@@ -3245,15 +3210,17 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
             {/* Anotação em processo de criação (arraste) */}
             {newAnnotation && (
               <>
-                {newAnnotation.type === 'redaction' && (
-                  newAnnotation.mode === 'brush' ? (
+                {newAnnotation.type === 'redaction' && (() => {
+                  const previewLevel = resolveRedactionLevel(newAnnotation);
+                  const isSolid = previewLevel === 4;
+                  return newAnnotation.mode === 'brush' ? (
                     <Line
                       points={newAnnotation.points || []}
-                      stroke={newAnnotation.effect === 'blackout' ? '#000000' : 'rgba(100, 116, 139, 0.7)'}
+                      stroke={isSolid ? '#000000' : 'rgba(100, 116, 139, 0.7)'}
                       strokeWidth={newAnnotation.brushSize || 24}
                       lineCap="round"
                       lineJoin="round"
-                      dash={newAnnotation.effect === 'blur' ? [4, 4] : undefined}
+                      dash={!isSolid ? [4, 4] : undefined}
                       listening={false}
                     />
                   ) : (
@@ -3262,14 +3229,14 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                       y={newAnnotation.height! < 0 ? newAnnotation.y! + newAnnotation.height! : newAnnotation.y}
                       width={Math.abs(newAnnotation.width!)}
                       height={Math.abs(newAnnotation.height!)}
-                      fill={newAnnotation.effect === 'blackout' ? '#000000' : 'rgba(100, 116, 139, 0.4)'}
-                      stroke={newAnnotation.effect === 'blur' ? '#0071e3' : undefined}
+                      fill={isSolid ? '#000000' : 'rgba(100, 116, 139, 0.4)'}
+                      stroke={!isSolid ? '#0071e3' : undefined}
                       strokeWidth={1}
-                      dash={newAnnotation.effect === 'blur' ? [4, 4] : undefined}
+                      dash={!isSolid ? [4, 4] : undefined}
                       listening={false}
                     />
-                  )
-                )}
+                  );
+                })()}
                 {newAnnotation.type === 'rect' && (
                   <Rect
                     x={newAnnotation.x}

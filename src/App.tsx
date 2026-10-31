@@ -560,6 +560,7 @@ export const App: React.FC = () => {
             magnifierMode={editorState.magnifierMode}
             arrowStyle={editorState.arrowStyle}
             arrowCurveDirection={editorState.arrowCurveDirection}
+            redactionLevel={editorState.redactionLevel}
             redactionEffect={editorState.redactionEffect}
             redactionMode={editorState.redactionMode}
             zoomLevel={zoomLevel}

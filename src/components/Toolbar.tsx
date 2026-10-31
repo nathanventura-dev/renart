@@ -26,7 +26,6 @@ import {
   Type,
   Image as ImageIcon,
   Search,
-  ShieldAlert,
   EyeOff,
   EyeClosed,
   Smile,
@@ -419,7 +418,6 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   );
   const {
     effectiveRedactionLevel,
-    effectiveRedactionEffect,
     effectiveRedactionMode,
   } = resolveRedactionToolbarState(
     activeTool,

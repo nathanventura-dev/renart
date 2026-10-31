@@ -49,7 +49,7 @@ describe('Redaction Levels Model', () => {
 
     store.setRedactionLevel(2);
     const updated = store.getState().annotations.find((a) => a.id === 'test-redact');
-    expect(updated?.level).toBe(2);
+    expect((updated as any)?.level).toBe(2);
     expect(store.getState().redactionLevel).toBe(2);
   });
 });
