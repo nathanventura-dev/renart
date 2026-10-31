@@ -726,7 +726,13 @@ export function createEditorStore(
     },
 
     setRedactionEffect: (effect: RedactionEffect) => {
-      const level: RedactionLevel = effect === 'blackout' ? 4 : 3;
+      const currentLevel = state.redactionLevel;
+      const level: RedactionLevel =
+        effect === 'blackout'
+          ? 4
+          : currentLevel && currentLevel >= 1 && currentLevel <= 3
+            ? currentLevel
+            : 3;
       if (state.selectedIds.length > 0 && !state.isLocked) {
         const selectedSet = new Set(state.selectedIds);
         const hasSelectedRedaction = state.annotations.some(
@@ -743,7 +749,12 @@ export function createEditorStore(
               return {
                 ...ann,
                 effect,
-                level: effect === 'blackout' ? 4 : (ann.level && ann.level < 4 ? ann.level : 3),
+                level:
+                  effect === 'blackout'
+                    ? 4
+                    : ann.level && ann.level >= 1 && ann.level <= 3
+                      ? ann.level
+                      : level,
               };
             }),
           };

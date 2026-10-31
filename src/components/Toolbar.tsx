@@ -381,7 +381,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   redactionLevel = 4,
   onSelectRedactionLevel,
   redactionEffect = 'blackout',
-  onSelectRedactionEffect,
+  onSelectRedactionEffect: _onSelectRedactionEffect,
   redactionMode = 'rect',
   onSelectRedactionMode,
   selectedAnnotations = [],
@@ -926,10 +926,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
             <button
               type="button"
               title="Nível 1: Desfoque suave para rostos e fundos"
-              onClick={() => {
-                onSelectRedactionLevel?.(1);
-                onSelectRedactionEffect?.('blur');
-              }}
+              onClick={() => onSelectRedactionLevel?.(1)}
               style={{
                 width: '28px',
                 height: '24px',
@@ -950,10 +947,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
             <button
               type="button"
               title="Nível 2: Desfoque moderado para texto"
-              onClick={() => {
-                onSelectRedactionLevel?.(2);
-                onSelectRedactionEffect?.('blur');
-              }}
+              onClick={() => onSelectRedactionLevel?.(2)}
               style={{
                 width: '28px',
                 height: '24px',
@@ -974,10 +968,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
             <button
               type="button"
               title="Nível 3: Desfoque total sem visibilidade"
-              onClick={() => {
-                onSelectRedactionLevel?.(3);
-                onSelectRedactionEffect?.('blur');
-              }}
+              onClick={() => onSelectRedactionLevel?.(3)}
               style={{
                 width: '28px',
                 height: '24px',
@@ -998,10 +989,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
             <button
               type="button"
               title="Nível 4: Tarja preta 100% sólida (Inviolável)"
-              onClick={() => {
-                onSelectRedactionLevel?.(4);
-                onSelectRedactionEffect?.('blackout');
-              }}
+              onClick={() => onSelectRedactionLevel?.(4)}
               style={{
                 width: '28px',
                 height: '24px',

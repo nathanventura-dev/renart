@@ -23,8 +23,8 @@ describe('Redaction Levels Model', () => {
 
   it('defines correct blur radii', () => {
     expect(REDACTION_BLUR_RADII[1]).toBe(8);
-    expect(REDACTION_BLUR_RADII[2]).toBe(18);
-    expect(REDACTION_BLUR_RADII[3]).toBe(32);
+    expect(REDACTION_BLUR_RADII[2]).toBe(14);
+    expect(REDACTION_BLUR_RADII[3]).toBe(26);
   });
 
   it('creates rect and brush with default or custom level', () => {
@@ -50,6 +50,43 @@ describe('Redaction Levels Model', () => {
     store.setRedactionLevel(2);
     const updated = store.getState().annotations.find((a) => a.id === 'test-redact');
     expect((updated as any)?.level).toBe(2);
+    expect(store.getState().redactionLevel).toBe(2);
+  });
+
+  it('allows alternating redaction levels freely before any annotation is added', () => {
+    const store = createEditorStore();
+    expect(store.getState().redactionLevel).toBe(4);
+    expect(store.getState().redactionEffect).toBe('blackout');
+
+    store.setRedactionLevel(1);
+    expect(store.getState().redactionLevel).toBe(1);
+    expect(store.getState().redactionEffect).toBe('blur');
+
+    store.setRedactionLevel(2);
+    expect(store.getState().redactionLevel).toBe(2);
+    expect(store.getState().redactionEffect).toBe('blur');
+
+    store.setRedactionLevel(3);
+    expect(store.getState().redactionLevel).toBe(3);
+    expect(store.getState().redactionEffect).toBe('blur');
+
+    store.setRedactionLevel(4);
+    expect(store.getState().redactionLevel).toBe(4);
+    expect(store.getState().redactionEffect).toBe('blackout');
+
+    store.setRedactionLevel(1);
+    expect(store.getState().redactionLevel).toBe(1);
+    expect(store.getState().redactionEffect).toBe('blur');
+  });
+
+  it('preserves level 1 and 2 when setRedactionEffect is called with blur', () => {
+    const store = createEditorStore();
+    store.setRedactionLevel(1);
+    store.setRedactionEffect('blur');
+    expect(store.getState().redactionLevel).toBe(1);
+
+    store.setRedactionLevel(2);
+    store.setRedactionEffect('blur');
     expect(store.getState().redactionLevel).toBe(2);
   });
 });

@@ -24,6 +24,12 @@ describe('Toolbar Redaction Levels UI', () => {
       'rect'
     );
     expect(legacyState.effectiveRedactionLevel).toBe(3);
+
+    // Each level defaults when no redaction selected
+    expect(resolveRedactionToolbarState('redaction', [], 1, 'rect').effectiveRedactionLevel).toBe(1);
+    expect(resolveRedactionToolbarState('redaction', [], 2, 'rect').effectiveRedactionLevel).toBe(2);
+    expect(resolveRedactionToolbarState('redaction', [], 3, 'rect').effectiveRedactionLevel).toBe(3);
+    expect(resolveRedactionToolbarState('redaction', [], 4, 'rect').effectiveRedactionLevel).toBe(4);
   });
 
   it('renders EyeOff main tool button and 4 level buttons in submenu', () => {
@@ -61,5 +67,42 @@ describe('Toolbar Redaction Levels UI', () => {
     // Mode buttons
     expect(html).toContain('Retângulo');
     expect(html).toContain('Pincel');
+  });
+
+  it('highlights the correct level button depending on active level', () => {
+    const renderForLevel = (lvl: 1 | 2 | 3 | 4) =>
+      renderToString(
+        React.createElement(Toolbar, {
+          activeTool: 'redaction',
+          initialOpenMenu: 'redaction',
+          redactionLevel: lvl,
+          redactionMode: 'rect',
+          onSelectTool: () => {},
+          strokeColor: '#ff3b30',
+          onSelectColor: () => {},
+          strokeWidth: 2,
+          onSelectStrokeWidth: () => {},
+          canUndo: false,
+          canRedo: false,
+          onUndo: () => {},
+          onRedo: () => {},
+          onNewCapture: () => {},
+          onCopy: () => {},
+          onExport: () => {},
+          onInsertImage: () => {},
+        })
+      );
+
+    const html1 = renderForLevel(1);
+    expect(html1).toContain('title="Nível 1: Desfoque suave para rostos e fundos" style="width:28px;height:24px;display:inline-flex;align-items:center;justify-content:center;border:none;border-radius:4px;cursor:pointer;background-color:#0071e3;color:#ffffff"');
+
+    const html2 = renderForLevel(2);
+    expect(html2).toContain('title="Nível 2: Desfoque moderado para texto" style="width:28px;height:24px;display:inline-flex;align-items:center;justify-content:center;border:none;border-radius:4px;cursor:pointer;background-color:#0071e3;color:#ffffff"');
+
+    const html3 = renderForLevel(3);
+    expect(html3).toContain('title="Nível 3: Desfoque total sem visibilidade" style="width:28px;height:24px;display:inline-flex;align-items:center;justify-content:center;border:none;border-radius:4px;cursor:pointer;background-color:#0071e3;color:#ffffff"');
+
+    const html4 = renderForLevel(4);
+    expect(html4).toContain('title="Nível 4: Tarja preta 100% sólida (Inviolável)" style="width:28px;height:24px;display:inline-flex;align-items:center;justify-content:center;border:none;border-radius:4px;cursor:pointer;background-color:#0071e3;color:#ffffff"');
   });
 });

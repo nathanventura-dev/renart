@@ -292,7 +292,7 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
         const ctx = canvas.getContext('2d');
         if (!ctx) return null;
         ctx.filter = `blur(${radius}px)`;
-        ctx.drawImage(bgImage, 0, 0);
+        ctx.drawImage(bgImage, -radius, -radius, bgImage.width + radius * 2, bgImage.height + radius * 2);
         return canvas;
       } catch {
         return null;
@@ -2568,7 +2568,7 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                               listening={false}
                             />
                           ) : (
-                            <Rect width={w} height={h} fill="rgba(128, 128, 128, 0.85)" listening={false} />
+                            <Rect width={w} height={h} fill="#334155" listening={false} />
                           )}
                         </Group>
                         <Rect
@@ -2636,15 +2636,15 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                                 rawCtx.strokeStyle = pattern;
                                 rawCtx.stroke();
                               } else {
-                                rawCtx.strokeStyle = 'rgba(128, 128, 128, 0.85)';
+                                rawCtx.strokeStyle = '#334155';
                                 rawCtx.stroke();
                               }
                             } catch {
-                              rawCtx.strokeStyle = 'rgba(128, 128, 128, 0.85)';
+                              rawCtx.strokeStyle = '#334155';
                               rawCtx.stroke();
                             }
                           } else {
-                            rawCtx.strokeStyle = 'rgba(128, 128, 128, 0.85)';
+                            rawCtx.strokeStyle = '#334155';
                             rawCtx.stroke();
                           }
                           rawCtx.restore();

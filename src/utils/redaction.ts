@@ -4,15 +4,15 @@ export type { RedactionLevel };
 
 export const REDACTION_BLUR_RADII: Record<1 | 2 | 3, number> = {
   1: 8,
-  2: 18,
-  3: 32,
+  2: 14,
+  3: 26,
 };
 
 /**
  * Resolve o nível de privacidade (1..4) garantindo compatibilidade com anotações antigas.
  * Nível 1: Rosto / desfoque suave (8px)
- * Nível 2: Texto atenuado (18px)
- * Nível 3: Sem visibilidade / desfoque cego (32px)
+ * Nível 2: Texto atenuado / moderado (14px)
+ * Nível 3: Sem visibilidade / desfoque cego total (26px)
  * Nível 4: Tarja preta sólida (#000000)
  */
 export function resolveRedactionLevel(
