@@ -1,19 +1,51 @@
-import { RedactionAnnotation, RedactionEffect } from '../state/editorStore';
+import { RedactionAnnotation, RedactionEffect, RedactionLevel } from '../state/editorStore';
+
+export type { RedactionLevel };
+
+export const REDACTION_BLUR_RADII: Record<1 | 2 | 3, number> = {
+  1: 8,
+  2: 18,
+  3: 32,
+};
 
 /**
- * Cria uma anotação de censura no modo Retângulo com dimensões e efeito especificados.
+ * Resolve o nível de privacidade (1..4) garantindo compatibilidade com anotações antigas.
+ * Nível 1: Rosto / desfoque suave (8px)
+ * Nível 2: Texto atenuado (18px)
+ * Nível 3: Sem visibilidade / desfoque cego (32px)
+ * Nível 4: Tarja preta sólida (#000000)
+ */
+export function resolveRedactionLevel(
+  ann?: Partial<RedactionAnnotation> | { level?: RedactionLevel; effect?: RedactionEffect }
+): RedactionLevel {
+  if (ann?.level === 1 || ann?.level === 2 || ann?.level === 3 || ann?.level === 4) {
+    return ann.level;
+  }
+  if (ann?.effect === 'blur') {
+    return 3;
+  }
+  return 4;
+}
+
+/**
+ * Cria uma anotação de censura no modo Retângulo com dimensões e nível especificados.
  */
 export function createRedactionRect(
   x: number,
   y: number,
   width: number,
   height: number,
-  effect: RedactionEffect = 'blackout',
+  levelOrEffect: RedactionLevel | RedactionEffect = 4,
   id: string = `redact-${Date.now()}`
 ): RedactionAnnotation {
+  const level: RedactionLevel =
+    typeof levelOrEffect === 'number' ? levelOrEffect : levelOrEffect === 'blur' ? 3 : 4;
+  const effect: RedactionEffect = level === 4 ? 'blackout' : 'blur';
+
   return {
     id,
     type: 'redaction',
+    level,
     effect,
     mode: 'rect',
     x,
@@ -28,13 +60,18 @@ export function createRedactionRect(
  */
 export function createRedactionBrush(
   points: number[],
-  effect: RedactionEffect = 'blackout',
+  levelOrEffect: RedactionLevel | RedactionEffect = 4,
   brushSize: number = 24,
   id: string = `redact-${Date.now()}`
 ): RedactionAnnotation {
+  const level: RedactionLevel =
+    typeof levelOrEffect === 'number' ? levelOrEffect : levelOrEffect === 'blur' ? 3 : 4;
+  const effect: RedactionEffect = level === 4 ? 'blackout' : 'blur';
+
   return {
     id,
     type: 'redaction',
+    level,
     effect,
     mode: 'brush',
     points,

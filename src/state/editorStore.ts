@@ -102,12 +102,14 @@ export interface MagnifierAnnotation extends BaseAnnotation {
   focusY?: number; // Coordenada Y do ponto focal (quando desacoplado do centro da lente)
 }
 
+export type RedactionLevel = 1 | 2 | 3 | 4;
 export type RedactionEffect = 'blackout' | 'blur';
 export type RedactionMode = 'rect' | 'brush';
 
 export interface RedactionAnnotation extends BaseAnnotation {
   type: 'redaction';
-  effect: RedactionEffect;
+  level: RedactionLevel;
+  effect?: RedactionEffect;
   mode: RedactionMode;
   x?: number;
   y?: number;
@@ -141,6 +143,7 @@ export interface EditorState {
   arrowStyle: ArrowStyle;
   arrowCurveDirection: ArrowCurveDirection;
   magnifierMode: MagnifierMode;
+  redactionLevel: RedactionLevel;
   redactionEffect: RedactionEffect;
   redactionMode: RedactionMode;
   isLocked: boolean;
@@ -227,6 +230,7 @@ export function createEditorStore(
     arrowStyle: 'standard',
     arrowCurveDirection: 'right',
     magnifierMode: 'without-focus',
+    redactionLevel: 4,
     redactionEffect: 'blackout',
     redactionMode: 'rect',
     isLocked: false,
@@ -308,7 +312,12 @@ export function createEditorStore(
       arrowStyle: firstArrow ? firstArrow.arrowStyle || 'standard' : state.arrowStyle,
       arrowCurveDirection: firstArrow ? firstArrow.curveDirection || 'right' : state.arrowCurveDirection,
       magnifierMode: nextMagMode,
-      redactionEffect: firstRedaction ? firstRedaction.effect : state.redactionEffect,
+      redactionLevel: firstRedaction
+        ? firstRedaction.level ?? (firstRedaction.effect === 'blur' ? 3 : 4)
+        : state.redactionLevel,
+      redactionEffect: firstRedaction
+        ? firstRedaction.effect ?? (firstRedaction.level === 4 ? 'blackout' : 'blur')
+        : state.redactionEffect,
       redactionMode: firstRedaction ? firstRedaction.mode : state.redactionMode,
     };
   };
@@ -686,7 +695,38 @@ export function createEditorStore(
       notify();
     },
 
+    setRedactionLevel: (level: RedactionLevel) => {
+      const effect: RedactionEffect = level === 4 ? 'blackout' : 'blur';
+      if (state.selectedIds.length > 0 && !state.isLocked) {
+        const selectedSet = new Set(state.selectedIds);
+        const hasSelectedRedaction = state.annotations.some(
+          (ann) => selectedSet.has(ann.id) && ann.type === 'redaction'
+        );
+        if (hasSelectedRedaction) {
+          pushUndoSnapshot();
+          state = {
+            ...state,
+            redactionLevel: level,
+            redactionEffect: effect,
+            annotations: state.annotations.map((ann) => {
+              if (!selectedSet.has(ann.id) || ann.type !== 'redaction') return ann;
+              return {
+                ...ann,
+                level,
+                effect,
+              };
+            }),
+          };
+          notify();
+          return;
+        }
+      }
+      state = { ...state, redactionLevel: level, redactionEffect: effect };
+      notify();
+    },
+
     setRedactionEffect: (effect: RedactionEffect) => {
+      const level: RedactionLevel = effect === 'blackout' ? 4 : 3;
       if (state.selectedIds.length > 0 && !state.isLocked) {
         const selectedSet = new Set(state.selectedIds);
         const hasSelectedRedaction = state.annotations.some(
@@ -697,11 +737,13 @@ export function createEditorStore(
           state = {
             ...state,
             redactionEffect: effect,
+            redactionLevel: level,
             annotations: state.annotations.map((ann) => {
               if (!selectedSet.has(ann.id) || ann.type !== 'redaction') return ann;
               return {
                 ...ann,
                 effect,
+                level: effect === 'blackout' ? 4 : (ann.level && ann.level < 4 ? ann.level : 3),
               };
             }),
           };
@@ -709,7 +751,7 @@ export function createEditorStore(
           return;
         }
       }
-      state = { ...state, redactionEffect: effect };
+      state = { ...state, redactionEffect: effect, redactionLevel: level };
       notify();
     },
 
