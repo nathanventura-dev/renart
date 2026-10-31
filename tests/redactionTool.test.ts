@@ -9,6 +9,8 @@ import {
   getFourCornerPositions,
   updateCornerResize,
   updateShapeRotation,
+  shouldAttachTransformer,
+  adjustAnnotationsForCrop,
 } from '../src/utils/zoomAndCrop';
 
 describe('Redaction & Blur Tool Logic', () => {
@@ -82,5 +84,20 @@ describe('Redaction & Blur Tool Logic', () => {
     // Se o ponteiro for para a direita do centro (300, 150): ângulo deve ser 90 graus
     const angle = updateShapeRotation(ann, { x: 300, y: 150 });
     expect(angle).toBe(90);
+  });
+  it('suppresses Transformer for redaction tool (using 4-corner handles like rect)', () => {
+    expect(shouldAttachTransformer('redaction')).toBe(false);
+  });
+
+  it('adjusts redactions during image crop correctly', () => {
+    const rectAnn = createRedactionRect(100, 100, 200, 150, 'blackout', 'redact-crop-1');
+    const brushAnn = createRedactionBrush([120, 120, 160, 180], 'blur', 24, 'redact-crop-2');
+    const adjusted = adjustAnnotationsForCrop([rectAnn, brushAnn], { x: 50, y: 50 }, { width: 400, height: 400 });
+    expect(adjusted).toHaveLength(2);
+    expect(adjusted[0].x).toBe(50);
+    expect(adjusted[0].y).toBe(50);
+    if (adjusted[1].type === 'redaction' && adjusted[1].mode === 'brush') {
+      expect(adjusted[1].points).toEqual([70, 70, 110, 130]);
+    }
   });
 });

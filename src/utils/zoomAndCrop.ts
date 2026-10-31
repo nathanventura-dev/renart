@@ -181,11 +181,13 @@ export function adjustAnnotationsForCrop(
   const adjustedList: Annotation[] = [];
 
   for (const ann of annotations) {
-    if (ann.type === 'rect' || ann.type === 'image') {
-      const nextX = ann.x - cropOffset.x;
-      const nextY = ann.y - cropOffset.y;
-      const right = nextX + ann.width;
-      const bottom = nextY + ann.height;
+    if (ann.type === 'rect' || ann.type === 'image' || (ann.type === 'redaction' && ann.mode === 'rect')) {
+      const annW = (ann as any).width || 0;
+      const annH = (ann as any).height || 0;
+      const nextX = (ann.x || 0) - cropOffset.x;
+      const nextY = (ann.y || 0) - cropOffset.y;
+      const right = nextX + annW;
+      const bottom = nextY + annH;
 
       // Se estiver 100% fora do retângulo de corte, descarta
       if (right <= 0 || nextX >= cropRight || bottom <= 0 || nextY >= cropBottom) {
@@ -218,10 +220,10 @@ export function adjustAnnotationsForCrop(
       continue;
     }
 
-    if (ann.type === 'line' || ann.type === 'arrow') {
+    if (ann.type === 'line' || ann.type === 'arrow' || (ann.type === 'redaction' && ann.mode === 'brush')) {
       const offsetX = ann.x ? ann.x - cropOffset.x : -cropOffset.x;
       const offsetY = ann.y ? ann.y - cropOffset.y : -cropOffset.y;
-      const newPoints = ann.points.map((pt, idx) =>
+      const newPoints = (ann.points || []).map((pt, idx) =>
         idx % 2 === 0 ? pt + offsetX : pt + offsetY
       );
 
@@ -951,7 +953,8 @@ export function shouldAttachTransformer(
     annotationType === 'rect' ||
     annotationType === 'ellipse' ||
     annotationType === 'line' ||
-    annotationType === 'arrow'
+    annotationType === 'arrow' ||
+    annotationType === 'redaction'
   ) {
     return false;
   }

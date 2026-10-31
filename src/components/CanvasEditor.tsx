@@ -722,10 +722,12 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
       }
     }
 
-    if (draggedAnn?.type === 'rect') {
+    if (draggedAnn?.type === 'rect' || (draggedAnn?.type === 'redaction' && draggedAnn.mode === 'rect')) {
+      const dW = (draggedAnn as any).width || 0;
+      const dH = (draggedAnn as any).height || 0;
       setLiveFourCornerUpdate({
-        x: draggedNode.x() - draggedAnn.width / 2,
-        y: draggedNode.y() - draggedAnn.height / 2,
+        x: draggedNode.x() - dW / 2,
+        y: draggedNode.y() - dH / 2,
       });
     } else if (draggedAnn?.type === 'ellipse') {
       setLiveFourCornerUpdate({
@@ -1173,15 +1175,19 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
             };
       }
 
-      if (ann?.type === 'rect') {
+      if (ann?.type === 'rect' || (ann?.type === 'redaction' && ann.mode === 'rect')) {
+        const annW = (ann as any).width || 0;
+        const annH = (ann as any).height || 0;
         const sx = Math.abs(node.scaleX() || 1);
         const sy = Math.abs(node.scaleY() || 1);
-        const nextW = Math.max(10, Math.round(ann.width * sx));
-        const nextH = Math.max(10, Math.round(ann.height * sy));
+        const nextW = Math.max(10, Math.round(annW * sx));
+        const nextH = Math.max(10, Math.round(annH * sy));
         node.scaleX(1);
         node.scaleY(1);
-        (node as Konva.Rect).width(nextW);
-        (node as Konva.Rect).height(nextH);
+        if (typeof (node as any).width === 'function') {
+          (node as any).width(nextW);
+          (node as any).height(nextH);
+        }
         const clamped = clampRectToBounds(node.x(), node.y(), nextW, nextH, imgW, imgH, 1, 1, node.rotation());
         node.position({ x: clamped.x, y: clamped.y });
         return {
@@ -1655,9 +1661,14 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
         const prevPoints = newAnnotation.points || [];
         setNewAnnotation({ ...newAnnotation, points: [...prevPoints, clampedDrawingX, clampedDrawingY] });
       } else {
-        const width = clampedDrawingX - (newAnnotation.x ?? 0);
-        const height = clampedDrawingY - (newAnnotation.y ?? 0);
-        setNewAnnotation({ ...newAnnotation, width, height });
+        if (isShift) {
+          const sq = snapRectWithShift(newAnnotation.x || 0, newAnnotation.y || 0, clampedDrawingX, clampedDrawingY);
+          setNewAnnotation({ ...newAnnotation, width: sq.width, height: sq.height });
+        } else {
+          const width = clampedDrawingX - (newAnnotation.x ?? 0);
+          const height = clampedDrawingY - (newAnnotation.y ?? 0);
+          setNewAnnotation({ ...newAnnotation, width, height });
+        }
       }
     } else if (newAnnotation.type === 'magnifier') {
       const clampedLens = clampMagnifierToImageBounds(pos.x, pos.y, newAnnotation.radius, imgW, imgH);
