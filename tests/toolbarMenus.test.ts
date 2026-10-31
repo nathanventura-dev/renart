@@ -400,9 +400,11 @@ describe('Toolbar Horizontal Menus & Palette Dropdown', () => {
       })
     );
 
-    // Deve conter o botão de censura/ocultação e opções de Tarja Sólida, Blur, Retângulo e Pincel
-    expect(html).toContain('Tarja');
-    expect(html).toContain('Blur');
+    // Deve conter os 4 níveis de privacidade (ícones com tooltips) e modos Retângulo e Pincel
+    expect(html).toContain('Nível 1: Desfoque suave');
+    expect(html).toContain('Nível 2: Desfoque moderado');
+    expect(html).toContain('Nível 3: Desfoque total sem visibilidade');
+    expect(html).toContain('Nível 4: Tarja preta 100% sólida');
     expect(html).toContain('Retângulo');
     expect(html).toContain('Pincel');
   });

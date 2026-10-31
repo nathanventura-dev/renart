@@ -13,7 +13,9 @@ import {
   shouldShowArrowControls,
   shouldShowMagnifierControls,
   shouldShowRedactionControls,
+  RedactionLevel,
 } from '../state/editorStore';
+import { resolveRedactionLevel } from '../utils/redaction';
 import { formatZoomPercentage } from '../utils/zoomAndCrop';
 import {
   MousePointer,
@@ -25,6 +27,9 @@ import {
   Image as ImageIcon,
   Search,
   ShieldAlert,
+  EyeOff,
+  EyeClosed,
+  Smile,
   Crop,
   Check,
   X,
@@ -158,6 +163,7 @@ export function resolveMagnifierToolbarState(
 
 export interface RedactionToolbarState {
   showRedactionControls: boolean;
+  effectiveRedactionLevel: RedactionLevel;
   effectiveRedactionEffect: RedactionEffect;
   effectiveRedactionMode: RedactionMode;
 }
@@ -165,7 +171,7 @@ export interface RedactionToolbarState {
 export function resolveRedactionToolbarState(
   activeTool: ToolType,
   selectedAnnotations: Annotation[] = [],
-  globalRedactionEffect: RedactionEffect = 'blackout',
+  globalRedactionLevel: RedactionLevel | RedactionEffect = 4,
   globalRedactionMode: RedactionMode = 'rect'
 ): RedactionToolbarState {
   const showRedactionControls = shouldShowRedactionControls(activeTool, selectedAnnotations);
@@ -173,9 +179,24 @@ export function resolveRedactionToolbarState(
     | RedactionAnnotation
     | undefined;
 
+  const defaultLevel: RedactionLevel =
+    typeof globalRedactionLevel === 'number'
+      ? globalRedactionLevel
+      : globalRedactionLevel === 'blur'
+        ? 3
+        : 4;
+
+  const effectiveRedactionLevel: RedactionLevel = selectedRedaction
+    ? resolveRedactionLevel(selectedRedaction)
+    : defaultLevel;
+
+  const effectiveRedactionEffect: RedactionEffect =
+    effectiveRedactionLevel === 4 ? 'blackout' : 'blur';
+
   return {
     showRedactionControls,
-    effectiveRedactionEffect: selectedRedaction?.effect || globalRedactionEffect,
+    effectiveRedactionLevel,
+    effectiveRedactionEffect,
     effectiveRedactionMode: selectedRedaction?.mode || globalRedactionMode,
   };
 }
@@ -213,6 +234,8 @@ interface ToolbarProps {
   arrowStyle?: ArrowStyle;
   onSelectArrowStyle?: (style: ArrowStyle) => void;
   onToggleCurveDirection?: () => void;
+  redactionLevel?: RedactionLevel;
+  onSelectRedactionLevel?: (level: RedactionLevel) => void;
   redactionEffect?: RedactionEffect;
   onSelectRedactionEffect?: (effect: RedactionEffect) => void;
   redactionMode?: RedactionMode;
@@ -356,6 +379,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   arrowStyle = 'standard',
   onSelectArrowStyle,
   onToggleCurveDirection,
+  redactionLevel = 4,
+  onSelectRedactionLevel,
   redactionEffect = 'blackout',
   onSelectRedactionEffect,
   redactionMode = 'rect',
@@ -392,10 +417,14 @@ export const Toolbar: React.FC<ToolbarProps> = ({
     selectedAnnotations,
     magnifierMode
   );
-  const { effectiveRedactionEffect, effectiveRedactionMode } = resolveRedactionToolbarState(
+  const {
+    effectiveRedactionLevel,
+    effectiveRedactionEffect,
+    effectiveRedactionMode,
+  } = resolveRedactionToolbarState(
     activeTool,
     selectedAnnotations,
-    redactionEffect,
+    redactionLevel ?? redactionEffect ?? 4,
     redactionMode
   );
 
@@ -880,7 +909,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
         >
           <button
             type="button"
-            title="Ocultar Informações Confidenciais (Tarja / Blur)"
+            title="Ocultar informações (Censura e Desfoque)"
             onClick={() => {
               if (shouldSwitchToolOnMenuClick(activeTool, 'redaction', selectedAnnotations)) {
                 onSelectTool('redaction');
@@ -889,48 +918,106 @@ export const Toolbar: React.FC<ToolbarProps> = ({
             }}
             style={getToolButtonStyle(activeTool === 'redaction' || openMenu === 'redaction')}
           >
-            <ShieldAlert size={16} />
+            <EyeOff size={16} />
           </button>
           <HorizontalFloatingMenu
             isOpen={openMenu === 'redaction'}
             testId="horizontal-floating-menu-redaction"
           >
-            {/* Seletor de Efeito: Tarja vs Blur */}
+            {/* Nível 1: Rosto / Desfoque suave */}
             <button
               type="button"
-              title="Tarja Sólida: Bloco preto 100% opaco (Irreversível e seguro)"
-              onClick={() => onSelectRedactionEffect?.('blackout')}
+              title="Nível 1: Desfoque suave para rostos e fundos"
+              onClick={() => {
+                onSelectRedactionLevel?.(1);
+                onSelectRedactionEffect?.('blur');
+              }}
               style={{
+                width: '28px',
                 height: '24px',
-                padding: '0 8px',
-                fontSize: '11px',
-                fontWeight: 600,
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
                 border: 'none',
                 borderRadius: '4px',
                 cursor: 'pointer',
-                backgroundColor: effectiveRedactionEffect === 'blackout' ? '#0071e3' : 'transparent',
-                color: effectiveRedactionEffect === 'blackout' ? '#ffffff' : '#334155',
+                backgroundColor: effectiveRedactionLevel === 1 ? '#0071e3' : 'transparent',
+                color: effectiveRedactionLevel === 1 ? '#ffffff' : '#334155',
               }}
             >
-              Tarja
+              <Smile size={15} />
             </button>
+
+            {/* Nível 2: Texto atenuado */}
             <button
               type="button"
-              title="Blur: Desfoque destrutivo de alta densidade"
-              onClick={() => onSelectRedactionEffect?.('blur')}
+              title="Nível 2: Desfoque moderado para texto"
+              onClick={() => {
+                onSelectRedactionLevel?.(2);
+                onSelectRedactionEffect?.('blur');
+              }}
               style={{
+                width: '28px',
                 height: '24px',
-                padding: '0 8px',
-                fontSize: '11px',
-                fontWeight: 600,
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
                 border: 'none',
                 borderRadius: '4px',
                 cursor: 'pointer',
-                backgroundColor: effectiveRedactionEffect === 'blur' ? '#0071e3' : 'transparent',
-                color: effectiveRedactionEffect === 'blur' ? '#ffffff' : '#334155',
+                backgroundColor: effectiveRedactionLevel === 2 ? '#0071e3' : 'transparent',
+                color: effectiveRedactionLevel === 2 ? '#ffffff' : '#334155',
               }}
             >
-              Blur
+              <Type size={15} style={{ opacity: effectiveRedactionLevel === 2 ? 0.9 : 0.4 }} />
+            </button>
+
+            {/* Nível 3: Sem visibilidade / Desfoque total */}
+            <button
+              type="button"
+              title="Nível 3: Desfoque total sem visibilidade"
+              onClick={() => {
+                onSelectRedactionLevel?.(3);
+                onSelectRedactionEffect?.('blur');
+              }}
+              style={{
+                width: '28px',
+                height: '24px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                backgroundColor: effectiveRedactionLevel === 3 ? '#0071e3' : 'transparent',
+                color: effectiveRedactionLevel === 3 ? '#ffffff' : '#334155',
+              }}
+            >
+              <EyeClosed size={15} />
+            </button>
+
+            {/* Nível 4: Tarja preta sólida */}
+            <button
+              type="button"
+              title="Nível 4: Tarja preta 100% sólida (Inviolável)"
+              onClick={() => {
+                onSelectRedactionLevel?.(4);
+                onSelectRedactionEffect?.('blackout');
+              }}
+              style={{
+                width: '28px',
+                height: '24px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                backgroundColor: effectiveRedactionLevel === 4 ? '#0071e3' : 'transparent',
+                color: effectiveRedactionLevel === 4 ? '#ffffff' : '#334155',
+              }}
+            >
+              <Square size={14} fill="currentColor" />
             </button>
 
             {/* Divisor vertical suave */}
