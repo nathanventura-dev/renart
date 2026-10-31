@@ -73,4 +73,44 @@ describe('Toolbar Smart Text UI', () => {
     expect(html).toContain('Sortear');
     expect(html).toContain('Gera novos dados fictícios para este bloco');
   });
+
+  it('renders prominent Sortear button in toolbar when smart-text is selected even if menus are closed', () => {
+    const selectedSmartText: RedactionAnnotation = {
+      id: 'smart-1',
+      type: 'redaction',
+      mode: 'smart-text',
+      x: 10,
+      y: 10,
+      width: 100,
+      height: 30,
+      bgColor: '#ffffff',
+      textColor: '#000000',
+    };
+
+    const html = renderToString(
+      React.createElement(Toolbar, {
+        activeTool: 'select',
+        initialOpenMenu: null,
+        selectedAnnotations: [selectedSmartText],
+        redactionLevel: 4,
+        redactionMode: 'smart-text',
+        onSelectTool: () => {},
+        strokeColor: '#ff3b30',
+        onSelectColor: () => {},
+        strokeWidth: 2,
+        onSelectStrokeWidth: () => {},
+        canUndo: false,
+        canRedo: false,
+        onUndo: () => {},
+        onRedo: () => {},
+        onNewCapture: () => {},
+        onCopy: () => {},
+        onExport: () => {},
+        onInsertImage: () => {},
+      })
+    );
+
+    expect(html).toContain('Sortear');
+    expect(html).toContain('Gera novos dados fictícios para este bloco');
+  });
 });

@@ -38,8 +38,11 @@ function extractPixelBuffer(
 
   try {
     const canvas = document.createElement('canvas');
-    canvas.width = source.width;
-    canvas.height = source.height;
+    const w = (source as HTMLImageElement).naturalWidth || source.width;
+    const h = (source as HTMLImageElement).naturalHeight || source.height;
+    if (w <= 0 || h <= 0) return null;
+    canvas.width = w;
+    canvas.height = h;
     const ctx = canvas.getContext('2d');
     if (!ctx) return null;
 

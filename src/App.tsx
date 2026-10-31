@@ -570,6 +570,7 @@ export const App: React.FC = () => {
             onFitScaleCalculated={handleFitScaleCalculated}
             isCropping={editorState.activeTool === 'crop'}
             onCropRectChange={setCropRect}
+            onRegenerateSmartText={(id) => editorStore.regenerateSmartText(id)}
             stageRef={stageRef}
           />
         ) : (

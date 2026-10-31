@@ -1281,6 +1281,37 @@ export const Toolbar: React.FC<ToolbarProps> = ({
 
         <div style={{ width: '1px', height: '20px', backgroundColor: '#d1d1d6', margin: '0 4px' }} />
 
+        {/* Botão de Sortear em destaque quando um bloco de Texto Inteligente estiver selecionado */}
+        {selectedSmartText && (
+          <>
+            <button
+              type="button"
+              title="Sortear Novamente: Gera novos dados fictícios para este bloco"
+              onClick={() => onRegenerateSmartText?.(selectedSmartText.id)}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                height: '28px',
+                padding: '0 10px',
+                fontSize: '12px',
+                fontWeight: 600,
+                border: '1px solid #0071e3',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                backgroundColor: '#0071e3',
+                color: '#ffffff',
+                boxShadow: '0 1px 3px rgba(0, 113, 227, 0.25)',
+                transition: 'all 0.15s ease',
+              }}
+            >
+              <RefreshCw size={13} />
+              <span>Sortear</span>
+            </button>
+            <div style={{ width: '1px', height: '20px', backgroundColor: '#d1d1d6', margin: '0 4px' }} />
+          </>
+        )}
+
         {/* Paleta de Cores: Botão com ícone que abre lista suspensa horizontal */}
         <div
           ref={paletteContainerRef}

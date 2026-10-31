@@ -37,7 +37,7 @@ import {
 import { detectTextInImageRegion } from '../services/ocrService';
 import { anonymizeOcrLines } from '../utils/textAnonymizer';
 import { sampleRegionColors } from '../utils/colorSampling';
-import { calculateSmartTextLayout } from '../utils/smartTextLayout';
+import { calculateSmartTextWordLayout } from '../utils/smartTextLayout';
 import {
   calculateMagnifierImageTransform,
   calculateZoomFromCrownDrag,
@@ -119,6 +119,7 @@ interface CanvasEditorProps {
   onAddAnnotation: (annotation: Annotation) => void;
   onUpdateAnnotation: (id: string, updates: Partial<Annotation>) => void;
   onUpdateAnnotations?: (updatesById: Record<string, Partial<Annotation>>) => void;
+  onRegenerateSmartText?: (id: string) => void;
   stageRef: React.RefObject<Konva.Stage | null>;
 }
 
@@ -283,6 +284,7 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
   onAddAnnotation,
   onUpdateAnnotation,
   onUpdateAnnotations,
+  onRegenerateSmartText,
   stageRef,
 }) => {
   const [bgImage, setBgImage] = useState<HTMLImageElement | null>(null);
@@ -1759,6 +1761,7 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
           );
           const annId = newAnnotation.id;
           detectTextInImageRegion(imageBase64, clamped).then((ocrLines) => {
+            if (!ocrLines || ocrLines.length === 0) return;
             const anonymizedLines = anonymizeOcrLines(ocrLines);
             onAddAnnotation({
               id: annId,
@@ -2503,15 +2506,19 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                   const h = activeRect.height || 0;
                   const cx = (activeRect.x || 0) + w / 2;
                   const cy = (activeRect.y || 0) + h / 2;
-                  const smartLines = calculateSmartTextLayout(
+                  const smartWords = calculateSmartTextWordLayout(
                     ann.lines,
                     { x: activeRect.x || 0, y: activeRect.y || 0, width: w, height: h },
                     ann
                   );
 
+                  const renderKey = `${ann.id}-${(ann.lines || [])
+                    .map((l) => (l.words || []).map((w) => w.replacementText).join('-'))
+                    .join('_')}`;
+
                   return (
                     <Group
-                      key={ann.id}
+                      key={renderKey}
                       id={ann.id}
                       x={cx}
                       y={cy}
@@ -2549,38 +2556,90 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                       onDragMove={(e) => handleBlockDragMove(ann.id, e)}
                       onDragEnd={(e) => handleBlockDragEnd(ann.id, e)}
                     >
-                      <Rect
-                        width={w}
-                        height={h}
-                        fill={ann.bgColor || '#ffffff'}
-                        cornerRadius={2}
-                      />
-                      <Group
-                        clipFunc={(ctx) => {
-                          ctx.rect(0, 0, w, h);
-                        }}
-                      >
-                        {smartLines.map((line, idx) => (
+                      {/* Borda de seleção quando em foco */}
+                      {isSelected4C && (
+                        <Rect
+                          width={w}
+                          height={h}
+                          stroke="#0071e3"
+                          strokeWidth={1.5}
+                          dash={[4, 4]}
+                          fill="transparent"
+                          cornerRadius={2}
+                          listening={false}
+                        />
+                      )}
+
+                      {/* Botão flutuante para sortear novamente */}
+                      {isSelected4C && (
+                        <Group
+                          x={w / 2}
+                          y={-14}
+                          onClick={(e) => {
+                            e.cancelBubble = true;
+                            onRegenerateSmartText?.(ann.id);
+                          }}
+                          onTap={(e) => {
+                            e.cancelBubble = true;
+                            onRegenerateSmartText?.(ann.id);
+                          }}
+                        >
+                          <Rect
+                            x={-38}
+                            y={-10}
+                            width={76}
+                            height={20}
+                            fill="#0071e3"
+                            cornerRadius={10}
+                            shadowColor="#000000"
+                            shadowBlur={4}
+                            shadowOpacity={0.25}
+                          />
                           <Text
-                            key={`smart-line-${idx}`}
-                            text={line.text}
-                            x={line.x}
-                            y={line.y}
-                            width={line.width}
-                            height={line.height}
-                            fontSize={line.fontSize}
-                            fontFamily="sans-serif"
-                            fill={ann.textColor || '#1e293b'}
+                            x={-38}
+                            y={-10}
+                            width={76}
+                            height={20}
+                            text="🎲 Sortear"
+                            fontSize={11}
+                            fontStyle="bold"
+                            fontFamily="-apple-system, BlinkMacSystemFont, sans-serif"
+                            fill="#ffffff"
+                            align="center"
+                            verticalAlign="middle"
                             listening={false}
                           />
-                        ))}
-                      </Group>
+                        </Group>
+                      )}
+
+                      {/* Renderização individual de cada palavra anonimizada com inpainting sob ela */}
+                      {smartWords.map((word, idx) => (
+                        <Group key={`smart-word-${idx}`} x={word.x} y={word.y}>
+                          <Rect
+                            width={word.width}
+                            height={word.height}
+                            fill={ann.bgColor || '#ffffff'}
+                            cornerRadius={2}
+                          />
+                          <Text
+                            width={word.width}
+                            height={word.height}
+                            text={word.text}
+                            fontSize={word.fontSize}
+                            fontFamily="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif"
+                            fill={ann.textColor || '#1e293b'}
+                            align="center"
+                            verticalAlign="middle"
+                            listening={false}
+                          />
+                        </Group>
+                      ))}
+
+                      {/* Hitbox transparente para clique e arraste */}
                       <Rect
                         width={w}
                         height={h}
-                        stroke="rgba(0, 0, 0, 0.12)"
-                        strokeWidth={1}
-                        listening={false}
+                        fill="rgba(0,0,0,0.001)"
                       />
                     </Group>
                   );

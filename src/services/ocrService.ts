@@ -77,6 +77,78 @@ export function generateDevFallbackOcrLines(region: OcrRegion): OcrLine[] {
   return lines;
 }
 
+let tesseractWorkerPromise: Promise<any> | null = null;
+
+export async function getTesseractWorker() {
+  if (!tesseractWorkerPromise) {
+    const { createWorker } = await import('tesseract.js');
+    tesseractWorkerPromise = createWorker('por+eng');
+  }
+  return tesseractWorkerPromise;
+}
+
+/**
+ * Reconhece texto e caixas delimitadoras de palavras usando o motor Tesseract.js.
+ */
+export async function recognizeWithTesseract(
+  imageBase64: string,
+  region: OcrRegion
+): Promise<OcrLine[]> {
+  try {
+    const worker = await getTesseractWorker();
+    const res = await worker.recognize(
+      imageBase64,
+      {
+        rectangle: {
+          left: Math.max(0, Math.round(region.x)),
+          top: Math.max(0, Math.round(region.y)),
+          width: Math.max(1, Math.round(region.width)),
+          height: Math.max(1, Math.round(region.height)),
+        },
+      },
+      { blocks: true }
+    );
+
+    const lines: OcrLine[] = [];
+    if (Array.isArray(res?.data?.blocks)) {
+      for (const block of res.data.blocks) {
+        for (const para of block.paragraphs || []) {
+          for (const line of para.lines || []) {
+            const words: OcrWord[] = [];
+            for (const w of line.words || []) {
+              const cleanText = (w.text || '').trim();
+              if (cleanText) {
+                words.push({
+                  text: cleanText,
+                  x: w.bbox.x0,
+                  y: w.bbox.y0,
+                  width: Math.max(1, w.bbox.x1 - w.bbox.x0),
+                  height: Math.max(1, w.bbox.y1 - w.bbox.y0),
+                });
+              }
+            }
+            const cleanLineText = (line.text || '').trim();
+            if (words.length > 0) {
+              lines.push({
+                text: cleanLineText || words.map((w) => w.text).join(' '),
+                x: line.bbox.x0,
+                y: line.bbox.y0,
+                width: Math.max(1, line.bbox.x1 - line.bbox.x0),
+                height: Math.max(1, line.bbox.y1 - line.bbox.y0),
+                words,
+              });
+            }
+          }
+        }
+      }
+    }
+    return lines;
+  } catch (err) {
+    console.warn('Tesseract OCR falhou ou imagem não suportada:', err);
+    return [];
+  }
+}
+
 /**
  * Detecta texto dentro de uma região selecionada da imagem.
  * Utiliza o backend Tauri nativo quando disponível; caso contrário, utiliza o gerador de desenvolvimento.
@@ -128,6 +200,14 @@ export async function detectTextInImageRegion(
     }
   }
 
-  // 3. Fallback limpo de desenvolvimento (navegador web ou quando nenhum texto legível for retornado)
+  // 3. Reconhecimento OCR real via Tesseract
+  if (imageBase64 && imageBase64.length > 100) {
+    const tesseractLines = await recognizeWithTesseract(imageBase64, region);
+    if (tesseractLines.length > 0) {
+      return tesseractLines;
+    }
+  }
+
+  // 4. Fallback limpo de desenvolvimento (navegador web ou quando nenhum texto legível for retornado)
   return generateDevFallbackOcrLines(region);
 }
