@@ -20,9 +20,10 @@ Substituir a divisão binária anterior ("Tarja" vs "Blur") por uma régua coesa
    - **Nível 3 (Sem visibilidade / Olho fechado):** Desfoque intenso com raio de 32px (seguro contra OCR e IA).
    - **Nível 4 (Tarja sólida):** Preenchimento 100% preto (`#000000`), sigilo inviolável.
 2. **Ícones intuitivos no Toolbar:**
+   - Botão principal da ferramenta no Toolbar: `<EyeOff size={16} />` (substituindo o antigo `ShieldAlert` por um ícone universalmente reconhecido para ocultar informações confidenciais).
    - Nível 1: Ícone de rosto (`Smile`).
    - Nível 2: Ícone de texto (`Type` com opacidade reduzida a ~50%).
-   - Nível 3: Ícone sem visibilidade (`EyeOff`).
+   - Nível 3: Ícone sem visibilidade / olho fechado (`EyeClosed`).
    - Nível 4: Ícone preto sólido (`Square` preenchido em preto).
 3. **Edição e sincronização em tempo real:**
    - Clicar em um nível altera a intensidade padrão para novas criações.
@@ -61,11 +62,12 @@ Substituir a divisão binária anterior ("Tarja" vs "Blur") por uma régua coesa
   ```
 
 ### 4.2 Barra de Ferramentas (`src/components/Toolbar.tsx`)
+- Botão da ferramenta: alterar o ícone de `<ShieldAlert size={16} />` para `<EyeOff size={16} />` (Tooltip: "Ocultar Informações (Censura e Desfoque)").
 - No `HorizontalFloatingMenu` da ferramenta de censura:
   - Substituir os botões de texto "Tarja" e "Blur" pelos 4 botões com os ícones:
     - Nível 1: `<Smile size={15} />` (Tooltip: "Nível 1: Desfoque suave para rostos e fundos")
     - Nível 2: `<Type size={15} style={{ opacity: 0.5 }} />` (Tooltip: "Nível 2: Desfoque moderado para texto")
-    - Nível 3: `<EyeOff size={15} />` (Tooltip: "Nível 3: Desfoque total sem visibilidade")
+    - Nível 3: `<EyeClosed size={15} />` (Tooltip: "Nível 3: Desfoque total sem visibilidade")
     - Nível 4: `<Square size={15} fill="currentColor" />` (Tooltip: "Nível 4: Tarja preta 100% sólida (Inviolável)")
   - Divisor vertical suave.
   - Seletores de modo: `Retângulo` e `Pincel`.
