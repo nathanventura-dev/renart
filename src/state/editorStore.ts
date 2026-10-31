@@ -1,4 +1,5 @@
 import { calculateCurvedArrowPoints, invertCurvedArrowPoints } from '../utils/zoomAndCrop';
+import { AnonymizedLine, anonymizeWord } from '../utils/textAnonymizer';
 
 export type ToolType =
   | 'select'
@@ -104,7 +105,7 @@ export interface MagnifierAnnotation extends BaseAnnotation {
 
 export type RedactionLevel = 1 | 2 | 3 | 4;
 export type RedactionEffect = 'blackout' | 'blur';
-export type RedactionMode = 'rect' | 'brush';
+export type RedactionMode = 'rect' | 'brush' | 'smart-text';
 
 export interface RedactionAnnotation extends BaseAnnotation {
   type: 'redaction';
@@ -117,6 +118,9 @@ export interface RedactionAnnotation extends BaseAnnotation {
   height?: number;
   points?: number[];
   brushSize?: number;
+  bgColor?: string;
+  textColor?: string;
+  lines?: AnonymizedLine[];
 }
 
 export type Annotation =
@@ -790,6 +794,38 @@ export function createEditorStore(
         }
       }
       state = { ...state, redactionMode: mode };
+      notify();
+    },
+
+    regenerateSmartText: (id: string) => {
+      const ann = state.annotations.find((a) => a.id === id) as RedactionAnnotation | undefined;
+      if (!ann || ann.type !== 'redaction' || ann.mode !== 'smart-text' || !ann.lines) {
+        return;
+      }
+
+      pushUndoSnapshot();
+
+      const regeneratedLines: AnonymizedLine[] = ann.lines.map((line) => {
+        const regeneratedWords = line.words.map((w) => ({
+          ...w,
+          replacementText: anonymizeWord(w.originalText || w.text),
+        }));
+        const replacementText = regeneratedWords.map((w) => w.replacementText).join(' ');
+        return {
+          ...line,
+          words: regeneratedWords,
+          replacementText,
+        };
+      });
+
+      const nextAnnotations = state.annotations.map((a) =>
+        a.id === id ? ({ ...a, lines: regeneratedLines } as Annotation) : a
+      );
+
+      state = {
+        ...state,
+        annotations: nextAnnotations,
+      };
       notify();
     },
 
