@@ -81,7 +81,7 @@ describe('Canvas Text Rendering & Shortcuts Logic', () => {
     expect(state.isUnderline).toBe(true);
   });
 
-  it('formats only selected text when selection is active, and entire block when collapsed', () => {
+  it('formats selected range when selection is active, and applies to subsequent typing without selecting whole node when collapsed', () => {
     let executedCommand = '';
     let executedOnAll = false;
 
@@ -94,7 +94,7 @@ describe('Canvas Text Rendering & Shortcuts Logic', () => {
         executedOnAll = false;
       } else {
         executedCommand = command;
-        executedOnAll = true;
+        executedOnAll = false;
       }
     };
 
@@ -106,7 +106,7 @@ describe('Canvas Text Rendering & Shortcuts Logic', () => {
     // 2. Without selection (collapsed caret)
     simulateShortcut('italic', false);
     expect(executedCommand).toBe('italic');
-    expect(executedOnAll).toBe(true);
+    expect(executedOnAll).toBe(false);
   });
 
   describe('Inline Text Editor Key Cycle & Commit Logic', () => {

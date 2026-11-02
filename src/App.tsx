@@ -481,7 +481,7 @@ export const App: React.FC = () => {
     const sel = typeof window !== 'undefined' ? window.getSelection() : null;
 
     if (isEditingInline) {
-      if (sel && !sel.isCollapsed && sel.toString().length > 0) {
+      if (true) {
         document.execCommand('bold', false);
         return;
       }
@@ -510,7 +510,7 @@ export const App: React.FC = () => {
     const sel = typeof window !== 'undefined' ? window.getSelection() : null;
 
     if (isEditingInline) {
-      if (sel && !sel.isCollapsed && sel.toString().length > 0) {
+      if (true) {
         document.execCommand('italic', false);
         return;
       }
@@ -539,7 +539,7 @@ export const App: React.FC = () => {
     const sel = typeof window !== 'undefined' ? window.getSelection() : null;
 
     if (isEditingInline) {
-      if (sel && !sel.isCollapsed && sel.toString().length > 0) {
+      if (true) {
         document.execCommand('underline', false);
         return;
       }
@@ -568,7 +568,7 @@ export const App: React.FC = () => {
     const sel = typeof window !== 'undefined' ? window.getSelection() : null;
 
     if (isEditingInline) {
-      if (sel && !sel.isCollapsed && sel.toString().length > 0) {
+      if (true) {
         document.execCommand('strikeThrough', false);
         return;
       }

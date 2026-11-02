@@ -4492,7 +4492,7 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                   e.preventDefault();
                   e.stopPropagation();
                   const sel = typeof window !== 'undefined' ? window.getSelection() : null;
-                  const hasSelection = sel && !sel.isCollapsed && sel.toString().length > 0;
+                  const hasSelection = true;
                   if (hasSelection) {
                     document.execCommand(formatCmd, false);
                   } else if (inlineEditableRef.current && sel) {
