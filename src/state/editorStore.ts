@@ -1,3 +1,5 @@
+import { TextAlign } from '../utils/textStyle';
+export type { TextAlign };
 import { calculateCurvedArrowPoints, invertCurvedArrowPoints } from '../utils/zoomAndCrop';
 import { AnonymizedLine, anonymizeWord } from '../utils/textAnonymizer';
 
@@ -82,6 +84,13 @@ export interface TextAnnotation extends BaseAnnotation {
   fontSize: number;
   fontFamily?: string;
   fill?: string;
+  isBold?: boolean;
+  isItalic?: boolean;
+  isUnderline?: boolean;
+  isStrikethrough?: boolean;
+  textAlign?: TextAlign;
+  hasBackground?: boolean;
+  backgroundColor?: string;
 }
 
 export interface ImageAnnotation extends BaseAnnotation {
@@ -144,6 +153,12 @@ export interface EditorState {
   strokeWidth: number;
   fontSize: number;
   fontFamily: string;
+  isBold: boolean;
+  isItalic: boolean;
+  isUnderline: boolean;
+  isStrikethrough: boolean;
+  textAlign: TextAlign;
+  hasBackground: boolean;
   arrowStyle: ArrowStyle;
   arrowCurveDirection: ArrowCurveDirection;
   magnifierMode: MagnifierMode;
@@ -231,6 +246,12 @@ export function createEditorStore(
     strokeWidth: 4,
     fontSize: 18,
     fontFamily: 'Arial',
+    isBold: false,
+    isItalic: false,
+    isUnderline: false,
+    isStrikethrough: false,
+    textAlign: 'left',
+    hasBackground: false,
     arrowStyle: 'standard',
     arrowCurveDirection: 'right',
     magnifierMode: 'without-focus',
@@ -313,6 +334,12 @@ export function createEditorStore(
       strokeWidth: nextWidth,
       fontSize: firstText ? firstText.fontSize : state.fontSize,
       fontFamily: firstText ? firstText.fontFamily || 'Arial' : state.fontFamily,
+      isBold: firstText ? Boolean(firstText.isBold) : state.isBold,
+      isItalic: firstText ? Boolean(firstText.isItalic) : state.isItalic,
+      isUnderline: firstText ? Boolean(firstText.isUnderline) : state.isUnderline,
+      isStrikethrough: firstText ? Boolean(firstText.isStrikethrough) : state.isStrikethrough,
+      textAlign: firstText ? firstText.textAlign || 'left' : state.textAlign,
+      hasBackground: firstText ? Boolean(firstText.hasBackground) : state.hasBackground,
       arrowStyle: firstArrow ? firstArrow.arrowStyle || 'standard' : state.arrowStyle,
       arrowCurveDirection: firstArrow ? firstArrow.curveDirection || 'right' : state.arrowCurveDirection,
       magnifierMode: nextMagMode,
@@ -543,6 +570,155 @@ export function createEditorStore(
         }
       }
       state = { ...state, fontFamily: family };
+      notify();
+    },
+
+    toggleBold: () => {
+      const nextBold = !state.isBold;
+      if (state.selectedIds.length > 0 && !state.isLocked) {
+        const selectedSet = new Set(state.selectedIds);
+        const hasSelectedText = state.annotations.some(
+          (ann) => selectedSet.has(ann.id) && ann.type === 'text'
+        );
+        if (hasSelectedText) {
+          pushUndoSnapshot();
+          state = {
+            ...state,
+            isBold: nextBold,
+            annotations: state.annotations.map((ann) => {
+              if (!selectedSet.has(ann.id) || ann.type !== 'text') return ann;
+              return { ...ann, isBold: nextBold };
+            }),
+          };
+          notify();
+          return;
+        }
+      }
+      state = { ...state, isBold: nextBold };
+      notify();
+    },
+
+    toggleItalic: () => {
+      const nextItalic = !state.isItalic;
+      if (state.selectedIds.length > 0 && !state.isLocked) {
+        const selectedSet = new Set(state.selectedIds);
+        const hasSelectedText = state.annotations.some(
+          (ann) => selectedSet.has(ann.id) && ann.type === 'text'
+        );
+        if (hasSelectedText) {
+          pushUndoSnapshot();
+          state = {
+            ...state,
+            isItalic: nextItalic,
+            annotations: state.annotations.map((ann) => {
+              if (!selectedSet.has(ann.id) || ann.type !== 'text') return ann;
+              return { ...ann, isItalic: nextItalic };
+            }),
+          };
+          notify();
+          return;
+        }
+      }
+      state = { ...state, isItalic: nextItalic };
+      notify();
+    },
+
+    toggleUnderline: () => {
+      const nextUnderline = !state.isUnderline;
+      if (state.selectedIds.length > 0 && !state.isLocked) {
+        const selectedSet = new Set(state.selectedIds);
+        const hasSelectedText = state.annotations.some(
+          (ann) => selectedSet.has(ann.id) && ann.type === 'text'
+        );
+        if (hasSelectedText) {
+          pushUndoSnapshot();
+          state = {
+            ...state,
+            isUnderline: nextUnderline,
+            annotations: state.annotations.map((ann) => {
+              if (!selectedSet.has(ann.id) || ann.type !== 'text') return ann;
+              return { ...ann, isUnderline: nextUnderline };
+            }),
+          };
+          notify();
+          return;
+        }
+      }
+      state = { ...state, isUnderline: nextUnderline };
+      notify();
+    },
+
+    toggleStrikethrough: () => {
+      const nextStrikethrough = !state.isStrikethrough;
+      if (state.selectedIds.length > 0 && !state.isLocked) {
+        const selectedSet = new Set(state.selectedIds);
+        const hasSelectedText = state.annotations.some(
+          (ann) => selectedSet.has(ann.id) && ann.type === 'text'
+        );
+        if (hasSelectedText) {
+          pushUndoSnapshot();
+          state = {
+            ...state,
+            isStrikethrough: nextStrikethrough,
+            annotations: state.annotations.map((ann) => {
+              if (!selectedSet.has(ann.id) || ann.type !== 'text') return ann;
+              return { ...ann, isStrikethrough: nextStrikethrough };
+            }),
+          };
+          notify();
+          return;
+        }
+      }
+      state = { ...state, isStrikethrough: nextStrikethrough };
+      notify();
+    },
+
+    setTextAlign: (align: TextAlign) => {
+      if (state.selectedIds.length > 0 && !state.isLocked) {
+        const selectedSet = new Set(state.selectedIds);
+        const hasSelectedText = state.annotations.some(
+          (ann) => selectedSet.has(ann.id) && ann.type === 'text'
+        );
+        if (hasSelectedText) {
+          pushUndoSnapshot();
+          state = {
+            ...state,
+            textAlign: align,
+            annotations: state.annotations.map((ann) => {
+              if (!selectedSet.has(ann.id) || ann.type !== 'text') return ann;
+              return { ...ann, textAlign: align };
+            }),
+          };
+          notify();
+          return;
+        }
+      }
+      state = { ...state, textAlign: align };
+      notify();
+    },
+
+    toggleBackground: () => {
+      const nextBg = !state.hasBackground;
+      if (state.selectedIds.length > 0 && !state.isLocked) {
+        const selectedSet = new Set(state.selectedIds);
+        const hasSelectedText = state.annotations.some(
+          (ann) => selectedSet.has(ann.id) && ann.type === 'text'
+        );
+        if (hasSelectedText) {
+          pushUndoSnapshot();
+          state = {
+            ...state,
+            hasBackground: nextBg,
+            annotations: state.annotations.map((ann) => {
+              if (!selectedSet.has(ann.id) || ann.type !== 'text') return ann;
+              return { ...ann, hasBackground: nextBg };
+            }),
+          };
+          notify();
+          return;
+        }
+      }
+      state = { ...state, hasBackground: nextBg };
       notify();
     },
 
