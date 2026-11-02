@@ -3381,7 +3381,7 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
               <>
                 {newAnnotation.type === 'redaction' && (() => {
                   const previewLevel = resolveRedactionLevel(newAnnotation);
-                  const isSolid = previewLevel === 4;
+                  const isSolid = previewLevel === 3;
                   return newAnnotation.mode === 'brush' ? (
                     <Line
                       points={newAnnotation.points || []}

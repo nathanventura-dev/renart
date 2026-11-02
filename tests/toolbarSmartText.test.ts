@@ -10,7 +10,7 @@ describe('Clean Redaction Toolbar UI', () => {
       React.createElement(Toolbar, {
         activeTool: 'redaction',
         initialOpenMenu: 'redaction',
-        redactionLevel: 4,
+        redactionLevel: 1,
         redactionMode: 'rect',
         onSelectTool: () => {},
         strokeColor: '#ff3b30',
@@ -50,7 +50,7 @@ describe('Clean Redaction Toolbar UI', () => {
         activeTool: 'select',
         initialOpenMenu: null,
         selectedAnnotations: [selectedRedact],
-        redactionLevel: 4,
+        redactionLevel: 1,
         redactionMode: 'rect',
         onSelectTool: () => {},
         strokeColor: '#ff3b30',

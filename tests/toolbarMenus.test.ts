@@ -400,11 +400,11 @@ describe('Toolbar Horizontal Menus & Palette Dropdown', () => {
       })
     );
 
-    // Deve conter os 4 níveis de privacidade (ícones com tooltips) e modos Retângulo e Pincel
+    // Deve conter os 3 níveis de privacidade (ícones com tooltips) e modos Retângulo e Pincel
     expect(html).toContain('Nível 1: Desfoque suave');
     expect(html).toContain('Nível 2: Desfoque moderado');
-    expect(html).toContain('Nível 3: Desfoque total sem visibilidade');
-    expect(html).toContain('Nível 4: Tarja preta 100% sólida');
+    expect(html).toContain('Nível 3: Tarja preta 100% sólida');
+    expect(html).not.toContain('Desfoque total sem visibilidade');
     expect(html).toContain('Retângulo');
     expect(html).toContain('Pincel');
   });

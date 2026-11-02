@@ -317,10 +317,10 @@ export function createEditorStore(
       arrowCurveDirection: firstArrow ? firstArrow.curveDirection || 'right' : state.arrowCurveDirection,
       magnifierMode: nextMagMode,
       redactionLevel: firstRedaction
-        ? (firstRedaction.level === 4 ? 3 : firstRedaction.level ?? (firstRedaction.effect === 'blur' ? 2 : 3))
+        ? firstRedaction.level ?? (firstRedaction.effect === 'blur' ? 2 : 3)
         : state.redactionLevel,
       redactionEffect: firstRedaction
-        ? firstRedaction.effect ?? (firstRedaction.level === 3 || firstRedaction.level === 4 ? 'blackout' : 'blur')
+        ? firstRedaction.effect ?? (firstRedaction.level === 3 ? 'blackout' : 'blur')
         : state.redactionEffect,
       redactionMode: firstRedaction ? firstRedaction.mode : state.redactionMode,
     };
@@ -751,8 +751,8 @@ export function createEditorStore(
                 effect,
                 level:
                   effect === 'blackout'
-                    ? 4
-                    : ann.level && ann.level >= 1 && ann.level <= 3
+                    ? 3
+                    : ann.level && (ann.level === 1 || ann.level === 2)
                       ? ann.level
                       : level,
               };
