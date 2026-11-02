@@ -290,7 +290,7 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
 }) => {
   const [bgImage, setBgImage] = useState<HTMLImageElement | null>(null);
   const blurredBgCanvases = useMemo(() => {
-    if (!bgImage) return { 1: null, 2: null, 3: null };
+    if (!bgImage) return { 1: null, 2: null };
     const createBlurCanvas = (radius: number) => {
       try {
         const canvas = document.createElement('canvas');
@@ -320,7 +320,6 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
           REDACTION_SCRAMBLE_CONFIG[2].blockSize,
           REDACTION_SCRAMBLE_CONFIG[2].noiseIntensity
         ) || createBlurCanvas(REDACTION_BLUR_RADII[2]),
-      3: createBlurCanvas(REDACTION_BLUR_RADII[3]),
     };
   }, [bgImage]);
   const [isDrawing, setIsDrawing] = useState(false);
@@ -2629,7 +2628,7 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                   const cy = (activeRect.y || 0) + h / 2;
 
                   const effectiveLevel = resolveRedactionLevel(ann);
-                  if (effectiveLevel === 4) {
+                  if (effectiveLevel === 3) {
                     return (
                       <Rect
                         key={ann.id}
@@ -2676,7 +2675,7 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                       />
                     );
                   } else {
-                    const currentBlurCanvas = blurredBgCanvases[effectiveLevel as 1 | 2 | 3];
+                    const currentBlurCanvas = blurredBgCanvases[effectiveLevel as 1 | 2];
                     return (
                       <Group
                         key={ann.id}
@@ -2755,7 +2754,7 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                   const brushPts = ann.points || [];
                   const bSize = ann.brushSize || 24;
                   const effectiveLevel = resolveRedactionLevel(ann);
-                  if (effectiveLevel === 4) {
+                  if (effectiveLevel === 3) {
                     return (
                       <Line
                         key={ann.id}
@@ -2771,7 +2770,7 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                       />
                     );
                   } else {
-                    const currentBlurCanvas = blurredBgCanvases[effectiveLevel as 1 | 2 | 3];
+                    const currentBlurCanvas = blurredBgCanvases[effectiveLevel as 1 | 2];
                     return (
                       <Shape
                         key={ann.id}
