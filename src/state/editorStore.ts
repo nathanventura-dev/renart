@@ -93,6 +93,7 @@ export interface TextAnnotation extends BaseAnnotation {
   backgroundColor?: string;
   spans?: TextSpan[];
   width?: number;
+  height?: number;
   autoWrap?: boolean;
 }
 
