@@ -1,3 +1,4 @@
+import { resolveKonvaFontStyle, resolveKonvaTextDecoration, resolveTextCssStyle } from '../utils/textStyle';
 import React, { useRef, useState, useEffect, useMemo } from 'react';
 import {
   Stage,
@@ -103,6 +104,12 @@ interface CanvasEditorProps {
   strokeWidth: number;
   fontSize: number;
   fontFamily?: string;
+  isBold?: boolean;
+  isItalic?: boolean;
+  isUnderline?: boolean;
+  isStrikethrough?: boolean;
+  textAlign?: 'left' | 'center' | 'right';
+  hasBackground?: boolean;
   isLocked?: boolean;
   magnifierMode?: 'without-focus' | 'with-focus';
   arrowStyle?: ArrowStyle;
@@ -133,6 +140,12 @@ interface InlineEditingText {
   fontSize: number;
   fontFamily: string;
   fill: string;
+  isBold?: boolean;
+  isItalic?: boolean;
+  isUnderline?: boolean;
+  isStrikethrough?: boolean;
+  textAlign?: 'left' | 'center' | 'right';
+  hasBackground?: boolean;
 }
 
 interface CrownDragState {
@@ -2434,6 +2447,98 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
               }
 
               if (ann.type === 'text') {
+                const fontStyle = resolveKonvaFontStyle(ann.isBold, ann.isItalic);
+                const textDecoration = resolveKonvaTextDecoration(ann.isUnderline, ann.isStrikethrough);
+                const align = ann.textAlign || 'left';
+                const padX = ann.hasBackground ? 8 : 0;
+                const padY = ann.hasBackground ? 4 : 0;
+
+                const textLines = (ann.text || '').split('\n');
+                const maxLen = Math.max(...textLines.map((l) => l.length), 1);
+                const approxW = Math.max(30, maxLen * (ann.fontSize * 0.6) + padX * 2);
+                const approxH = textLines.length * (ann.fontSize * 1.3) + padY * 2;
+
+                const textElement = (
+                  <Text
+                    id={ann.hasBackground ? undefined : ann.id}
+                    x={padX}
+                    y={padY}
+                    text={ann.text}
+                    fontSize={ann.fontSize}
+                    fontFamily={ann.fontFamily || 'Arial'}
+                    fontStyle={fontStyle}
+                    textDecoration={textDecoration}
+                    align={align}
+                    fill={ann.fill || '#000000'}
+                  />
+                );
+
+                if (ann.hasBackground) {
+                  return (
+                    <Group
+                      key={ann.id}
+                      id={ann.id}
+                      x={ann.x}
+                      y={ann.y}
+                      scaleX={ann.scaleX ?? 1}
+                      scaleY={ann.scaleY ?? 1}
+                      rotation={ann.rotation ?? 0}
+                      draggable={canDrag}
+                      dragBoundFunc={(pos) =>
+                        getTransformedDragBound(pos, zoomLevel, (localX, localY) =>
+                          clampRectToBounds(
+                            localX,
+                            localY,
+                            approxW,
+                            approxH,
+                            canvasWidth,
+                            canvasHeight,
+                            ann.scaleX ?? 1,
+                            ann.scaleY ?? 1,
+                            ann.rotation ?? 0
+                          )
+                        )
+                      }
+                      onMouseEnter={handleBlockMouseEnter}
+                      onMouseLeave={handleBlockMouseLeave}
+                      onClick={(e) => handleBlockClick(ann.id, e)}
+                      onDragStart={() => handleBlockDragStart(ann.id)}
+                      onDragMove={(e) => handleBlockDragMove(ann.id, e)}
+                      onDragEnd={(e) => handleBlockDragEnd(ann.id, e)}
+                      onDblClick={() => {
+                        applySelectionIds([ann.id]);
+                        setEditingText({
+                          id: ann.id,
+                          x: ann.x,
+                          y: ann.y,
+                          text: ann.text,
+                          fontSize: ann.fontSize,
+                          fontFamily: ann.fontFamily || 'Arial',
+                          fill: ann.fill || '#000000',
+                          isBold: ann.isBold,
+                          isItalic: ann.isItalic,
+                          isUnderline: ann.isUnderline,
+                          isStrikethrough: ann.isStrikethrough,
+                          textAlign: ann.textAlign,
+                          hasBackground: ann.hasBackground,
+                        });
+                      }}
+                    >
+                      <Rect
+                        width={approxW}
+                        height={approxH}
+                        fill={ann.backgroundColor || '#ffffff'}
+                        opacity={0.92}
+                        cornerRadius={4}
+                        shadowColor="rgba(0, 0, 0, 0.16)"
+                        shadowBlur={5}
+                        shadowOffset={{ x: 0, y: 1 }}
+                      />
+                      {textElement}
+                    </Group>
+                  );
+                }
+
                 return (
                   <Text
                     key={ann.id}
@@ -2443,6 +2548,9 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                     text={ann.text}
                     fontSize={ann.fontSize}
                     fontFamily={ann.fontFamily || 'Arial'}
+                    fontStyle={fontStyle}
+                    textDecoration={textDecoration}
+                    align={align}
                     fill={ann.fill || '#000000'}
                     scaleX={ann.scaleX ?? 1}
                     scaleY={ann.scaleY ?? 1}
@@ -2482,6 +2590,12 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                         fontSize: ann.fontSize,
                         fontFamily: ann.fontFamily || 'Arial',
                         fill: ann.fill || '#000000',
+                        isBold: ann.isBold,
+                        isItalic: ann.isItalic,
+                        isUnderline: ann.isUnderline,
+                        isStrikethrough: ann.isStrikethrough,
+                        textAlign: ann.textAlign,
+                        hasBackground: ann.hasBackground,
                       });
                     }}
                   />
@@ -4214,49 +4328,76 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
         </Stage>
 
         {/* Input Inline de Edição de Texto Direto sobre o Canvas (Sem Modais) */}
-        {editingText && (
-          <textarea
-            autoFocus
-            defaultValue={editingText.text}
-            onFocus={(e) => e.target.select()}
-            onBlur={(e) => {
-              const val = e.target.value.trim();
-              if (val) {
-                onUpdateAnnotation(editingText.id, { text: val });
-              }
-              setEditingText(null);
-            }}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                const val = (e.target as HTMLTextAreaElement).value.trim();
+        {editingText && (() => {
+          const cssStyle = resolveTextCssStyle(
+            editingText.isBold,
+            editingText.isItalic,
+            editingText.isUnderline,
+            editingText.isStrikethrough
+          );
+          return (
+            <textarea
+              autoFocus
+              defaultValue={editingText.text}
+              onFocus={(e) => e.target.select()}
+              onBlur={(e) => {
+                const val = e.target.value.trim();
                 if (val) {
                   onUpdateAnnotation(editingText.id, { text: val });
                 }
                 setEditingText(null);
-              } else if (e.key === 'Escape') {
-                setEditingText(null);
-              }
-            }}
-            style={{
-              position: 'absolute',
-              left: `${editingText.x * zoomLevel}px`,
-              top: `${editingText.y * zoomLevel}px`,
-              fontSize: `${editingText.fontSize * zoomLevel}px`,
-              color: editingText.fill,
-              fontFamily: editingText.fontFamily || 'Arial',
-              border: '1px dashed #0071e3',
-              borderRadius: '3px',
-              backgroundColor: 'rgba(255, 255, 255, 0.95)',
-              padding: '2px 4px',
-              outline: 'none',
-              resize: 'both',
-              minWidth: `${150 * zoomLevel}px`,
-              minHeight: `${32 * zoomLevel}px`,
-              zIndex: 1000,
-            }}
-          />
-        )}
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  const val = (e.target as HTMLTextAreaElement).value.trim();
+                  if (val) {
+                    onUpdateAnnotation(editingText.id, { text: val });
+                  }
+                  setEditingText(null);
+                } else if (e.key === 'Escape') {
+                  setEditingText(null);
+                } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'b') {
+                  e.preventDefault();
+                  const nextBold = !editingText.isBold;
+                  setEditingText({ ...editingText, isBold: nextBold });
+                  onUpdateAnnotation(editingText.id, { isBold: nextBold });
+                } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'i') {
+                  e.preventDefault();
+                  const nextItalic = !editingText.isItalic;
+                  setEditingText({ ...editingText, isItalic: nextItalic });
+                  onUpdateAnnotation(editingText.id, { isItalic: nextItalic });
+                } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'u') {
+                  e.preventDefault();
+                  const nextUnderline = !editingText.isUnderline;
+                  setEditingText({ ...editingText, isUnderline: nextUnderline });
+                  onUpdateAnnotation(editingText.id, { isUnderline: nextUnderline });
+                }
+              }}
+              style={{
+                position: 'absolute',
+                left: `${editingText.x * zoomLevel}px`,
+                top: `${editingText.y * zoomLevel}px`,
+                fontSize: `${editingText.fontSize * zoomLevel}px`,
+                color: editingText.fill,
+                fontFamily: editingText.fontFamily || 'Arial',
+                fontWeight: cssStyle.fontWeight,
+                fontStyle: cssStyle.fontStyle,
+                textDecoration: cssStyle.textDecoration,
+                textAlign: editingText.textAlign || 'left',
+                border: '1px dashed #0071e3',
+                borderRadius: '4px',
+                backgroundColor: editingText.hasBackground ? 'rgba(255, 255, 255, 0.96)' : 'rgba(255, 255, 255, 0.90)',
+                padding: '4px 6px',
+                outline: 'none',
+                resize: 'both',
+                minWidth: `${150 * zoomLevel}px`,
+                minHeight: `${32 * zoomLevel}px`,
+                zIndex: 1000,
+              }}
+            />
+          );
+        })()}
       </div>
     </div>
   </div>

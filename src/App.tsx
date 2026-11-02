@@ -546,6 +546,12 @@ export const App: React.FC = () => {
             strokeWidth={editorState.strokeWidth}
             fontSize={editorState.fontSize}
             fontFamily={editorState.fontFamily}
+            isBold={editorState.isBold}
+            isItalic={editorState.isItalic}
+            isUnderline={editorState.isUnderline}
+            isStrikethrough={editorState.isStrikethrough}
+            textAlign={editorState.textAlign}
+            hasBackground={editorState.hasBackground}
             isLocked={editorState.isLocked}
             onSelectId={(id: string | null) => editorStore.setSelectedId(id)}
             onSelectIds={(ids: string[]) => editorStore.setSelectedIds(ids)}
