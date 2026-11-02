@@ -6,6 +6,7 @@ import {
   parseHtmlToSpans,
   spansToHtml,
   splitSpansIntoLines,
+  wrapSpansToWidth,
 } from '../src/utils/textStyle';
 
 describe('Text Styling Helpers', () => {
@@ -134,6 +135,25 @@ describe('Text Styling Helpers', () => {
       expect(lines[0][0].isBold).toBe(true);
       expect(lines[1][0].text).toBe('Segunda linha');
       expect(lines[1][0].isBold).toBe(true);
+    });
+
+    it('wraps spans into multiple lines when line width exceeds maxWidth', () => {
+      const spans = [
+        { text: 'Esta é uma frase bem longa para testar quebra automática de linha' },
+      ];
+      const wrapped = wrapSpansToWidth(spans, 150, 16, 'Arial');
+      expect(wrapped.length).toBeGreaterThan(1);
+      const reconstructed = wrapped.map((line) => line.map((s) => s.text).join('')).join(' ');
+      expect(reconstructed).toContain('Esta é uma frase');
+    });
+
+    it('returns original lines when maxWidth is undefined or line fits within maxWidth', () => {
+      const spans = [
+        { text: 'Curto' },
+      ];
+      const wrapped = wrapSpansToWidth(spans, 500, 16, 'Arial');
+      expect(wrapped.length).toBe(1);
+      expect(wrapped[0][0].text).toBe('Curto');
     });
   });
 });

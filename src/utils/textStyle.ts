@@ -339,6 +339,71 @@ export function splitSpansIntoLines(spans: TextSpan[]): TextSpan[][] {
   return lines;
 }
 
+/**
+ * Quebra spans em linhas respeitando quebras manuais de \n e, se maxWidth estiver definido,
+ * quebrando suavemente entre palavras (auto-wrap).
+ */
+export function wrapSpansToWidth(
+  spans: TextSpan[],
+  maxWidth?: number,
+  fontSize: number = 16,
+  fontFamily: string = 'Arial'
+): TextSpan[][] {
+  const manualLines = splitSpansIntoLines(spans);
+  if (!maxWidth || maxWidth <= 0) {
+    return manualLines;
+  }
+
+  const resultLines: TextSpan[][] = [];
+
+  for (const lineSpans of manualLines) {
+    let currentLine: TextSpan[] = [];
+    let currentLineWidth = 0;
+
+    for (const span of lineSpans) {
+      const words = span.text.match(/\S+|\s+/g) || [span.text];
+
+      for (const word of words) {
+        const wordWidth = measureSpanWidth(
+          word,
+          fontSize,
+          fontFamily,
+          span.isBold,
+          span.isItalic
+        );
+
+        if (currentLineWidth + wordWidth > maxWidth && currentLine.length > 0 && word.trim().length > 0) {
+          resultLines.push(currentLine);
+          currentLine = [];
+          currentLineWidth = 0;
+        }
+
+        if (
+          currentLine.length > 0 &&
+          currentLine[currentLine.length - 1].isBold === span.isBold &&
+          currentLine[currentLine.length - 1].isItalic === span.isItalic &&
+          currentLine[currentLine.length - 1].isUnderline === span.isUnderline &&
+          currentLine[currentLine.length - 1].isStrikethrough === span.isStrikethrough
+        ) {
+          currentLine[currentLine.length - 1].text += word;
+        } else {
+          currentLine.push({
+            ...span,
+            text: word,
+          });
+        }
+        currentLineWidth += wordWidth;
+      }
+    }
+
+    if (currentLine.length > 0) {
+      resultLines.push(currentLine);
+    }
+  }
+
+  return resultLines.length > 0 ? resultLines : [[]];
+}
+
 let measurementCanvas: HTMLCanvasElement | null = null;
 let measurementCtx: CanvasRenderingContext2D | null = null;
 

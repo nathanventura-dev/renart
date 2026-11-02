@@ -1,4 +1,4 @@
-import { resolveKonvaFontStyle, resolveKonvaTextDecoration, parseHtmlToSpans, spansToHtml, splitSpansIntoLines, measureSpanWidth, TextSpan, isEditingTextElement } from '../utils/textStyle';
+import { resolveKonvaFontStyle, resolveKonvaTextDecoration, parseHtmlToSpans, spansToHtml, splitSpansIntoLines, measureSpanWidth, wrapSpansToWidth, TextSpan, isEditingTextElement } from '../utils/textStyle';
 import React, { useRef, useState, useEffect, useMemo } from 'react';
 import {
   Stage,
@@ -148,6 +148,8 @@ interface InlineEditingText {
   textAlign?: 'left' | 'center' | 'right';
   hasBackground?: boolean;
   spans?: TextSpan[];
+  width?: number;
+  autoWrap?: boolean;
 }
 
 interface CrownDragState {
@@ -1497,6 +1499,8 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
         isStrikethrough,
         textAlign,
         hasBackground,
+        width: textAnn.width,
+        autoWrap: textAnn.autoWrap,
       };
       onAddAnnotation(textAnn);
       applySelectionIds([id]);
@@ -1514,6 +1518,8 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
         isStrikethrough,
         textAlign,
         hasBackground,
+        width: textAnn.width,
+        autoWrap: textAnn.autoWrap,
       });
       return;
     }
@@ -2494,7 +2500,8 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                 let approxH = 30;
 
                 if (hasSpans && ann.spans) {
-                  const lines = splitSpansIntoLines(ann.spans);
+                  const maxWrapWidth = ann.autoWrap && ann.width ? Math.max(30, ann.width - padX * 2) : undefined;
+                  const lines = wrapSpansToWidth(ann.spans, maxWrapWidth, ann.fontSize, ann.fontFamily || 'Arial');
                   const lineCalculations = lines.map((lineSpans) => {
                     let w = 0;
                     const measuredSpans = lineSpans.map((span) => {
@@ -2513,7 +2520,7 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                   });
 
                   const maxLineWidth = Math.max(...lineCalculations.map((l) => l.lineWidth), 30);
-                  approxW = maxLineWidth + padX * 2;
+                  approxW = ann.autoWrap && ann.width ? Math.max(30, ann.width) : maxLineWidth + padX * 2;
                   approxH = Math.max(lines.length, 1) * (ann.fontSize * 1.3) + padY * 2;
 
                   textChildren = lineCalculations.map((l, lineIdx) => {
@@ -2546,14 +2553,29 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                   const textDecoration = resolveKonvaTextDecoration(ann.isUnderline, ann.isStrikethrough);
                   const textLines = (ann.text || '').split('\n');
                   const maxLen = Math.max(...textLines.map((l) => l.length), 1);
-                  approxW = Math.max(30, maxLen * (ann.fontSize * 0.6) + padX * 2);
-                  approxH = textLines.length * (ann.fontSize * 1.3) + padY * 2;
+                  if (ann.autoWrap && ann.width) {
+                    approxW = Math.max(30, ann.width);
+                    const wrapInnerW = Math.max(20, ann.width - padX * 2);
+                    const charsPerLine = Math.max(1, Math.floor(wrapInnerW / (ann.fontSize * 0.58)));
+                    const wrappedLineCount = textLines.reduce(
+                      (acc, l) => acc + Math.max(1, Math.ceil(Math.max(l.length, 1) / charsPerLine)),
+                      0
+                    );
+                    approxH = wrappedLineCount * (ann.fontSize * 1.3) + padY * 2;
+                  } else {
+                    approxW = Math.max(30, maxLen * (ann.fontSize * 0.6) + padX * 2);
+                    approxH = textLines.length * (ann.fontSize * 1.3) + padY * 2;
+  
+                  }
+
 
                   const textElement = (
                     <Text
                       id={ann.hasBackground ? undefined : ann.id}
                       x={padX}
                       y={padY}
+                      width={ann.autoWrap && ann.width ? Math.max(20, ann.width - padX * 2) : undefined}
+                      wrap={ann.autoWrap ? 'word' : 'none'}
                       text={ann.text}
                       fontSize={ann.fontSize}
                       fontFamily={ann.fontFamily || 'Arial'}
@@ -2615,6 +2637,10 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                           textAlign: ann.textAlign,
                           hasBackground: ann.hasBackground,
                           spans: ann.spans,
+                        width: ann.width,
+                        autoWrap: ann.autoWrap,
+                          width: ann.width,
+                          autoWrap: ann.autoWrap,
                         });
                       }}
                     >
@@ -2693,6 +2719,8 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                         textAlign: ann.textAlign,
                         hasBackground: ann.hasBackground,
                         spans: ann.spans,
+                        width: ann.width,
+                        autoWrap: ann.autoWrap,
                       });
                     }}
                   />
@@ -4522,7 +4550,8 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                 minHeight: `${32 * zoomLevel}px`,
                 zIndex: 1000,
                 whiteSpace: 'pre-wrap',
-                wordBreak: 'break-word',
+                width: editingText.autoWrap && editingText.width ? `${editingText.width * zoomLevel}px` : 'auto',
+                wordBreak: editingText.autoWrap ? 'break-word' : 'normal',
               }}
             />
           );
