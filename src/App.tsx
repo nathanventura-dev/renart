@@ -465,6 +465,122 @@ export const App: React.FC = () => {
     }
   };
 
+  const handleToggleBold = () => {
+    const activeEl = typeof document !== 'undefined' ? document.activeElement : null;
+    const isEditingInline =
+      activeEl &&
+      (activeEl.getAttribute('contenteditable') === 'true' ||
+        Boolean(activeEl.closest?.('[contenteditable="true"]')));
+    const sel = typeof window !== 'undefined' ? window.getSelection() : null;
+
+    if (isEditingInline) {
+      if (sel && !sel.isCollapsed && sel.toString().length > 0) {
+        document.execCommand('bold', false);
+        return;
+      }
+      const editable =
+        activeEl.getAttribute('contenteditable') === 'true'
+          ? (activeEl as HTMLElement)
+          : (activeEl.closest?.('[contenteditable="true"]') as HTMLElement);
+      if (editable && sel) {
+        const range = document.createRange();
+        range.selectNodeContents(editable);
+        sel.removeAllRanges();
+        sel.addRange(range);
+        document.execCommand('bold', false);
+        sel.collapseToEnd();
+      }
+    }
+    editorStore.toggleBold();
+  };
+
+  const handleToggleItalic = () => {
+    const activeEl = typeof document !== 'undefined' ? document.activeElement : null;
+    const isEditingInline =
+      activeEl &&
+      (activeEl.getAttribute('contenteditable') === 'true' ||
+        Boolean(activeEl.closest?.('[contenteditable="true"]')));
+    const sel = typeof window !== 'undefined' ? window.getSelection() : null;
+
+    if (isEditingInline) {
+      if (sel && !sel.isCollapsed && sel.toString().length > 0) {
+        document.execCommand('italic', false);
+        return;
+      }
+      const editable =
+        activeEl.getAttribute('contenteditable') === 'true'
+          ? (activeEl as HTMLElement)
+          : (activeEl.closest?.('[contenteditable="true"]') as HTMLElement);
+      if (editable && sel) {
+        const range = document.createRange();
+        range.selectNodeContents(editable);
+        sel.removeAllRanges();
+        sel.addRange(range);
+        document.execCommand('italic', false);
+        sel.collapseToEnd();
+      }
+    }
+    editorStore.toggleItalic();
+  };
+
+  const handleToggleUnderline = () => {
+    const activeEl = typeof document !== 'undefined' ? document.activeElement : null;
+    const isEditingInline =
+      activeEl &&
+      (activeEl.getAttribute('contenteditable') === 'true' ||
+        Boolean(activeEl.closest?.('[contenteditable="true"]')));
+    const sel = typeof window !== 'undefined' ? window.getSelection() : null;
+
+    if (isEditingInline) {
+      if (sel && !sel.isCollapsed && sel.toString().length > 0) {
+        document.execCommand('underline', false);
+        return;
+      }
+      const editable =
+        activeEl.getAttribute('contenteditable') === 'true'
+          ? (activeEl as HTMLElement)
+          : (activeEl.closest?.('[contenteditable="true"]') as HTMLElement);
+      if (editable && sel) {
+        const range = document.createRange();
+        range.selectNodeContents(editable);
+        sel.removeAllRanges();
+        sel.addRange(range);
+        document.execCommand('underline', false);
+        sel.collapseToEnd();
+      }
+    }
+    editorStore.toggleUnderline();
+  };
+
+  const handleToggleStrikethrough = () => {
+    const activeEl = typeof document !== 'undefined' ? document.activeElement : null;
+    const isEditingInline =
+      activeEl &&
+      (activeEl.getAttribute('contenteditable') === 'true' ||
+        Boolean(activeEl.closest?.('[contenteditable="true"]')));
+    const sel = typeof window !== 'undefined' ? window.getSelection() : null;
+
+    if (isEditingInline) {
+      if (sel && !sel.isCollapsed && sel.toString().length > 0) {
+        document.execCommand('strikeThrough', false);
+        return;
+      }
+      const editable =
+        activeEl.getAttribute('contenteditable') === 'true'
+          ? (activeEl as HTMLElement)
+          : (activeEl.closest?.('[contenteditable="true"]') as HTMLElement);
+      if (editable && sel) {
+        const range = document.createRange();
+        range.selectNodeContents(editable);
+        sel.removeAllRanges();
+        sel.addRange(range);
+        document.execCommand('strikeThrough', false);
+        sel.collapseToEnd();
+      }
+    }
+    editorStore.toggleStrikethrough();
+  };
+
   const selectedAnnotations = editorState.annotations.filter((ann) =>
     editorState.selectedIds.includes(ann.id)
   );
@@ -495,6 +611,18 @@ export const App: React.FC = () => {
         onSelectFontFamily={(f: string) => editorStore.setFontFamily(f)}
         fontSize={editorState.fontSize}
         onSelectFontSize={(s: number) => editorStore.setFontSize(s)}
+        isBold={editorState.isBold}
+        onToggleBold={handleToggleBold}
+        isItalic={editorState.isItalic}
+        onToggleItalic={handleToggleItalic}
+        isUnderline={editorState.isUnderline}
+        onToggleUnderline={handleToggleUnderline}
+        isStrikethrough={editorState.isStrikethrough}
+        onToggleStrikethrough={handleToggleStrikethrough}
+        textAlign={editorState.textAlign}
+        onSelectTextAlign={(align) => editorStore.setTextAlign(align)}
+        hasBackground={editorState.hasBackground}
+        onToggleBackground={() => editorStore.toggleBackground()}
         zoomLevel={zoomLevel}
         onZoomIn={handleZoomIn}
         onZoomOut={handleZoomOut}

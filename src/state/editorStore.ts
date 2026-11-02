@@ -1,5 +1,5 @@
-import { TextAlign } from '../utils/textStyle';
-export type { TextAlign };
+import { TextAlign, TextSpan } from '../utils/textStyle';
+export type { TextAlign, TextSpan };
 import { calculateCurvedArrowPoints, invertCurvedArrowPoints } from '../utils/zoomAndCrop';
 import { AnonymizedLine, anonymizeWord } from '../utils/textAnonymizer';
 
@@ -91,6 +91,7 @@ export interface TextAnnotation extends BaseAnnotation {
   textAlign?: TextAlign;
   hasBackground?: boolean;
   backgroundColor?: string;
+  spans?: TextSpan[];
 }
 
 export interface ImageAnnotation extends BaseAnnotation {
@@ -587,7 +588,7 @@ export function createEditorStore(
             isBold: nextBold,
             annotations: state.annotations.map((ann) => {
               if (!selectedSet.has(ann.id) || ann.type !== 'text') return ann;
-              return { ...ann, isBold: nextBold };
+              return { ...ann, isBold: nextBold, spans: ann.spans?.map((s) => ({ ...s, isBold: nextBold })) };
             }),
           };
           notify();
@@ -612,7 +613,7 @@ export function createEditorStore(
             isItalic: nextItalic,
             annotations: state.annotations.map((ann) => {
               if (!selectedSet.has(ann.id) || ann.type !== 'text') return ann;
-              return { ...ann, isItalic: nextItalic };
+              return { ...ann, isItalic: nextItalic, spans: ann.spans?.map((s) => ({ ...s, isItalic: nextItalic })) };
             }),
           };
           notify();
@@ -637,7 +638,7 @@ export function createEditorStore(
             isUnderline: nextUnderline,
             annotations: state.annotations.map((ann) => {
               if (!selectedSet.has(ann.id) || ann.type !== 'text') return ann;
-              return { ...ann, isUnderline: nextUnderline };
+              return { ...ann, isUnderline: nextUnderline, spans: ann.spans?.map((s) => ({ ...s, isUnderline: nextUnderline })) };
             }),
           };
           notify();
@@ -662,7 +663,7 @@ export function createEditorStore(
             isStrikethrough: nextStrikethrough,
             annotations: state.annotations.map((ann) => {
               if (!selectedSet.has(ann.id) || ann.type !== 'text') return ann;
-              return { ...ann, isStrikethrough: nextStrikethrough };
+              return { ...ann, isStrikethrough: nextStrikethrough, spans: ann.spans?.map((s) => ({ ...s, isStrikethrough: nextStrikethrough })) };
             }),
           };
           notify();

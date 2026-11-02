@@ -1,4 +1,4 @@
-import { resolveKonvaFontStyle, resolveKonvaTextDecoration, resolveTextCssStyle } from '../utils/textStyle';
+import { resolveKonvaFontStyle, resolveKonvaTextDecoration, parseHtmlToSpans, spansToHtml, splitSpansIntoLines, measureSpanWidth, TextSpan } from '../utils/textStyle';
 import React, { useRef, useState, useEffect, useMemo } from 'react';
 import {
   Stage,
@@ -146,6 +146,7 @@ interface InlineEditingText {
   isStrikethrough?: boolean;
   textAlign?: 'left' | 'center' | 'right';
   hasBackground?: boolean;
+  spans?: TextSpan[];
 }
 
 interface CrownDragState {
@@ -280,6 +281,12 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
   strokeWidth,
   fontSize,
   fontFamily = 'Arial',
+  isBold = false,
+  isItalic = false,
+  isUnderline = false,
+  isStrikethrough = false,
+  textAlign = 'left',
+  hasBackground = false,
   isLocked = false,
   magnifierMode = 'without-focus',
   arrowStyle = 'standard',
@@ -339,6 +346,23 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
   const [newAnnotation, setNewAnnotation] = useState<Annotation | null>(null);
   const [marqueeBox, setMarqueeBox] = useState<MarqueeSelectionState | null>(null);
   const [editingText, setEditingText] = useState<InlineEditingText | null>(null);
+  const inlineEditableRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (editingText && inlineEditableRef.current) {
+      inlineEditableRef.current.focus();
+      const sel = typeof window !== 'undefined' ? window.getSelection() : null;
+      if (sel) {
+        const textContent = inlineEditableRef.current.innerText || inlineEditableRef.current.textContent || '';
+        if (textContent.trim() === 'Digite seu texto aqui') {
+          const range = document.createRange();
+          range.selectNodeContents(inlineEditableRef.current);
+          sel.removeAllRanges();
+          sel.addRange(range);
+        }
+      }
+    }
+  }, [editingText]);
   const [isHoveringBlock, setIsHoveringBlock] = useState(false);
   const [isHoveringCrown, setIsHoveringCrown] = useState(false);
   const [isHoveringFocus, setIsHoveringFocus] = useState(false);
@@ -1466,6 +1490,12 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
         fontSize,
         fontFamily,
         fill: strokeColor,
+        isBold,
+        isItalic,
+        isUnderline,
+        isStrikethrough,
+        textAlign,
+        hasBackground,
       };
       onAddAnnotation(textAnn);
       applySelectionIds([id]);
@@ -1477,6 +1507,12 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
         fontSize,
         fontFamily,
         fill: strokeColor,
+        isBold,
+        isItalic,
+        isUnderline,
+        isStrikethrough,
+        textAlign,
+        hasBackground,
       });
       return;
     }
@@ -2447,33 +2483,89 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
               }
 
               if (ann.type === 'text') {
-                const fontStyle = resolveKonvaFontStyle(ann.isBold, ann.isItalic);
-                const textDecoration = resolveKonvaTextDecoration(ann.isUnderline, ann.isStrikethrough);
                 const align = ann.textAlign || 'left';
                 const padX = ann.hasBackground ? 8 : 0;
                 const padY = ann.hasBackground ? 4 : 0;
+                const hasSpans = Boolean(ann.spans && ann.spans.length > 0);
 
-                const textLines = (ann.text || '').split('\n');
-                const maxLen = Math.max(...textLines.map((l) => l.length), 1);
-                const approxW = Math.max(30, maxLen * (ann.fontSize * 0.6) + padX * 2);
-                const approxH = textLines.length * (ann.fontSize * 1.3) + padY * 2;
+                let textChildren: React.ReactNode = null;
+                let approxW = 30;
+                let approxH = 30;
 
-                const textElement = (
-                  <Text
-                    id={ann.hasBackground ? undefined : ann.id}
-                    x={padX}
-                    y={padY}
-                    text={ann.text}
-                    fontSize={ann.fontSize}
-                    fontFamily={ann.fontFamily || 'Arial'}
-                    fontStyle={fontStyle}
-                    textDecoration={textDecoration}
-                    align={align}
-                    fill={ann.fill || '#000000'}
-                  />
-                );
+                if (hasSpans && ann.spans) {
+                  const lines = splitSpansIntoLines(ann.spans);
+                  const lineCalculations = lines.map((lineSpans) => {
+                    let w = 0;
+                    const measuredSpans = lineSpans.map((span) => {
+                      const spanW = measureSpanWidth(
+                        span.text,
+                        ann.fontSize,
+                        ann.fontFamily || 'Arial',
+                        span.isBold ?? ann.isBold,
+                        span.isItalic ?? ann.isItalic
+                      );
+                      const startX = w;
+                      w += spanW;
+                      return { ...span, spanW, startX };
+                    });
+                    return { spans: measuredSpans, lineWidth: w };
+                  });
 
-                if (ann.hasBackground) {
+                  const maxLineWidth = Math.max(...lineCalculations.map((l) => l.lineWidth), 30);
+                  approxW = maxLineWidth + padX * 2;
+                  approxH = Math.max(lines.length, 1) * (ann.fontSize * 1.3) + padY * 2;
+
+                  textChildren = lineCalculations.map((l, lineIdx) => {
+                    const lineStartX =
+                      align === 'center'
+                        ? (maxLineWidth - l.lineWidth) / 2
+                        : align === 'right'
+                        ? maxLineWidth - l.lineWidth
+                        : 0;
+
+                    return l.spans.map((span, spanIdx) => (
+                      <Text
+                        key={`span-${lineIdx}-${spanIdx}`}
+                        x={lineStartX + span.startX + padX}
+                        y={lineIdx * (ann.fontSize * 1.3) + padY}
+                        text={span.text}
+                        fontSize={ann.fontSize}
+                        fontFamily={ann.fontFamily || 'Arial'}
+                        fontStyle={resolveKonvaFontStyle(span.isBold ?? ann.isBold, span.isItalic ?? ann.isItalic)}
+                        textDecoration={resolveKonvaTextDecoration(
+                          span.isUnderline ?? ann.isUnderline,
+                          span.isStrikethrough ?? ann.isStrikethrough
+                        )}
+                        fill={ann.fill || '#000000'}
+                      />
+                    ));
+                  });
+                } else {
+                  const fontStyle = resolveKonvaFontStyle(ann.isBold, ann.isItalic);
+                  const textDecoration = resolveKonvaTextDecoration(ann.isUnderline, ann.isStrikethrough);
+                  const textLines = (ann.text || '').split('\n');
+                  const maxLen = Math.max(...textLines.map((l) => l.length), 1);
+                  approxW = Math.max(30, maxLen * (ann.fontSize * 0.6) + padX * 2);
+                  approxH = textLines.length * (ann.fontSize * 1.3) + padY * 2;
+
+                  const textElement = (
+                    <Text
+                      id={ann.hasBackground ? undefined : ann.id}
+                      x={padX}
+                      y={padY}
+                      text={ann.text}
+                      fontSize={ann.fontSize}
+                      fontFamily={ann.fontFamily || 'Arial'}
+                      fontStyle={fontStyle}
+                      textDecoration={textDecoration}
+                      align={align}
+                      fill={ann.fill || '#000000'}
+                    />
+                  );
+                  textChildren = textElement;
+                }
+
+                if (ann.hasBackground || hasSpans) {
                   return (
                     <Group
                       key={ann.id}
@@ -2521,20 +2613,23 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                           isStrikethrough: ann.isStrikethrough,
                           textAlign: ann.textAlign,
                           hasBackground: ann.hasBackground,
+                          spans: ann.spans,
                         });
                       }}
                     >
-                      <Rect
-                        width={approxW}
-                        height={approxH}
-                        fill={ann.backgroundColor || '#ffffff'}
-                        opacity={0.92}
-                        cornerRadius={4}
-                        shadowColor="rgba(0, 0, 0, 0.16)"
-                        shadowBlur={5}
-                        shadowOffset={{ x: 0, y: 1 }}
-                      />
-                      {textElement}
+                      {ann.hasBackground && (
+                        <Rect
+                          width={approxW}
+                          height={approxH}
+                          fill={ann.backgroundColor || '#ffffff'}
+                          opacity={0.92}
+                          cornerRadius={4}
+                          shadowColor="rgba(0, 0, 0, 0.16)"
+                          shadowBlur={5}
+                          shadowOffset={{ x: 0, y: 1 }}
+                        />
+                      )}
+                      {textChildren}
                     </Group>
                   );
                 }
@@ -2548,8 +2643,8 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                     text={ann.text}
                     fontSize={ann.fontSize}
                     fontFamily={ann.fontFamily || 'Arial'}
-                    fontStyle={fontStyle}
-                    textDecoration={textDecoration}
+                    fontStyle={resolveKonvaFontStyle(ann.isBold, ann.isItalic)}
+                    textDecoration={resolveKonvaTextDecoration(ann.isUnderline, ann.isStrikethrough)}
                     align={align}
                     fill={ann.fill || '#000000'}
                     scaleX={ann.scaleX ?? 1}
@@ -2596,6 +2691,7 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                         isStrikethrough: ann.isStrikethrough,
                         textAlign: ann.textAlign,
                         hasBackground: ann.hasBackground,
+                        spans: ann.spans,
                       });
                     }}
                   />
@@ -4329,49 +4425,75 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
 
         {/* Input Inline de Edição de Texto Direto sobre o Canvas (Sem Modais) */}
         {editingText && (() => {
-          const cssStyle = resolveTextCssStyle(
-            editingText.isBold,
-            editingText.isItalic,
-            editingText.isUnderline,
-            editingText.isStrikethrough
-          );
+          const initialHtml = spansToHtml(editingText.text, editingText.spans, {
+            isBold: editingText.isBold,
+            isItalic: editingText.isItalic,
+            isUnderline: editingText.isUnderline,
+            isStrikethrough: editingText.isStrikethrough,
+          });
+
           return (
-            <textarea
-              autoFocus
-              defaultValue={editingText.text}
-              onFocus={(e) => e.target.select()}
-              onBlur={(e) => {
-                const val = e.target.value.trim();
-                if (val) {
-                  onUpdateAnnotation(editingText.id, { text: val });
+            <div
+              ref={inlineEditableRef}
+              contentEditable
+              suppressContentEditableWarning
+              dangerouslySetInnerHTML={{ __html: initialHtml }}
+              onBlur={() => {
+                if (inlineEditableRef.current) {
+                  const { text, spans } = parseHtmlToSpans(inlineEditableRef.current);
+                  const val = text.trim();
+                  if (val) {
+                    onUpdateAnnotation(editingText.id, { text: val, spans });
+                  }
                 }
                 setEditingText(null);
               }}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault();
-                  const val = (e.target as HTMLTextAreaElement).value.trim();
-                  if (val) {
-                    onUpdateAnnotation(editingText.id, { text: val });
+                  if (inlineEditableRef.current) {
+                    const { text, spans } = parseHtmlToSpans(inlineEditableRef.current);
+                    const val = text.trim();
+                    if (val) {
+                      onUpdateAnnotation(editingText.id, { text: val, spans });
+                    }
                   }
                   setEditingText(null);
                 } else if (e.key === 'Escape') {
                   setEditingText(null);
-                } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'b') {
-                  e.preventDefault();
-                  const nextBold = !editingText.isBold;
-                  setEditingText({ ...editingText, isBold: nextBold });
-                  onUpdateAnnotation(editingText.id, { isBold: nextBold });
-                } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'i') {
-                  e.preventDefault();
-                  const nextItalic = !editingText.isItalic;
-                  setEditingText({ ...editingText, isItalic: nextItalic });
-                  onUpdateAnnotation(editingText.id, { isItalic: nextItalic });
-                } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'u') {
-                  e.preventDefault();
-                  const nextUnderline = !editingText.isUnderline;
-                  setEditingText({ ...editingText, isUnderline: nextUnderline });
-                  onUpdateAnnotation(editingText.id, { isUnderline: nextUnderline });
+                } else {
+                  const isCmdOrCtrl = e.ctrlKey || e.metaKey;
+                  const key = e.key.toLowerCase();
+                  let formatCmd: 'bold' | 'italic' | 'underline' | 'strikeThrough' | null = null;
+
+                  if (isCmdOrCtrl && (key === 'b' || key === 'n')) {
+                    formatCmd = 'bold';
+                  } else if (isCmdOrCtrl && key === 'i') {
+                    formatCmd = 'italic';
+                  } else if (isCmdOrCtrl && key === 'u') {
+                    formatCmd = 'underline';
+                  } else if (
+                    (isCmdOrCtrl && e.shiftKey && key === 'x') ||
+                    (e.altKey && e.shiftKey && key === '5')
+                  ) {
+                    formatCmd = 'strikeThrough';
+                  }
+
+                  if (formatCmd) {
+                    e.preventDefault();
+                    const sel = typeof window !== 'undefined' ? window.getSelection() : null;
+                    const hasSelection = sel && !sel.isCollapsed && sel.toString().length > 0;
+                    if (hasSelection) {
+                      document.execCommand(formatCmd, false);
+                    } else if (inlineEditableRef.current && sel) {
+                      const range = document.createRange();
+                      range.selectNodeContents(inlineEditableRef.current);
+                      sel.removeAllRanges();
+                      sel.addRange(range);
+                      document.execCommand(formatCmd, false);
+                      sel.collapseToEnd();
+                    }
+                  }
                 }
               }}
               style={{
@@ -4381,19 +4503,17 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                 fontSize: `${editingText.fontSize * zoomLevel}px`,
                 color: editingText.fill,
                 fontFamily: editingText.fontFamily || 'Arial',
-                fontWeight: cssStyle.fontWeight,
-                fontStyle: cssStyle.fontStyle,
-                textDecoration: cssStyle.textDecoration,
                 textAlign: editingText.textAlign || 'left',
                 border: '1px dashed #0071e3',
                 borderRadius: '4px',
                 backgroundColor: editingText.hasBackground ? 'rgba(255, 255, 255, 0.96)' : 'rgba(255, 255, 255, 0.90)',
                 padding: '4px 6px',
                 outline: 'none',
-                resize: 'both',
                 minWidth: `${150 * zoomLevel}px`,
                 minHeight: `${32 * zoomLevel}px`,
                 zIndex: 1000,
+                whiteSpace: 'pre-wrap',
+                wordBreak: 'break-word',
               }}
             />
           );

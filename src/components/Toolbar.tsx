@@ -920,6 +920,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
             <button
               type="button"
               title="Negrito (Ctrl+B)"
+              onMouseDown={(e) => e.preventDefault()}
               onClick={onToggleBold}
               style={{
                 width: '28px',
@@ -939,6 +940,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
             <button
               type="button"
               title="Itálico (Ctrl+I)"
+              onMouseDown={(e) => e.preventDefault()}
               onClick={onToggleItalic}
               style={{
                 width: '28px',
@@ -958,6 +960,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
             <button
               type="button"
               title="Sublinhado (Ctrl+U)"
+              onMouseDown={(e) => e.preventDefault()}
               onClick={onToggleUnderline}
               style={{
                 width: '28px',
@@ -977,6 +980,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
             <button
               type="button"
               title="Tachado / Riscado"
+              onMouseDown={(e) => e.preventDefault()}
               onClick={onToggleStrikethrough}
               style={{
                 width: '28px',
@@ -1001,6 +1005,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
             <button
               type="button"
               title="Alinhar à esquerda"
+              onMouseDown={(e) => e.preventDefault()}
               onClick={() => onSelectTextAlign?.('left')}
               style={{
                 width: '28px',
@@ -1020,6 +1025,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
             <button
               type="button"
               title="Centralizar"
+              onMouseDown={(e) => e.preventDefault()}
               onClick={() => onSelectTextAlign?.('center')}
               style={{
                 width: '28px',
@@ -1039,6 +1045,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
             <button
               type="button"
               title="Alinhar à direita"
+              onMouseDown={(e) => e.preventDefault()}
               onClick={() => onSelectTextAlign?.('right')}
               style={{
                 width: '28px',
@@ -1063,6 +1070,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
             <button
               type="button"
               title="Caixa de destaque / Fundo do texto"
+              onMouseDown={(e) => e.preventDefault()}
               onClick={onToggleBackground}
               style={{
                 width: '28px',

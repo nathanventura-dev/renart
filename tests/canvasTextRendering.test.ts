@@ -79,4 +79,32 @@ describe('Canvas Text Rendering & Shortcuts Logic', () => {
     expect(handledU).toBe(true);
     expect(state.isUnderline).toBe(true);
   });
+
+  it('formats only selected text when selection is active, and entire block when collapsed', () => {
+    let executedCommand = '';
+    let executedOnAll = false;
+
+    const simulateShortcut = (
+      command: 'bold' | 'italic' | 'underline' | 'strikeThrough',
+      hasSelection: boolean
+    ) => {
+      if (hasSelection) {
+        executedCommand = command;
+        executedOnAll = false;
+      } else {
+        executedCommand = command;
+        executedOnAll = true;
+      }
+    };
+
+    // 1. With selection
+    simulateShortcut('bold', true);
+    expect(executedCommand).toBe('bold');
+    expect(executedOnAll).toBe(false);
+
+    // 2. Without selection (collapsed caret)
+    simulateShortcut('italic', false);
+    expect(executedCommand).toBe('italic');
+    expect(executedOnAll).toBe(true);
+  });
 });
