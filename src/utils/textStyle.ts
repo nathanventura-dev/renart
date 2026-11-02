@@ -362,6 +362,24 @@ export function splitSpansIntoLines(spans: TextSpan[]): TextSpan[][] {
 }
 
 /**
+ * Remove espaços em branco do final de uma linha de TextSpan.
+ */
+function trimLineTrailingSpans(line: TextSpan[]): TextSpan[] {
+  const result = line.map((s) => ({ ...s }));
+  while (result.length > 0) {
+    const last = result[result.length - 1];
+    const trimmed = last.text.replace(/[\s\uFEFF\xA0]+$/, '');
+    if (trimmed.length === 0) {
+      result.pop();
+    } else {
+      last.text = trimmed;
+      break;
+    }
+  }
+  return result;
+}
+
+/**
  * Quebra spans em linhas respeitando quebras manuais de \n e, se maxWidth estiver definido,
  * quebrando suavemente entre palavras (auto-wrap).
  */
@@ -386,6 +404,13 @@ export function wrapSpansToWidth(
       const words = span.text.match(/\S+|\s+/g) || [span.text];
 
       for (const word of words) {
+        const isWhitespace = word.trim().length === 0;
+
+        // Se uma nova linha está vazia após uma quebra suave, ignoramos espaços em branco iniciais
+        if (currentLine.length === 0 && isWhitespace) {
+          continue;
+        }
+
         const wordWidth = measureSpanWidth(
           word,
           fontSize,
@@ -394,10 +419,25 @@ export function wrapSpansToWidth(
           span.isItalic
         );
 
-        if (currentLineWidth + wordWidth > maxWidth && currentLine.length > 0 && word.trim().length > 0) {
-          resultLines.push(currentLine);
-          currentLine = [];
-          currentLineWidth = 0;
+        if (currentLineWidth + wordWidth > maxWidth && currentLine.length > 0) {
+          if (!isWhitespace) {
+            // Quebra suave: finaliza a linha atual sem espaços em branco no final
+            const finalized = trimLineTrailingSpans(currentLine);
+            if (finalized.length > 0) {
+              resultLines.push(finalized);
+            }
+            currentLine = [];
+            currentLineWidth = 0;
+          } else {
+            // Se o próprio espaço em branco estourar maxWidth, descartamos o espaço e quebramos
+            const finalized = trimLineTrailingSpans(currentLine);
+            if (finalized.length > 0) {
+              resultLines.push(finalized);
+            }
+            currentLine = [];
+            currentLineWidth = 0;
+            continue;
+          }
         }
 
         if (
@@ -418,8 +458,11 @@ export function wrapSpansToWidth(
       }
     }
 
-    if (currentLine.length > 0) {
-      resultLines.push(currentLine);
+    const finalized = trimLineTrailingSpans(currentLine);
+    if (finalized.length > 0) {
+      resultLines.push(finalized);
+    } else if (lineSpans.length === 0) {
+      resultLines.push([]);
     }
   }
 
@@ -479,13 +522,20 @@ export function calculateTextDimensions(ann: {
   const fontSize = ann.fontSize || 20;
   const fontFamily = ann.fontFamily || 'Arial';
 
+  const effectiveSpans: TextSpan[] =
+    ann.spans && ann.spans.length > 0
+      ? ann.spans
+      : ann.text
+      ? [{ text: ann.text, isBold: ann.isBold, isItalic: ann.isItalic }]
+      : [];
+
   let minContentWidth = 0;
   let naturalWidth = 0;
   let contentHeight = fontSize * 1.3 + padY * 2;
 
-  if (ann.spans && ann.spans.length > 0) {
+  if (effectiveSpans.length > 0) {
     let maxWordW = 0;
-    for (const span of ann.spans) {
+    for (const span of effectiveSpans) {
       const words = span.text.split(/(\s+)/);
       for (const w of words) {
         if (w.trim()) {
@@ -502,8 +552,9 @@ export function calculateTextDimensions(ann: {
     }
     minContentWidth = Math.max(10, maxWordW + padX * 2);
 
-    const targetWrapWidth = ann.autoWrap && ann.width ? Math.max(minContentWidth - padX * 2, ann.width - padX * 2) : undefined;
-    const lines = wrapSpansToWidth(ann.spans, targetWrapWidth, fontSize, fontFamily);
+    const targetWrapWidth =
+      ann.autoWrap && ann.width ? Math.max(minContentWidth - padX * 2, ann.width - padX * 2) : undefined;
+    const lines = wrapSpansToWidth(effectiveSpans, targetWrapWidth, fontSize, fontFamily);
     const lineCalculations = lines.map((lineSpans) => {
       let w = 0;
       for (const span of lineSpans) {
@@ -521,36 +572,8 @@ export function calculateTextDimensions(ann: {
     naturalWidth = maxLineWidth + padX * 2;
     contentHeight = Math.max(lines.length, 1) * (fontSize * 1.3) + padY * 2;
   } else {
-    const rawText = ann.text || '';
-    const textLines = rawText.split('\n');
-    const words = rawText.split(/(\s+)/);
-    let maxWordW = 0;
-    for (const w of words) {
-      if (w.trim()) {
-        const wWidth = measureSpanWidth(w, fontSize, fontFamily, ann.isBold, ann.isItalic);
-        if (wWidth > maxWordW) maxWordW = wWidth;
-      }
-    }
-    minContentWidth = Math.max(10, maxWordW + padX * 2);
-
-    const lineCalculations = textLines.map((line) =>
-      measureSpanWidth(line, fontSize, fontFamily, ann.isBold, ann.isItalic)
-    );
-    const maxMeasuredLineWidth = Math.max(...lineCalculations, 0);
-
-    if (ann.autoWrap && ann.width) {
-      const wrapInnerW = Math.max(10, ann.width - padX * 2);
-      const charsPerLine = Math.max(1, Math.floor(wrapInnerW / (fontSize * 0.58)));
-      const wrappedLineCount = textLines.reduce(
-        (acc, l) => acc + Math.max(1, Math.ceil(Math.max(l.length, 1) / charsPerLine)),
-        0
-      );
-      contentHeight = wrappedLineCount * (fontSize * 1.3) + padY * 2;
-      naturalWidth = Math.max(minContentWidth, ann.width);
-    } else {
-      naturalWidth = maxMeasuredLineWidth + padX * 2;
-      contentHeight = textLines.length * (fontSize * 1.3) + padY * 2;
-    }
+    minContentWidth = Math.max(10, padX * 2);
+    naturalWidth = padX * 2;
   }
 
   // No modo de quebra automática, o usuário define a largura nas alças (respeitando minContentWidth).

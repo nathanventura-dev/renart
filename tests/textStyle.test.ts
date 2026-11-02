@@ -277,6 +277,46 @@ describe('Text Styling Helpers', () => {
       const trimmed = trimSpans(rawSpans);
       expect(trimmed).toEqual([{ text: 'Texto Principal', isBold: true }]);
     });
+
+    it('wrapSpansToWidth trims trailing whitespace from wrapped lines without leaving invisible space', () => {
+      const spans = [{ text: 'Primeira Segunda' }];
+      // Largura suficiente para 'Primeira', mas não para 'Primeira Segunda'
+      const maxWidth = measureSpanWidth('Primeira', 20, 'Arial') + 10;
+      const wrapped = wrapSpansToWidth(spans, maxWidth, 20, 'Arial');
+      expect(wrapped.length).toBe(2);
+      expect(wrapped[0].map((s) => s.text).join('')).toBe('Primeira');
+      expect(wrapped[1].map((s) => s.text).join('')).toBe('Segunda');
+    });
+
+    it('wrapSpansToWidth discards leading whitespace after soft-wrapping a line', () => {
+      const spans = [{ text: 'Primeira    Segunda' }];
+      const maxWidth = measureSpanWidth('Primeira', 20, 'Arial') + 10;
+      const wrapped = wrapSpansToWidth(spans, maxWidth, 20, 'Arial');
+      expect(wrapped.length).toBe(2);
+      expect(wrapped[0].map((s) => s.text).join('')).toBe('Primeira');
+      expect(wrapped[1].map((s) => s.text).join('')).toBe('Segunda');
+    });
+
+    it('unifies calculateTextDimensions between plain text and spans in autoWrap mode', () => {
+      const annPlain = {
+        text: 'Texto longo para quebrar em multiplas linhas ao redimensionar',
+        fontSize: 20,
+        autoWrap: true,
+        width: 120,
+        hasBackground: false,
+      };
+      const annSpans = {
+        text: 'Texto longo para quebrar em multiplas linhas ao redimensionar',
+        spans: [{ text: 'Texto longo para quebrar em multiplas linhas ao redimensionar' }],
+        fontSize: 20,
+        autoWrap: true,
+        width: 120,
+        hasBackground: false,
+      };
+      const dimsPlain = calculateTextDimensions(annPlain);
+      const dimsSpans = calculateTextDimensions(annSpans);
+      expect(dimsPlain).toEqual(dimsSpans);
+    });
   });
 });
 

@@ -2594,7 +2594,6 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                 const align = activeText.textAlign || 'left';
                 const padX = activeText.hasBackground ? 8 : 0;
                 const padY = activeText.hasBackground ? 4 : 0;
-                const hasSpans = Boolean(activeText.spans && activeText.spans.length > 0);
 
                 const dims = calculateTextDimensions(activeText);
                 const approxW = dims.width;
@@ -2602,75 +2601,60 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                 const cx = activeText.x + approxW / 2;
                 const cy = activeText.y + approxH / 2;
 
-                let textChildren: React.ReactNode = null;
+                const effectiveSpans: TextSpan[] =
+                  activeText.spans && activeText.spans.length > 0
+                    ? activeText.spans
+                    : activeText.text
+                    ? [{ text: activeText.text, isBold: activeText.isBold, isItalic: activeText.isItalic, isUnderline: activeText.isUnderline, isStrikethrough: activeText.isStrikethrough }]
+                    : [];
 
-                if (hasSpans && activeText.spans) {
-                  const maxWrapWidth = activeText.autoWrap && activeText.width ? Math.max(30, activeText.width - padX * 2) : undefined;
-                  const lines = wrapSpansToWidth(activeText.spans, maxWrapWidth, activeText.fontSize, activeText.fontFamily || 'Arial');
-                  const lineCalculations = lines.map((lineSpans) => {
-                    let w = 0;
-                    const measuredSpans = lineSpans.map((span) => {
-                      const spanW = measureSpanWidth(
-                        span.text,
-                        activeText.fontSize,
-                        activeText.fontFamily || 'Arial',
-                        span.isBold ?? activeText.isBold,
-                        span.isItalic ?? activeText.isItalic
-                      );
-                      const startX = w;
-                      w += spanW;
-                      return { ...span, spanW, startX };
-                    });
-                    return { spans: measuredSpans, lineWidth: w };
+                const maxWrapWidth = activeText.autoWrap && activeText.width ? Math.max(10, activeText.width - padX * 2) : undefined;
+                const lines = wrapSpansToWidth(effectiveSpans, maxWrapWidth, activeText.fontSize, activeText.fontFamily || 'Arial');
+                const lineCalculations = lines.map((lineSpans) => {
+                  let w = 0;
+                  const measuredSpans = lineSpans.map((span) => {
+                    const spanW = measureSpanWidth(
+                      span.text,
+                      activeText.fontSize,
+                      activeText.fontFamily || 'Arial',
+                      span.isBold ?? activeText.isBold,
+                      span.isItalic ?? activeText.isItalic
+                    );
+                    const startX = w;
+                    w += spanW;
+                    return { ...span, spanW, startX };
                   });
+                  return { spans: measuredSpans, lineWidth: w };
+                });
 
-                  const maxLineWidth = Math.max(...lineCalculations.map((l) => l.lineWidth), 30);
+                const maxLineWidth = Math.max(...lineCalculations.map((l) => l.lineWidth), 0);
+                const innerBoxW = Math.max(approxW - padX * 2, maxLineWidth);
 
-                  textChildren = lineCalculations.map((l, lineIdx) => {
-                    const lineStartX =
-                      align === 'center'
-                        ? (maxLineWidth - l.lineWidth) / 2
-                        : align === 'right'
-                        ? maxLineWidth - l.lineWidth
-                        : 0;
+                const textChildren = lineCalculations.map((l, lineIdx) => {
+                  const lineStartX =
+                    align === 'center'
+                      ? Math.max(0, (innerBoxW - l.lineWidth) / 2)
+                      : align === 'right'
+                      ? Math.max(0, innerBoxW - l.lineWidth)
+                      : 0;
 
-                    return l.spans.map((span, spanIdx) => (
-                      <Text
-                        key={`span-${lineIdx}-${spanIdx}`}
-                        x={lineStartX + span.startX + padX}
-                        y={lineIdx * (activeText.fontSize * 1.3) + padY}
-                        text={span.text}
-                        fontSize={activeText.fontSize}
-                        fontFamily={activeText.fontFamily || 'Arial'}
-                        fontStyle={resolveKonvaFontStyle(span.isBold ?? activeText.isBold, span.isItalic ?? activeText.isItalic)}
-                        textDecoration={resolveKonvaTextDecoration(
-                          span.isUnderline ?? activeText.isUnderline,
-                          span.isStrikethrough ?? activeText.isStrikethrough
-                        )}
-                        fill={activeText.fill || '#000000'}
-                      />
-                    ));
-                  });
-                } else {
-                  const fontStyle = resolveKonvaFontStyle(activeText.isBold, activeText.isItalic);
-                  const textDecoration = resolveKonvaTextDecoration(activeText.isUnderline, activeText.isStrikethrough);
-
-                  textChildren = (
+                  return l.spans.map((span, spanIdx) => (
                     <Text
-                      x={padX}
-                      y={padY}
-                      width={activeText.autoWrap && activeText.width ? Math.max(20, activeText.width - padX * 2) : undefined}
-                      wrap={activeText.autoWrap ? 'word' : 'none'}
-                      text={activeText.text}
+                      key={`span-${lineIdx}-${spanIdx}`}
+                      x={lineStartX + span.startX + padX}
+                      y={lineIdx * (activeText.fontSize * 1.3) + padY}
+                      text={span.text}
                       fontSize={activeText.fontSize}
                       fontFamily={activeText.fontFamily || 'Arial'}
-                      fontStyle={fontStyle}
-                      textDecoration={textDecoration}
-                      align={align}
+                      fontStyle={resolveKonvaFontStyle(span.isBold ?? activeText.isBold, span.isItalic ?? activeText.isItalic)}
+                      textDecoration={resolveKonvaTextDecoration(
+                        span.isUnderline ?? activeText.isUnderline,
+                        span.isStrikethrough ?? activeText.isStrikethrough
+                      )}
                       fill={activeText.fill || '#000000'}
                     />
-                  );
-                }
+                  ));
+                });
 
                 return (
                   <Group
