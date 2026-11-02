@@ -37,6 +37,7 @@ import {
   AlignCenter,
   AlignRight,
   Highlighter,
+  WrapText,
   Check,
   X,
   ZoomIn,
@@ -241,6 +242,8 @@ interface ToolbarProps {
   onSelectTextAlign?: (align: 'left' | 'center' | 'right') => void;
   hasBackground?: boolean;
   onToggleBackground?: () => void;
+  autoWrap?: boolean;
+  onToggleAutoWrap?: () => void;
   zoomLevel?: number;
   onZoomIn?: () => void;
   onZoomOut?: () => void;
@@ -398,6 +401,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   onSelectTextAlign,
   hasBackground = false,
   onToggleBackground,
+  autoWrap = false,
+  onToggleAutoWrap,
   zoomLevel = 1.0,
   onZoomIn,
   onZoomOut,
@@ -1086,6 +1091,28 @@ export const Toolbar: React.FC<ToolbarProps> = ({
               }}
             >
               <Highlighter size={14} />
+            </button>
+
+            {/* Quebra Automática de Linha (Auto-wrap) */}
+            <button
+              type="button"
+              title="Quebra automática de linha (Auto-wrap)"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={onToggleAutoWrap}
+              style={{
+                width: '28px',
+                height: '24px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                backgroundColor: autoWrap ? '#0071e3' : 'transparent',
+                color: autoWrap ? '#ffffff' : '#334155',
+              }}
+            >
+              <WrapText size={14} />
             </button>
           </HorizontalFloatingMenu>
         </div>

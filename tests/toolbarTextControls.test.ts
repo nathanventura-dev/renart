@@ -17,6 +17,7 @@ describe('Toolbar Advanced Text Controls UI', () => {
         isStrikethrough: false,
         textAlign: 'center',
         hasBackground: true,
+        autoWrap: true,
         onSelectTool: () => {},
         strokeColor: '#ff3b30',
         onSelectColor: () => {},
@@ -50,6 +51,7 @@ describe('Toolbar Advanced Text Controls UI', () => {
 
     // Fundo / Destaque
     expect(html).toContain('title="Caixa de destaque / Fundo do texto"');
+    expect(html).toContain('title="Quebra automática de linha (Auto-wrap)"');
 
     // Verifica destaques ativos (#0071e3)
     // Negrito está ativo

@@ -630,6 +630,8 @@ export const App: React.FC = () => {
         onSelectTextAlign={(align) => editorStore.setTextAlign(align)}
         hasBackground={editorState.hasBackground}
         onToggleBackground={() => editorStore.toggleBackground()}
+        autoWrap={editorState.autoWrap}
+        onToggleAutoWrap={() => editorStore.toggleAutoWrap()}
         zoomLevel={zoomLevel}
         onZoomIn={handleZoomIn}
         onZoomOut={handleZoomOut}
