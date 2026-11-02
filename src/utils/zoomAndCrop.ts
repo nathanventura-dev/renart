@@ -1161,19 +1161,40 @@ export function updateCornerResize(
       }
     } else if (ann.type === 'text') {
       const ax = ann.x || 0;
+      const ay = ann.y || 0;
       const dims = calculateTextDimensions(ann);
       const aw = dims.width;
-      const minDim = 30;
-      if (cornerIndex === 1 || cornerIndex === 2) {
-        // TR ou BR arrastado: lado esquerdo ax fica fixo
-        const w = Math.max(minDim, px - ax);
-        return { x: ax, width: w, autoWrap: true };
+      const ah = dims.height;
+      const minW = dims.minWidth;
+      const minH = dims.minHeight;
+
+      if (cornerIndex === 2) {
+        // BR arrastado: TL (ax, ay) fica fixo
+        const w = Math.max(minW, px - ax);
+        const h = Math.max(minH, py - ay);
+        return { x: ax, y: ay, width: w, height: h, autoWrap: true };
       }
-      if (cornerIndex === 0 || cornerIndex === 3) {
-        // TL ou BL arrastado: lado direito ax + aw fica fixo
-        const rightX = ax + aw;
-        const w = Math.max(minDim, rightX - px);
-        return { x: rightX - w, width: w, autoWrap: true };
+      if (cornerIndex === 1) {
+        // TR arrastado: BL (ax, ay + ah) fica fixo
+        const blY = ay + ah;
+        const w = Math.max(minW, px - ax);
+        const h = Math.max(minH, blY - py);
+        return { x: ax, y: blY - h, width: w, height: h, autoWrap: true };
+      }
+      if (cornerIndex === 3) {
+        // BL arrastado: TR (ax + aw, ay) fica fixo
+        const trX = ax + aw;
+        const w = Math.max(minW, trX - px);
+        const h = Math.max(minH, py - ay);
+        return { x: trX - w, y: ay, width: w, height: h, autoWrap: true };
+      }
+      if (cornerIndex === 0) {
+        // TL arrastado: BR (ax + aw, ay + ah) fica fixo
+        const brX = ax + aw;
+        const brY = ay + ah;
+        const w = Math.max(minW, brX - px);
+        const h = Math.max(minH, brY - py);
+        return { x: brX - w, y: brY - h, width: w, height: h, autoWrap: true };
       }
     }
   }
@@ -1199,22 +1220,22 @@ export function updateCornerResize(
   const unrotatedRes = updateCornerResize(unrotatedAnn, cornerIndex, localPointer, canvasWidth, canvasHeight);
 
   if (isText) {
-    const textRes = unrotatedRes as { x?: number; y?: number; width?: number; autoWrap?: boolean };
-    if (textRes.width !== undefined && textRes.x !== undefined) {
-      const nextDims = calculateTextDimensions({ ...ann, width: textRes.width, autoWrap: true });
+    const textRes = unrotatedRes as { x?: number; y?: number; width?: number; height?: number; autoWrap?: boolean };
+    if (textRes.width !== undefined && textRes.x !== undefined && textRes.y !== undefined && textRes.height !== undefined) {
+      const nextDims = calculateTextDimensions({ ...ann, width: textRes.width, height: textRes.height, autoWrap: true });
+      const nextW = nextDims.width;
       const nextH = nextDims.height;
       const unrotatedNewCenter = {
-        x: textRes.x + textRes.width / 2,
-        y: (ann.y || 0) + nextH / 2,
+        x: textRes.x + nextW / 2,
+        y: textRes.y + nextH / 2,
       };
       const worldNewCenter = rotatePointAround(unrotatedNewCenter, { x: cx, y: cy }, rot);
-      const w = textRes.width;
-      const rawNewX = Math.round(worldNewCenter.x - w / 2);
+      const rawNewX = Math.round(worldNewCenter.x - nextW / 2);
       const rawNewY = Math.round(worldNewCenter.y - nextH / 2);
       const clampedPos = clampRectToBounds(
         rawNewX,
         rawNewY,
-        w,
+        nextW,
         nextH,
         canvasWidth,
         canvasHeight,
@@ -1225,7 +1246,8 @@ export function updateCornerResize(
       return {
         x: clampedPos.x,
         y: clampedPos.y,
-        width: w,
+        width: nextW,
+        height: nextH,
         autoWrap: true,
       };
     }

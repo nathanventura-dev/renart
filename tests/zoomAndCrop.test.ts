@@ -1185,7 +1185,49 @@ describe('Pointer and Drag Coordinate Transformations Under Zoom', () => {
       };
       const res = updateCornerResize(textAnn, 2, { x: 350, y: 150 }, 800, 600) as any;
       expect(res.width).toBe(250);
+      expect(res.height).toBe(50); // py(150) - ay(100) = 50
       expect(res.autoWrap).toBe(true);
+    });
+
+    it('clamps text resize strictly to min content bounds when dragged smaller than text', () => {
+      const textAnn: Annotation = {
+        id: 't2',
+        type: 'text',
+        x: 100,
+        y: 100,
+        text: 'PalavraExtremamenteLongaSemEspaco\nLinha Dois',
+        fontSize: 20,
+        width: 300,
+        rotation: 0,
+      };
+      // Tenta encolher BR para quase zero (105, 105)
+      const res = updateCornerResize(textAnn, 2, { x: 105, y: 105 }, 800, 600) as any;
+      expect(res.width).toBeGreaterThan(150);
+      expect(res.height).toBeGreaterThanOrEqual(52); // pelo menos 2 linhas de 20px (2 * 26 = 52px)
+      expect(res.x).toBe(100);
+      expect(res.y).toBe(100);
+    });
+
+    it('resizes text annotation from TL corner keeping BR fixed', () => {
+      const textAnn: Annotation = {
+        id: 't3',
+        type: 'text',
+        x: 100,
+        y: 100,
+        text: 'Texto Simples',
+        fontSize: 20,
+        width: 200,
+        height: 60,
+        rotation: 0,
+      };
+      // BR está em (100 + 200, 100 + 60) = (300, 160)
+      // Arrasta TL para (50, 40)
+      const res = updateCornerResize(textAnn, 0, { x: 50, y: 40 }, 800, 600) as any;
+      expect(res.x).toBe(50);
+      expect(res.y).toBe(40);
+      expect(res.width).toBe(250); // 300 - 50 = 250
+      expect(res.height).toBe(120); // 160 - 40 = 120
     });
   });
 });
+
