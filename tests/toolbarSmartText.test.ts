@@ -4,14 +4,14 @@ import { renderToString } from 'react-dom/server';
 import { Toolbar } from '../src/components/Toolbar';
 import { RedactionAnnotation } from '../src/state/editorStore';
 
-describe('Toolbar Smart Text UI', () => {
-  it('renders Texto Inteligente mode button in redaction menu', () => {
+describe('Clean Redaction Toolbar UI', () => {
+  it('renders only Retângulo and Pincel modes in redaction menu without smart-text', () => {
     const html = renderToString(
       React.createElement(Toolbar, {
         activeTool: 'redaction',
         initialOpenMenu: 'redaction',
         redactionLevel: 4,
-        redactionMode: 'smart-text',
+        redactionMode: 'rect',
         onSelectTool: () => {},
         strokeColor: '#ff3b30',
         onSelectColor: () => {},
@@ -28,72 +28,30 @@ describe('Toolbar Smart Text UI', () => {
       })
     );
 
-    expect(html).toContain('Texto Inteligente');
-    expect(html).toContain('Substitui texto sensível por dados fictícios');
-    // Button is highlighted when smart-text is active
-    expect(html).toContain('background-color:#0071e3;color:#ffffff');
+    expect(html).toContain('Retângulo');
+    expect(html).toContain('Pincel');
+    // smart-text should NOT be present in the redaction menu
+    expect(html).not.toContain('Texto Inteligente');
   });
 
-  it('renders Sortear button when a smart-text redaction annotation is selected', () => {
-    const selectedSmartText: RedactionAnnotation = {
-      id: 'smart-1',
+  it('does not render Sortear button in toolbar', () => {
+    const selectedRedact: RedactionAnnotation = {
+      id: 'redact-1',
       type: 'redaction',
-      mode: 'smart-text',
+      mode: 'rect',
       x: 10,
       y: 10,
       width: 100,
       height: 30,
-      bgColor: '#ffffff',
-      textColor: '#000000',
-    };
-
-    const html = renderToString(
-      React.createElement(Toolbar, {
-        activeTool: 'select',
-        initialOpenMenu: 'redaction',
-        selectedAnnotations: [selectedSmartText],
-        redactionLevel: 4,
-        redactionMode: 'smart-text',
-        onSelectTool: () => {},
-        strokeColor: '#ff3b30',
-        onSelectColor: () => {},
-        strokeWidth: 2,
-        onSelectStrokeWidth: () => {},
-        canUndo: false,
-        canRedo: false,
-        onUndo: () => {},
-        onRedo: () => {},
-        onNewCapture: () => {},
-        onCopy: () => {},
-        onExport: () => {},
-        onInsertImage: () => {},
-      })
-    );
-
-    expect(html).toContain('Sortear');
-    expect(html).toContain('Gera novos dados fictícios para este bloco');
-  });
-
-  it('renders prominent Sortear button in toolbar when smart-text is selected even if menus are closed', () => {
-    const selectedSmartText: RedactionAnnotation = {
-      id: 'smart-1',
-      type: 'redaction',
-      mode: 'smart-text',
-      x: 10,
-      y: 10,
-      width: 100,
-      height: 30,
-      bgColor: '#ffffff',
-      textColor: '#000000',
     };
 
     const html = renderToString(
       React.createElement(Toolbar, {
         activeTool: 'select',
         initialOpenMenu: null,
-        selectedAnnotations: [selectedSmartText],
+        selectedAnnotations: [selectedRedact],
         redactionLevel: 4,
-        redactionMode: 'smart-text',
+        redactionMode: 'rect',
         onSelectTool: () => {},
         strokeColor: '#ff3b30',
         onSelectColor: () => {},
@@ -110,7 +68,6 @@ describe('Toolbar Smart Text UI', () => {
       })
     );
 
-    expect(html).toContain('Sortear');
-    expect(html).toContain('Gera novos dados fictícios para este bloco');
+    expect(html).not.toContain('Sortear');
   });
 });

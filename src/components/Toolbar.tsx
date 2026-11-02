@@ -43,8 +43,6 @@ import {
   Palette,
   AppWindow,
   Monitor,
-  Sparkles,
-  RefreshCw,
 } from 'lucide-react';
 import { CaptureMode } from '../types/capture';
 
@@ -241,7 +239,6 @@ interface ToolbarProps {
   onSelectRedactionEffect?: (effect: RedactionEffect) => void;
   redactionMode?: RedactionMode;
   onSelectRedactionMode?: (mode: RedactionMode) => void;
-  onRegenerateSmartText?: (id: string) => void;
   selectedAnnotations?: Annotation[];
   initialOpenMenu?: OpenToolbarMenu;
 }
@@ -387,7 +384,6 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   onSelectRedactionEffect: _onSelectRedactionEffect,
   redactionMode = 'rect',
   onSelectRedactionMode,
-  onRegenerateSmartText,
   selectedAnnotations = [],
   initialOpenMenu = null,
 }) => {
@@ -430,9 +426,6 @@ export const Toolbar: React.FC<ToolbarProps> = ({
     redactionMode
   );
 
-  const selectedSmartText = selectedAnnotations.find(
-    (a) => a.type === 'redaction' && (a as RedactionAnnotation).mode === 'smart-text'
-  ) as RedactionAnnotation | undefined;
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -1054,56 +1047,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
             >
               Pincel
             </button>
-            <button
-              type="button"
-              title="Texto Inteligente: Substitui texto sensível por dados fictícios (OCR)"
-              onClick={() => onSelectRedactionMode?.('smart-text')}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '4px',
-                height: '24px',
-                padding: '0 8px',
-                fontSize: '11px',
-                fontWeight: 600,
-                border: 'none',
-                borderRadius: '4px',
-                cursor: 'pointer',
-                backgroundColor: effectiveRedactionMode === 'smart-text' ? '#0071e3' : 'transparent',
-                color: effectiveRedactionMode === 'smart-text' ? '#ffffff' : '#334155',
-              }}
-            >
-              <Sparkles size={12} />
-              <span>Texto Inteligente</span>
-            </button>
-            {selectedSmartText && (
-              <>
-                <div style={{ width: '1px', height: '16px', backgroundColor: '#e2e8f0', margin: '0 2px' }} />
-                <button
-                  type="button"
-                  title="Sortear Novamente: Gera novos dados fictícios para este bloco"
-                  onClick={() => onRegenerateSmartText?.(selectedSmartText.id)}
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '4px',
-                    height: '24px',
-                    padding: '0 8px',
-                    fontSize: '11px',
-                    fontWeight: 600,
-                    border: 'none',
-                    borderRadius: '4px',
-                    cursor: 'pointer',
-                    backgroundColor: '#f1f5f9',
-                    color: '#0f172a',
-                  }}
-                >
-                  <RefreshCw size={12} />
-                  <span>Sortear</span>
-                </button>
-              </>
-            )}
-          </HorizontalFloatingMenu>
+            </HorizontalFloatingMenu>
         </div>
 
         {/* Lupa com submenu horizontal flutuante */}
@@ -1280,37 +1224,6 @@ export const Toolbar: React.FC<ToolbarProps> = ({
         </div>
 
         <div style={{ width: '1px', height: '20px', backgroundColor: '#d1d1d6', margin: '0 4px' }} />
-
-        {/* Botão de Sortear em destaque quando um bloco de Texto Inteligente estiver selecionado */}
-        {selectedSmartText && (
-          <>
-            <button
-              type="button"
-              title="Sortear Novamente: Gera novos dados fictícios para este bloco"
-              onClick={() => onRegenerateSmartText?.(selectedSmartText.id)}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-                height: '28px',
-                padding: '0 10px',
-                fontSize: '12px',
-                fontWeight: 600,
-                border: '1px solid #0071e3',
-                borderRadius: '6px',
-                cursor: 'pointer',
-                backgroundColor: '#0071e3',
-                color: '#ffffff',
-                boxShadow: '0 1px 3px rgba(0, 113, 227, 0.25)',
-                transition: 'all 0.15s ease',
-              }}
-            >
-              <RefreshCw size={13} />
-              <span>Sortear</span>
-            </button>
-            <div style={{ width: '1px', height: '20px', backgroundColor: '#d1d1d6', margin: '0 4px' }} />
-          </>
-        )}
 
         {/* Paleta de Cores: Botão com ícone que abre lista suspensa horizontal */}
         <div
