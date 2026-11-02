@@ -1218,6 +1218,7 @@ describe('Pointer and Drag Coordinate Transformations Under Zoom', () => {
         fontSize: 20,
         width: 200,
         height: 60,
+        autoWrap: true,
         rotation: 0,
       };
       // BR está em (100 + 200, 100 + 60) = (300, 160)

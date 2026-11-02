@@ -457,12 +457,12 @@ export function calculateTextDimensions(ann: {
   const fontSize = ann.fontSize || 20;
   const fontFamily = ann.fontFamily || 'Arial';
 
-  let minContentWidth = 30;
-  let naturalWidth = 30;
+  let minContentWidth = 0;
+  let naturalWidth = 0;
   let contentHeight = fontSize * 1.3 + padY * 2;
 
   if (ann.spans && ann.spans.length > 0) {
-    let maxWordW = 30;
+    let maxWordW = 0;
     for (const span of ann.spans) {
       const words = span.text.split(/(\s+)/);
       for (const w of words) {
@@ -478,7 +478,7 @@ export function calculateTextDimensions(ann: {
         }
       }
     }
-    minContentWidth = maxWordW + padX * 2;
+    minContentWidth = Math.max(10, maxWordW + padX * 2);
 
     const targetWrapWidth = ann.autoWrap && ann.width ? Math.max(minContentWidth - padX * 2, ann.width - padX * 2) : undefined;
     const lines = wrapSpansToWidth(ann.spans, targetWrapWidth, fontSize, fontFamily);
@@ -495,21 +495,29 @@ export function calculateTextDimensions(ann: {
       }
       return w;
     });
-    const maxLineWidth = Math.max(...lineCalculations, 30);
+    const maxLineWidth = Math.max(...lineCalculations, 0);
     naturalWidth = maxLineWidth + padX * 2;
     contentHeight = Math.max(lines.length, 1) * (fontSize * 1.3) + padY * 2;
   } else {
     const rawText = ann.text || '';
     const textLines = rawText.split('\n');
     const words = rawText.split(/(\s+)/);
-    let maxWordLen = 1;
+    let maxWordW = 0;
     for (const w of words) {
-      if (w.trim().length > maxWordLen) maxWordLen = w.trim().length;
+      if (w.trim()) {
+        const wWidth = measureSpanWidth(w, fontSize, fontFamily, ann.isBold, ann.isItalic);
+        if (wWidth > maxWordW) maxWordW = wWidth;
+      }
     }
-    minContentWidth = Math.max(30, maxWordLen * (fontSize * 0.58) + padX * 2);
+    minContentWidth = Math.max(10, maxWordW + padX * 2);
+
+    const lineCalculations = textLines.map((line) =>
+      measureSpanWidth(line, fontSize, fontFamily, ann.isBold, ann.isItalic)
+    );
+    const maxMeasuredLineWidth = Math.max(...lineCalculations, 0);
 
     if (ann.autoWrap && ann.width) {
-      const wrapInnerW = Math.max(20, ann.width - padX * 2);
+      const wrapInnerW = Math.max(10, ann.width - padX * 2);
       const charsPerLine = Math.max(1, Math.floor(wrapInnerW / (fontSize * 0.58)));
       const wrappedLineCount = textLines.reduce(
         (acc, l) => acc + Math.max(1, Math.ceil(Math.max(l.length, 1) / charsPerLine)),
@@ -518,16 +526,16 @@ export function calculateTextDimensions(ann: {
       contentHeight = wrappedLineCount * (fontSize * 1.3) + padY * 2;
       naturalWidth = Math.max(minContentWidth, ann.width);
     } else {
-      const maxLen = Math.max(...textLines.map((l) => l.length), 1);
-      naturalWidth = Math.max(minContentWidth, maxLen * (fontSize * 0.6) + padX * 2);
+      naturalWidth = maxMeasuredLineWidth + padX * 2;
       contentHeight = textLines.length * (fontSize * 1.3) + padY * 2;
     }
   }
 
-  // Largura final: se o usuário definiu width, respeita no mínimo a maior palavra (minContentWidth)
-  const width = ann.width !== undefined ? Math.max(minContentWidth, ann.width) : naturalWidth;
+  // No modo de quebra automática, o usuário define a largura nas alças (respeitando minContentWidth).
+  // No modo manual, a largura abraça com exatidão matemática a linha mais longa (naturalWidth).
+  const width = ann.autoWrap && ann.width !== undefined ? Math.max(minContentWidth, ann.width) : naturalWidth;
 
-  // Altura final: se o usuário definiu height, respeita no mínimo a altura do conteúdo (contentHeight)
+  // Altura final: se o usuário definiu height (e autoWrap), respeita a altura definida ou o conteúdo.
   const height = ann.height !== undefined ? Math.max(contentHeight, ann.height) : contentHeight;
 
   return {

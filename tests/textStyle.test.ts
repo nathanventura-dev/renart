@@ -8,6 +8,7 @@ import {
   splitSpansIntoLines,
   wrapSpansToWidth,
   calculateTextDimensions,
+  measureSpanWidth,
 } from '../src/utils/textStyle';
 
 describe('Text Styling Helpers', () => {
@@ -211,6 +212,29 @@ describe('Text Styling Helpers', () => {
       // Deve travar no minWidth da maior palavra e não em 40px
       expect(dims.minWidth).toBeGreaterThan(150);
       expect(dims.width).toBeGreaterThanOrEqual(dims.minWidth);
+    });
+    it('measures exact text width without artificial multiplier margin in manual mode', () => {
+      const ann = {
+        text: 'Teste',
+        fontSize: 20,
+        autoWrap: false,
+        hasBackground: false,
+      };
+      const dims = calculateTextDimensions(ann);
+      const expectedExact = measureSpanWidth('Teste', 20, 'Arial');
+      expect(dims.width).toBe(expectedExact);
+    });
+
+    it('measures multi-line plain text width matching the widest line exactly', () => {
+      const ann = {
+        text: 'Curto\nLinha bem mais longa\nMedio',
+        fontSize: 20,
+        autoWrap: false,
+        hasBackground: false,
+      };
+      const dims = calculateTextDimensions(ann);
+      const expectedWidest = measureSpanWidth('Linha bem mais longa', 20, 'Arial');
+      expect(dims.width).toBe(expectedWidest);
     });
   });
 });

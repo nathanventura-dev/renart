@@ -4619,19 +4619,23 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                 left: `${editingText.x * zoomLevel}px`,
                 top: `${editingText.y * zoomLevel}px`,
                 fontSize: `${editingText.fontSize * zoomLevel}px`,
+                lineHeight: 1.3,
                 color: editingText.fill,
                 fontFamily: editingText.fontFamily || 'Arial',
                 textAlign: editingText.textAlign || 'left',
                 border: '1px dashed #0071e3',
                 borderRadius: '4px',
-                backgroundColor: editingText.hasBackground ? 'rgba(255, 255, 255, 0.96)' : 'rgba(255, 255, 255, 0.90)',
-                padding: '4px 6px',
+                backgroundColor: editingText.hasBackground ? 'rgba(255, 255, 255, 0.96)' : 'transparent',
+                padding: `${(editingText.hasBackground ? 4 : 0) * zoomLevel}px ${(editingText.hasBackground ? 8 : 0) * zoomLevel}px`,
                 outline: 'none',
-                minWidth: `${150 * zoomLevel}px`,
-                minHeight: editingText.height ? `${editingText.height * zoomLevel}px` : `${32 * zoomLevel}px`,
+                boxSizing: 'border-box',
+                minWidth: `${20 * zoomLevel}px`,
+                minHeight: editingText.height
+                  ? `${editingText.height * zoomLevel}px`
+                  : `${Math.round(editingText.fontSize * 1.3 + (editingText.hasBackground ? 8 : 0)) * zoomLevel}px`,
                 zIndex: 1000,
                 whiteSpace: 'pre-wrap',
-                width: editingText.autoWrap && editingText.width ? `${editingText.width * zoomLevel}px` : 'auto',
+                width: editingText.autoWrap && editingText.width ? `${editingText.width * zoomLevel}px` : 'fit-content',
                 wordBreak: editingText.autoWrap ? 'break-word' : 'normal',
               }}
             />
