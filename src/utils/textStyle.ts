@@ -496,3 +496,54 @@ export function calculateTextDimensions(ann: {
     }
   }
 }
+
+function rotatePoint(
+  point: { x: number; y: number },
+  center: { x: number; y: number },
+  angleDeg: number
+): { x: number; y: number } {
+  if (angleDeg === 0) return { x: point.x, y: point.y };
+  const rad = (angleDeg * Math.PI) / 180;
+  const cos = Math.cos(rad);
+  const sin = Math.sin(rad);
+  const dx = point.x - center.x;
+  const dy = point.y - center.y;
+  return {
+    x: Math.round(center.x + dx * cos - dy * sin),
+    y: Math.round(center.y + dx * sin + dy * cos),
+  };
+}
+
+/**
+ * Verifica se um ponto (x, y) no espaço do canvas está contido dentro da área
+ * delimitadora de uma anotação de texto (mesmo quando transparente ou rotacionada).
+ */
+export function isPointInsideTextAnnotation(
+  point: { x: number; y: number },
+  ann: any
+): boolean {
+  if (!ann || ann.type !== 'text') return false;
+
+  const dims = calculateTextDimensions(ann);
+  const w = dims.width;
+  const h = dims.height;
+  const ax = ann.x || 0;
+  const ay = ann.y || 0;
+  const rot = ann.rotation ?? 0;
+
+  const cx = ax + w / 2;
+  const cy = ay + h / 2;
+
+  // Rotaciona o ponto de volta para o sistema alinhado com os eixos locais do texto
+  const localPoint = rotatePoint(point, { x: cx, y: cy }, -rot);
+
+  // Adiciona uma tolerância suave de 2px nas bordas para cliques confortáveis
+  const tolerance = 2;
+  return (
+    localPoint.x >= ax - tolerance &&
+    localPoint.x <= ax + w + tolerance &&
+    localPoint.y >= ay - tolerance &&
+    localPoint.y <= ay + h + tolerance
+  );
+}
+

@@ -1,4 +1,5 @@
 import { Annotation, FONT_SIZES, ToolType } from '../state/editorStore';
+import { calculateTextDimensions } from './textStyle';
 
 export const MIN_FONT_SIZE = FONT_SIZES[0]; // 12
 export const MAX_FONT_SIZE = FONT_SIZES[FONT_SIZES.length - 1]; // 48
@@ -408,12 +409,11 @@ export function getAnnotationsInSelectionBox(
       minY = Math.min(y1, y2);
       maxY = Math.max(y1, y2);
     } else if (ann.type === 'text') {
-      const approxWidth = Math.max(40, ann.text.length * (ann.fontSize * 0.55) * Math.abs(sx));
-      const approxHeight = ann.fontSize * 1.3 * Math.abs(sy);
+      const dims = calculateTextDimensions(ann);
       minX = ann.x;
-      maxX = ann.x + approxWidth;
+      maxX = ann.x + dims.width;
       minY = ann.y;
-      maxY = ann.y + approxHeight;
+      maxY = ann.y + dims.height;
     } else if (ann.type === 'magnifier') {
       minX = ann.x - ann.radius;
       maxX = ann.x + ann.radius;
@@ -641,10 +641,9 @@ export function getAnnotationSelectionOutline(ann: Annotation): SelectionOutline
   }
 
   if (ann.type === 'text') {
-    const sx = Math.abs(ann.scaleX ?? 1);
-    const sy = Math.abs(ann.scaleY ?? 1);
-    const approxWidth = Math.max(40, ann.text.length * (ann.fontSize * 0.55) * sx);
-    const approxHeight = ann.fontSize * 1.3 * sy;
+    const dims = calculateTextDimensions(ann);
+    const approxWidth = dims.width;
+    const approxHeight = dims.height;
     const padding = 4;
     const outW = approxWidth + padding * 2;
     const outH = approxHeight + padding * 2;

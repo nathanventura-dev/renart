@@ -429,5 +429,21 @@ describe('Text Block Stepped Font-Size Resizing (12..48 Sem Distorção)', () =>
       expect(outline.width).toBe(158); // (200 - 50) + 8
       expect(outline.height).toBe(108); // (150 - 50) + 8
     });
+    it('generates rectangular outline for text annotation matching calculateTextDimensions', () => {
+      const textAnn: any = {
+        id: 't1',
+        type: 'text',
+        x: 100,
+        y: 100,
+        text: 'Teste de Contorno',
+        fontSize: 20,
+        width: 250,
+        autoWrap: true,
+      };
+      const outline = getAnnotationSelectionOutline(textAnn);
+      expect(outline.type).toBe('rect');
+      expect(outline.width).toBe(258); // 250 + padding*2 (4*2 = 8)
+      expect(outline.x).toBe(225); // 100 + 250/2
+    });
   });
 });

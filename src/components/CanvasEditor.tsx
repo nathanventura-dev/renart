@@ -1,4 +1,4 @@
-import { resolveKonvaFontStyle, resolveKonvaTextDecoration, parseHtmlToSpans, spansToHtml, measureSpanWidth, wrapSpansToWidth, TextSpan, isEditingTextElement, calculateTextDimensions } from '../utils/textStyle';
+import { resolveKonvaFontStyle, resolveKonvaTextDecoration, parseHtmlToSpans, spansToHtml, measureSpanWidth, wrapSpansToWidth, TextSpan, isEditingTextElement, calculateTextDimensions, isPointInsideTextAnnotation } from '../utils/textStyle';
 import React, { useRef, useState, useEffect, useMemo } from 'react';
 import {
   Stage,
@@ -27,6 +27,7 @@ import {
   RedactionMode,
   ArrowStyle,
   ArrowCurveDirection,
+  TextAnnotation,
 } from '../state/editorStore';
 import {
   createRedactionBrush,
@@ -809,9 +810,10 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
         y: draggedNode.y(),
       });
     } else if (draggedAnn?.type === 'text') {
+      const dims = calculateTextDimensions(draggedAnn);
       setLiveFourCornerUpdate({
-        x: draggedNode.x(),
-        y: draggedNode.y(),
+        x: draggedNode.x() - dims.width / 2,
+        y: draggedNode.y() - dims.height / 2,
       });
     }
 
@@ -949,6 +951,25 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
             );
             node.position({ x: clamped.x, y: clamped.y });
             updatesById[selId] = { x: clamped.x, y: clamped.y };
+          } else if (ann.type === 'text') {
+            const dims = calculateTextDimensions(ann);
+            const annW = dims.width;
+            const annH = dims.height;
+            const rawLeft = node.x() - annW / 2;
+            const rawTop = node.y() - annH / 2;
+            const clamped = clampRectToBounds(
+              rawLeft,
+              rawTop,
+              annW,
+              annH,
+              imgW,
+              imgH,
+              1,
+              1,
+              ann.rotation ?? 0
+            );
+            node.position({ x: clamped.x + annW / 2, y: clamped.y + annH / 2 });
+            updatesById[selId] = { x: clamped.x, y: clamped.y };
           } else {
             const clamped = clampAnnotationPositionToBounds(
               ann,
@@ -1056,6 +1077,31 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
           draggedAnn.rotation ?? 0
         );
         e.currentTarget.position({ x: clamped.x, y: clamped.y });
+        onUpdateAnnotation(id, {
+          x: clamped.x,
+          y: clamped.y,
+        });
+        setLiveFourCornerUpdate(null);
+        return;
+      }
+      if (draggedAnn.type === 'text') {
+        const dims = calculateTextDimensions(draggedAnn);
+        const dW = dims.width;
+        const dH = dims.height;
+        const rawLeft = e.currentTarget.x() - dW / 2;
+        const rawTop = e.currentTarget.y() - dH / 2;
+        const clamped = clampRectToBounds(
+          rawLeft,
+          rawTop,
+          dW,
+          dH,
+          imgW,
+          imgH,
+          1,
+          1,
+          draggedAnn.rotation ?? 0
+        );
+        e.currentTarget.position({ x: clamped.x + dW / 2, y: clamped.y + dH / 2 });
         onUpdateAnnotation(id, {
           x: clamped.x,
           y: clamped.y,
@@ -1455,6 +1501,15 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
     const rawPos = stage?.getPointerPosition();
     const pos = rawPos ? getTransformedPointerPosition(rawPos, zoomLevel) : null;
     if (!pos) return;
+
+    // Se o ponto clicado estiver geometricamente dentro de algum bloco de texto existente, seleciona-o
+    const hitTextAnn = annotations.find(
+      (a) => a.type === 'text' && isPointInsideTextAnnotation(pos, a)
+    );
+    if (hitTextAnn) {
+      applySelectionIds([hitTextAnn.id]);
+      return;
+    }
 
     // Se a ferramenta de ponteiro ('select') está ativa, clicar e arrastar na área vazia inicia a Caixa de Multiseleção!
     if (activeTool === 'select') {
@@ -2532,27 +2587,33 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
               }
 
               if (ann.type === 'text') {
-                const align = ann.textAlign || 'left';
-                const padX = ann.hasBackground ? 8 : 0;
-                const padY = ann.hasBackground ? 4 : 0;
-                const hasSpans = Boolean(ann.spans && ann.spans.length > 0);
+                const isSelected4C = selectedFourCornerAnnotation?.id === ann.id;
+                const activeText = (isSelected4C && effectiveFourCornerAnn?.type === 'text' ? effectiveFourCornerAnn : ann) as TextAnnotation;
+                const align = activeText.textAlign || 'left';
+                const padX = activeText.hasBackground ? 8 : 0;
+                const padY = activeText.hasBackground ? 4 : 0;
+                const hasSpans = Boolean(activeText.spans && activeText.spans.length > 0);
+
+                const dims = calculateTextDimensions(activeText);
+                const approxW = dims.width;
+                const approxH = dims.height;
+                const cx = activeText.x + approxW / 2;
+                const cy = activeText.y + approxH / 2;
 
                 let textChildren: React.ReactNode = null;
-                let approxW = 30;
-                let approxH = 30;
 
-                if (hasSpans && ann.spans) {
-                  const maxWrapWidth = ann.autoWrap && ann.width ? Math.max(30, ann.width - padX * 2) : undefined;
-                  const lines = wrapSpansToWidth(ann.spans, maxWrapWidth, ann.fontSize, ann.fontFamily || 'Arial');
+                if (hasSpans && activeText.spans) {
+                  const maxWrapWidth = activeText.autoWrap && activeText.width ? Math.max(30, activeText.width - padX * 2) : undefined;
+                  const lines = wrapSpansToWidth(activeText.spans, maxWrapWidth, activeText.fontSize, activeText.fontFamily || 'Arial');
                   const lineCalculations = lines.map((lineSpans) => {
                     let w = 0;
                     const measuredSpans = lineSpans.map((span) => {
                       const spanW = measureSpanWidth(
                         span.text,
-                        ann.fontSize,
-                        ann.fontFamily || 'Arial',
-                        span.isBold ?? ann.isBold,
-                        span.isItalic ?? ann.isItalic
+                        activeText.fontSize,
+                        activeText.fontFamily || 'Arial',
+                        span.isBold ?? activeText.isBold,
+                        span.isItalic ?? activeText.isItalic
                       );
                       const startX = w;
                       w += spanW;
@@ -2562,8 +2623,6 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                   });
 
                   const maxLineWidth = Math.max(...lineCalculations.map((l) => l.lineWidth), 30);
-                  approxW = ann.autoWrap && ann.width ? Math.max(30, ann.width) : maxLineWidth + padX * 2;
-                  approxH = Math.max(lines.length, 1) * (ann.fontSize * 1.3) + padY * 2;
 
                   textChildren = lineCalculations.map((l, lineIdx) => {
                     const lineStartX =
@@ -2577,165 +2636,74 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                       <Text
                         key={`span-${lineIdx}-${spanIdx}`}
                         x={lineStartX + span.startX + padX}
-                        y={lineIdx * (ann.fontSize * 1.3) + padY}
+                        y={lineIdx * (activeText.fontSize * 1.3) + padY}
                         text={span.text}
-                        fontSize={ann.fontSize}
-                        fontFamily={ann.fontFamily || 'Arial'}
-                        fontStyle={resolveKonvaFontStyle(span.isBold ?? ann.isBold, span.isItalic ?? ann.isItalic)}
+                        fontSize={activeText.fontSize}
+                        fontFamily={activeText.fontFamily || 'Arial'}
+                        fontStyle={resolveKonvaFontStyle(span.isBold ?? activeText.isBold, span.isItalic ?? activeText.isItalic)}
                         textDecoration={resolveKonvaTextDecoration(
-                          span.isUnderline ?? ann.isUnderline,
-                          span.isStrikethrough ?? ann.isStrikethrough
+                          span.isUnderline ?? activeText.isUnderline,
+                          span.isStrikethrough ?? activeText.isStrikethrough
                         )}
-                        fill={ann.fill || '#000000'}
+                        fill={activeText.fill || '#000000'}
                       />
                     ));
                   });
                 } else {
-                  const fontStyle = resolveKonvaFontStyle(ann.isBold, ann.isItalic);
-                  const textDecoration = resolveKonvaTextDecoration(ann.isUnderline, ann.isStrikethrough);
-                  const textLines = (ann.text || '').split('\n');
-                  const maxLen = Math.max(...textLines.map((l) => l.length), 1);
-                  if (ann.autoWrap && ann.width) {
-                    approxW = Math.max(30, ann.width);
-                    const wrapInnerW = Math.max(20, ann.width - padX * 2);
-                    const charsPerLine = Math.max(1, Math.floor(wrapInnerW / (ann.fontSize * 0.58)));
-                    const wrappedLineCount = textLines.reduce(
-                      (acc, l) => acc + Math.max(1, Math.ceil(Math.max(l.length, 1) / charsPerLine)),
-                      0
-                    );
-                    approxH = wrappedLineCount * (ann.fontSize * 1.3) + padY * 2;
-                  } else {
-                    approxW = Math.max(30, maxLen * (ann.fontSize * 0.6) + padX * 2);
-                    approxH = textLines.length * (ann.fontSize * 1.3) + padY * 2;
-  
-                  }
+                  const fontStyle = resolveKonvaFontStyle(activeText.isBold, activeText.isItalic);
+                  const textDecoration = resolveKonvaTextDecoration(activeText.isUnderline, activeText.isStrikethrough);
 
-
-                  const textElement = (
+                  textChildren = (
                     <Text
-                      id={ann.hasBackground ? undefined : ann.id}
                       x={padX}
                       y={padY}
-                      width={ann.autoWrap && ann.width ? Math.max(20, ann.width - padX * 2) : undefined}
-                      wrap={ann.autoWrap ? 'word' : 'none'}
-                      text={ann.text}
-                      fontSize={ann.fontSize}
-                      fontFamily={ann.fontFamily || 'Arial'}
+                      width={activeText.autoWrap && activeText.width ? Math.max(20, activeText.width - padX * 2) : undefined}
+                      wrap={activeText.autoWrap ? 'word' : 'none'}
+                      text={activeText.text}
+                      fontSize={activeText.fontSize}
+                      fontFamily={activeText.fontFamily || 'Arial'}
                       fontStyle={fontStyle}
                       textDecoration={textDecoration}
                       align={align}
-                      fill={ann.fill || '#000000'}
+                      fill={activeText.fill || '#000000'}
                     />
-                  );
-                  textChildren = textElement;
-                }
-
-                if (ann.hasBackground || hasSpans) {
-                  return (
-                    <Group
-                      key={ann.id}
-                      id={ann.id}
-                      x={ann.x}
-                      y={ann.y}
-                      scaleX={ann.scaleX ?? 1}
-                      scaleY={ann.scaleY ?? 1}
-                      rotation={ann.rotation ?? 0}
-                      draggable={canDrag}
-                      dragBoundFunc={(pos) =>
-                        getTransformedDragBound(pos, zoomLevel, (localX, localY) =>
-                          clampRectToBounds(
-                            localX,
-                            localY,
-                            approxW,
-                            approxH,
-                            canvasWidth,
-                            canvasHeight,
-                            ann.scaleX ?? 1,
-                            ann.scaleY ?? 1,
-                            ann.rotation ?? 0
-                          )
-                        )
-                      }
-                      onMouseEnter={handleBlockMouseEnter}
-                      onMouseLeave={handleBlockMouseLeave}
-                      onClick={(e) => handleBlockClick(ann.id, e)}
-                      onDragStart={() => handleBlockDragStart(ann.id)}
-                      onDragMove={(e) => handleBlockDragMove(ann.id, e)}
-                      onDragEnd={(e) => handleBlockDragEnd(ann.id, e)}
-                      onDblClick={() => {
-                        applySelectionIds([ann.id]);
-                        setEditingText({
-                          id: ann.id,
-                          x: ann.x,
-                          y: ann.y,
-                          text: ann.text,
-                          fontSize: ann.fontSize,
-                          fontFamily: ann.fontFamily || 'Arial',
-                          fill: ann.fill || '#000000',
-                          isBold: ann.isBold,
-                          isItalic: ann.isItalic,
-                          isUnderline: ann.isUnderline,
-                          isStrikethrough: ann.isStrikethrough,
-                          textAlign: ann.textAlign,
-                          hasBackground: ann.hasBackground,
-                          spans: ann.spans,
-                          width: ann.width,
-                          autoWrap: ann.autoWrap,
-                        });
-                      }}
-                    >
-                      {ann.hasBackground && (
-                        <Rect
-                          width={approxW}
-                          height={approxH}
-                          fill={ann.backgroundColor || '#ffffff'}
-                          opacity={0.92}
-                          cornerRadius={4}
-                          shadowColor="rgba(0, 0, 0, 0.16)"
-                          shadowBlur={5}
-                          shadowOffset={{ x: 0, y: 1 }}
-                        />
-                      )}
-                      {textChildren}
-                    </Group>
                   );
                 }
 
                 return (
-                  <Text
+                  <Group
                     key={ann.id}
                     id={ann.id}
-                    x={ann.x}
-                    y={ann.y}
-                    text={ann.text}
-                    fontSize={ann.fontSize}
-                    fontFamily={ann.fontFamily || 'Arial'}
-                    fontStyle={resolveKonvaFontStyle(ann.isBold, ann.isItalic)}
-                    textDecoration={resolveKonvaTextDecoration(ann.isUnderline, ann.isStrikethrough)}
-                    align={align}
-                    fill={ann.fill || '#000000'}
-                    scaleX={ann.scaleX ?? 1}
-                    scaleY={ann.scaleY ?? 1}
-                    rotation={ann.rotation ?? 0}
+                    x={cx}
+                    y={cy}
+                    offsetX={approxW / 2}
+                    offsetY={approxH / 2}
+                    scaleX={activeText.scaleX ?? 1}
+                    scaleY={activeText.scaleY ?? 1}
+                    rotation={activeText.rotation ?? 0}
+                    opacity={editingText?.id === ann.id ? 0 : 1}
                     draggable={canDrag}
-                    dragBoundFunc={(pos) => {
-                      const textNode = stageRef.current?.findOne(`#${ann.id}`) as Konva.Text | undefined;
-                      const w = textNode ? textNode.width() : 120;
-                      const h = textNode ? textNode.height() : 30;
-                      return getTransformedDragBound(pos, zoomLevel, (localX, localY) =>
-                        clampRectToBounds(
-                          localX,
-                          localY,
-                          w,
-                          h,
+                    dragBoundFunc={(pos) =>
+                      getTransformedDragBound(pos, zoomLevel, (localX, localY) => {
+                        const rawLeft = localX - approxW / 2;
+                        const rawTop = localY - approxH / 2;
+                        const clamped = clampRectToBounds(
+                          rawLeft,
+                          rawTop,
+                          approxW,
+                          approxH,
                           canvasWidth,
                           canvasHeight,
-                          ann.scaleX ?? 1,
-                          ann.scaleY ?? 1,
-                          ann.rotation ?? 0
-                        )
-                      );
-                    }}
+                          activeText.scaleX ?? 1,
+                          activeText.scaleY ?? 1,
+                          activeText.rotation ?? 0
+                        );
+                        return {
+                          x: clamped.x + approxW / 2,
+                          y: clamped.y + approxH / 2,
+                        };
+                      })
+                    }
                     onMouseEnter={handleBlockMouseEnter}
                     onMouseLeave={handleBlockMouseLeave}
                     onClick={(e) => handleBlockClick(ann.id, e)}
@@ -2763,11 +2731,32 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                         autoWrap: ann.autoWrap,
                       });
                     }}
-                  />
+                  >
+                    {/* Área de clique transparente cobrindo toda a caixa delimitadora */}
+                    <Rect
+                      name={`text-hit-area-${ann.id}`}
+                      width={approxW}
+                      height={approxH}
+                      fill="rgba(0, 0, 0, 0.001)"
+                    />
+                    {activeText.hasBackground && (
+                      <Rect
+                        width={approxW}
+                        height={approxH}
+                        fill={activeText.backgroundColor || '#ffffff'}
+                        opacity={0.92}
+                        cornerRadius={4}
+                        shadowColor="rgba(0, 0, 0, 0.16)"
+                        shadowBlur={5}
+                        shadowOffset={{ x: 0, y: 1 }}
+                      />
+                    )}
+                    {textChildren}
+                  </Group>
                 );
               }
 
-              if (ann.type === 'image') {
+                            if (ann.type === 'image') {
                 return (
                   <InsertedImageNode
                     key={ann.id}
@@ -4186,6 +4175,28 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
 
                 return (
                   <Group name="four-corner-controls-group">
+                    {/* Contorno sutil delimitador para bloco de texto selecionado */}
+                    {selectedFourCornerAnnotation.type === 'text' && (
+                      <Line
+                        points={[
+                          corners[0].x,
+                          corners[0].y,
+                          corners[1].x,
+                          corners[1].y,
+                          corners[2].x,
+                          corners[2].y,
+                          corners[3].x,
+                          corners[3].y,
+                        ]}
+                        closed
+                        stroke="#0071e3"
+                        strokeWidth={1}
+                        dash={[4, 4]}
+                        opacity={0.75}
+                        listening={false}
+                      />
+                    )}
+
                     {/* Alça Superior de Rotação Estilo Windows Snipping Tool (ocultada para texto inteligente) */}
                     {showRotater && (
                     <Group
