@@ -29,6 +29,14 @@ import {
   EyeOff,
   Smile,
   Crop,
+  Bold,
+  Italic,
+  Underline,
+  Strikethrough,
+  AlignLeft,
+  AlignCenter,
+  AlignRight,
+  Highlighter,
   Check,
   X,
   ZoomIn,
@@ -221,6 +229,18 @@ interface ToolbarProps {
   onSelectFontFamily?: (fontFamily: string) => void;
   fontSize?: number;
   onSelectFontSize?: (fontSize: number) => void;
+  isBold?: boolean;
+  onToggleBold?: () => void;
+  isItalic?: boolean;
+  onToggleItalic?: () => void;
+  isUnderline?: boolean;
+  onToggleUnderline?: () => void;
+  isStrikethrough?: boolean;
+  onToggleStrikethrough?: () => void;
+  textAlign?: 'left' | 'center' | 'right';
+  onSelectTextAlign?: (align: 'left' | 'center' | 'right') => void;
+  hasBackground?: boolean;
+  onToggleBackground?: () => void;
   zoomLevel?: number;
   onZoomIn?: () => void;
   onZoomOut?: () => void;
@@ -366,6 +386,18 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   onSelectFontFamily,
   fontSize = 18,
   onSelectFontSize,
+  isBold = false,
+  onToggleBold,
+  isItalic = false,
+  onToggleItalic,
+  isUnderline = false,
+  onToggleUnderline,
+  isStrikethrough = false,
+  onToggleStrikethrough,
+  textAlign = 'left',
+  onSelectTextAlign,
+  hasBackground = false,
+  onToggleBackground,
   zoomLevel = 1.0,
   onZoomIn,
   onZoomOut,
@@ -881,6 +913,172 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 </option>
               ))}
             </select>
+            {/* Divisor vertical */}
+            <div style={{ width: '1px', height: '16px', backgroundColor: '#e2e8f0', margin: '0 4px' }} />
+
+            {/* Estilos */}
+            <button
+              type="button"
+              title="Negrito (Ctrl+B)"
+              onClick={onToggleBold}
+              style={{
+                width: '28px',
+                height: '24px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                backgroundColor: isBold ? '#0071e3' : 'transparent',
+                color: isBold ? '#ffffff' : '#334155',
+              }}
+            >
+              <Bold size={14} />
+            </button>
+            <button
+              type="button"
+              title="Itálico (Ctrl+I)"
+              onClick={onToggleItalic}
+              style={{
+                width: '28px',
+                height: '24px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                backgroundColor: isItalic ? '#0071e3' : 'transparent',
+                color: isItalic ? '#ffffff' : '#334155',
+              }}
+            >
+              <Italic size={14} />
+            </button>
+            <button
+              type="button"
+              title="Sublinhado (Ctrl+U)"
+              onClick={onToggleUnderline}
+              style={{
+                width: '28px',
+                height: '24px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                backgroundColor: isUnderline ? '#0071e3' : 'transparent',
+                color: isUnderline ? '#ffffff' : '#334155',
+              }}
+            >
+              <Underline size={14} />
+            </button>
+            <button
+              type="button"
+              title="Tachado / Riscado"
+              onClick={onToggleStrikethrough}
+              style={{
+                width: '28px',
+                height: '24px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                backgroundColor: isStrikethrough ? '#0071e3' : 'transparent',
+                color: isStrikethrough ? '#ffffff' : '#334155',
+              }}
+            >
+              <Strikethrough size={14} />
+            </button>
+
+            {/* Divisor vertical */}
+            <div style={{ width: '1px', height: '16px', backgroundColor: '#e2e8f0', margin: '0 4px' }} />
+
+            {/* Alinhamento */}
+            <button
+              type="button"
+              title="Alinhar à esquerda"
+              onClick={() => onSelectTextAlign?.('left')}
+              style={{
+                width: '28px',
+                height: '24px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                backgroundColor: textAlign === 'left' ? '#0071e3' : 'transparent',
+                color: textAlign === 'left' ? '#ffffff' : '#334155',
+              }}
+            >
+              <AlignLeft size={14} />
+            </button>
+            <button
+              type="button"
+              title="Centralizar"
+              onClick={() => onSelectTextAlign?.('center')}
+              style={{
+                width: '28px',
+                height: '24px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                backgroundColor: textAlign === 'center' ? '#0071e3' : 'transparent',
+                color: textAlign === 'center' ? '#ffffff' : '#334155',
+              }}
+            >
+              <AlignCenter size={14} />
+            </button>
+            <button
+              type="button"
+              title="Alinhar à direita"
+              onClick={() => onSelectTextAlign?.('right')}
+              style={{
+                width: '28px',
+                height: '24px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                backgroundColor: textAlign === 'right' ? '#0071e3' : 'transparent',
+                color: textAlign === 'right' ? '#ffffff' : '#334155',
+              }}
+            >
+              <AlignRight size={14} />
+            </button>
+
+            {/* Divisor vertical */}
+            <div style={{ width: '1px', height: '16px', backgroundColor: '#e2e8f0', margin: '0 4px' }} />
+
+            {/* Fundo / Destaque */}
+            <button
+              type="button"
+              title="Caixa de destaque / Fundo do texto"
+              onClick={onToggleBackground}
+              style={{
+                width: '28px',
+                height: '24px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                backgroundColor: hasBackground ? '#0071e3' : 'transparent',
+                color: hasBackground ? '#ffffff' : '#334155',
+              }}
+            >
+              <Highlighter size={14} />
+            </button>
           </HorizontalFloatingMenu>
         </div>
 
