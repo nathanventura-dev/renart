@@ -448,17 +448,40 @@ export function calculateTextDimensions(ann: {
   hasBackground?: boolean;
   autoWrap?: boolean;
   width?: number;
+  height?: number;
   isBold?: boolean;
   isItalic?: boolean;
-}): { width: number; height: number } {
+}): { width: number; height: number; minWidth: number; minHeight: number } {
   const padX = ann.hasBackground ? 8 : 0;
   const padY = ann.hasBackground ? 4 : 0;
   const fontSize = ann.fontSize || 20;
   const fontFamily = ann.fontFamily || 'Arial';
 
+  let minContentWidth = 30;
+  let naturalWidth = 30;
+  let contentHeight = fontSize * 1.3 + padY * 2;
+
   if (ann.spans && ann.spans.length > 0) {
-    const maxWrapWidth = ann.autoWrap && ann.width ? Math.max(30, ann.width - padX * 2) : undefined;
-    const lines = wrapSpansToWidth(ann.spans, maxWrapWidth, fontSize, fontFamily);
+    let maxWordW = 30;
+    for (const span of ann.spans) {
+      const words = span.text.split(/(\s+)/);
+      for (const w of words) {
+        if (w.trim()) {
+          const wWidth = measureSpanWidth(
+            w,
+            fontSize,
+            fontFamily,
+            span.isBold ?? ann.isBold,
+            span.isItalic ?? ann.isItalic
+          );
+          if (wWidth > maxWordW) maxWordW = wWidth;
+        }
+      }
+    }
+    minContentWidth = maxWordW + padX * 2;
+
+    const targetWrapWidth = ann.autoWrap && ann.width ? Math.max(minContentWidth - padX * 2, ann.width - padX * 2) : undefined;
+    const lines = wrapSpansToWidth(ann.spans, targetWrapWidth, fontSize, fontFamily);
     const lineCalculations = lines.map((lineSpans) => {
       let w = 0;
       for (const span of lineSpans) {
@@ -473,28 +496,46 @@ export function calculateTextDimensions(ann: {
       return w;
     });
     const maxLineWidth = Math.max(...lineCalculations, 30);
-    const width = ann.autoWrap && ann.width ? Math.max(30, ann.width) : maxLineWidth + padX * 2;
-    const height = Math.max(lines.length, 1) * (fontSize * 1.3) + padY * 2;
-    return { width, height };
+    naturalWidth = maxLineWidth + padX * 2;
+    contentHeight = Math.max(lines.length, 1) * (fontSize * 1.3) + padY * 2;
   } else {
-    const textLines = (ann.text || '').split('\n');
-    const maxLen = Math.max(...textLines.map((l) => l.length), 1);
+    const rawText = ann.text || '';
+    const textLines = rawText.split('\n');
+    const words = rawText.split(/(\s+)/);
+    let maxWordLen = 1;
+    for (const w of words) {
+      if (w.trim().length > maxWordLen) maxWordLen = w.trim().length;
+    }
+    minContentWidth = Math.max(30, maxWordLen * (fontSize * 0.58) + padX * 2);
+
     if (ann.autoWrap && ann.width) {
-      const width = Math.max(30, ann.width);
       const wrapInnerW = Math.max(20, ann.width - padX * 2);
       const charsPerLine = Math.max(1, Math.floor(wrapInnerW / (fontSize * 0.58)));
       const wrappedLineCount = textLines.reduce(
         (acc, l) => acc + Math.max(1, Math.ceil(Math.max(l.length, 1) / charsPerLine)),
         0
       );
-      const height = wrappedLineCount * (fontSize * 1.3) + padY * 2;
-      return { width, height };
+      contentHeight = wrappedLineCount * (fontSize * 1.3) + padY * 2;
+      naturalWidth = Math.max(minContentWidth, ann.width);
     } else {
-      const width = ann.width ? Math.max(30, ann.width) : Math.max(30, maxLen * (fontSize * 0.6) + padX * 2);
-      const height = textLines.length * (fontSize * 1.3) + padY * 2;
-      return { width, height };
+      const maxLen = Math.max(...textLines.map((l) => l.length), 1);
+      naturalWidth = Math.max(minContentWidth, maxLen * (fontSize * 0.6) + padX * 2);
+      contentHeight = textLines.length * (fontSize * 1.3) + padY * 2;
     }
   }
+
+  // Largura final: se o usuário definiu width, respeita no mínimo a maior palavra (minContentWidth)
+  const width = ann.width !== undefined ? Math.max(minContentWidth, ann.width) : naturalWidth;
+
+  // Altura final: se o usuário definiu height, respeita no mínimo a altura do conteúdo (contentHeight)
+  const height = ann.height !== undefined ? Math.max(contentHeight, ann.height) : contentHeight;
+
+  return {
+    width,
+    height,
+    minWidth: minContentWidth,
+    minHeight: contentHeight,
+  };
 }
 
 function rotatePoint(

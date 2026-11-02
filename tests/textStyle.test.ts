@@ -7,6 +7,7 @@ import {
   spansToHtml,
   splitSpansIntoLines,
   wrapSpansToWidth,
+  calculateTextDimensions,
 } from '../src/utils/textStyle';
 
 describe('Text Styling Helpers', () => {
@@ -154,6 +155,62 @@ describe('Text Styling Helpers', () => {
       const wrapped = wrapSpansToWidth(spans, 500, 16, 'Arial');
       expect(wrapped.length).toBe(1);
       expect(wrapped[0][0].text).toBe('Curto');
+    });
+  });
+
+  describe('calculateTextDimensions content-first sizing and height', () => {
+    it('respects ann.height when greater than content height', () => {
+      const ann = {
+        text: 'Linha única',
+        fontSize: 20,
+        height: 150,
+      };
+      const dims = calculateTextDimensions(ann);
+      expect(dims.height).toBe(150);
+      expect(dims.minHeight).toBeLessThan(150);
+    });
+
+    it('clamps height up to content height when ann.height is smaller than text (never cuts text)', () => {
+      const ann = {
+        text: 'Primeira linha\nSegunda linha\nTerceira linha',
+        fontSize: 20,
+        height: 30, // Muito pequeno para 3 linhas de 20px
+      };
+      const dims = calculateTextDimensions(ann);
+      // 3 linhas de 20px * 1.3 = 78px
+      expect(dims.height).toBeGreaterThanOrEqual(75);
+      expect(dims.height).toBe(dims.minHeight);
+    });
+
+    it('expands automatically when content exceeds previous fixed height', () => {
+      const baseAnn = {
+        text: 'Linha 1\nLinha 2',
+        fontSize: 20,
+        height: 60,
+      };
+      const baseDims = calculateTextDimensions(baseAnn);
+
+      const expandedAnn = {
+        text: 'Linha 1\nLinha 2\nLinha 3\nLinha 4\nLinha 5',
+        fontSize: 20,
+        height: 60, // Menor que 5 linhas
+      };
+      const expandedDims = calculateTextDimensions(expandedAnn);
+      expect(expandedDims.height).toBeGreaterThan(baseDims.height);
+      expect(expandedDims.height).toBeGreaterThan(60);
+    });
+
+    it('calculates minWidth strictly respecting the longest word', () => {
+      const ann = {
+        text: 'Uma palavraExtremamenteLongaQueNaoPodeQuebrar no texto',
+        fontSize: 20,
+        autoWrap: true,
+        width: 40, // Usuário tentou encolher para 40px
+      };
+      const dims = calculateTextDimensions(ann);
+      // Deve travar no minWidth da maior palavra e não em 40px
+      expect(dims.minWidth).toBeGreaterThan(150);
+      expect(dims.width).toBeGreaterThanOrEqual(dims.minWidth);
     });
   });
 });
