@@ -1183,7 +1183,7 @@ describe('Pointer and Drag Coordinate Transformations Under Zoom', () => {
         width: 200,
         rotation: 0,
       };
-      const res = updateCornerResize(textAnn, 2, { x: 350, y: 150 }, 800, 600);
+      const res = updateCornerResize(textAnn, 2, { x: 350, y: 150 }, 800, 600) as any;
       expect(res.width).toBe(250);
       expect(res.autoWrap).toBe(true);
     });

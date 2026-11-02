@@ -1,4 +1,4 @@
-import { resolveKonvaFontStyle, resolveKonvaTextDecoration, parseHtmlToSpans, spansToHtml, splitSpansIntoLines, measureSpanWidth, wrapSpansToWidth, TextSpan, isEditingTextElement, calculateTextDimensions } from '../utils/textStyle';
+import { resolveKonvaFontStyle, resolveKonvaTextDecoration, parseHtmlToSpans, spansToHtml, measureSpanWidth, wrapSpansToWidth, TextSpan, isEditingTextElement, calculateTextDimensions } from '../utils/textStyle';
 import React, { useRef, useState, useEffect, useMemo } from 'react';
 import {
   Stage,
@@ -2034,10 +2034,11 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
     if (selectedFourCornerAnnotation.type === 'text') {
       const base = { ...selectedFourCornerAnnotation };
       if (liveFourCornerUpdate) {
-        if (liveFourCornerUpdate.x !== undefined) base.x = liveFourCornerUpdate.x;
-        if (liveFourCornerUpdate.y !== undefined) base.y = liveFourCornerUpdate.y;
-        if (liveFourCornerUpdate.width !== undefined) base.width = liveFourCornerUpdate.width;
-        if (liveFourCornerUpdate.autoWrap !== undefined) base.autoWrap = liveFourCornerUpdate.autoWrap;
+        const update = liveFourCornerUpdate as any;
+        if (update.x !== undefined) base.x = update.x;
+        if (update.y !== undefined) base.y = update.y;
+        if (update.width !== undefined) base.width = update.width;
+        if (update.autoWrap !== undefined) base.autoWrap = update.autoWrap;
       }
       if (liveRotation !== null) {
         base.rotation = liveRotation;
@@ -2678,8 +2679,6 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                           textAlign: ann.textAlign,
                           hasBackground: ann.hasBackground,
                           spans: ann.spans,
-                        width: ann.width,
-                        autoWrap: ann.autoWrap,
                           width: ann.width,
                           autoWrap: ann.autoWrap,
                         });

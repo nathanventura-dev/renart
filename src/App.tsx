@@ -478,25 +478,10 @@ export const App: React.FC = () => {
       activeEl &&
       (activeEl.getAttribute('contenteditable') === 'true' ||
         Boolean(activeEl.closest?.('[contenteditable="true"]')));
-    const sel = typeof window !== 'undefined' ? window.getSelection() : null;
 
     if (isEditingInline) {
-      if (true) {
-        document.execCommand('bold', false);
-        return;
-      }
-      const editable =
-        activeEl.getAttribute('contenteditable') === 'true'
-          ? (activeEl as HTMLElement)
-          : (activeEl.closest?.('[contenteditable="true"]') as HTMLElement);
-      if (editable && sel) {
-        const range = document.createRange();
-        range.selectNodeContents(editable);
-        sel.removeAllRanges();
-        sel.addRange(range);
-        document.execCommand('bold', false);
-        sel.collapseToEnd();
-      }
+      document.execCommand('bold', false);
+      return;
     }
     editorStore.toggleBold();
   };
@@ -507,25 +492,10 @@ export const App: React.FC = () => {
       activeEl &&
       (activeEl.getAttribute('contenteditable') === 'true' ||
         Boolean(activeEl.closest?.('[contenteditable="true"]')));
-    const sel = typeof window !== 'undefined' ? window.getSelection() : null;
 
     if (isEditingInline) {
-      if (true) {
-        document.execCommand('italic', false);
-        return;
-      }
-      const editable =
-        activeEl.getAttribute('contenteditable') === 'true'
-          ? (activeEl as HTMLElement)
-          : (activeEl.closest?.('[contenteditable="true"]') as HTMLElement);
-      if (editable && sel) {
-        const range = document.createRange();
-        range.selectNodeContents(editable);
-        sel.removeAllRanges();
-        sel.addRange(range);
-        document.execCommand('italic', false);
-        sel.collapseToEnd();
-      }
+      document.execCommand('italic', false);
+      return;
     }
     editorStore.toggleItalic();
   };
@@ -536,25 +506,10 @@ export const App: React.FC = () => {
       activeEl &&
       (activeEl.getAttribute('contenteditable') === 'true' ||
         Boolean(activeEl.closest?.('[contenteditable="true"]')));
-    const sel = typeof window !== 'undefined' ? window.getSelection() : null;
 
     if (isEditingInline) {
-      if (true) {
-        document.execCommand('underline', false);
-        return;
-      }
-      const editable =
-        activeEl.getAttribute('contenteditable') === 'true'
-          ? (activeEl as HTMLElement)
-          : (activeEl.closest?.('[contenteditable="true"]') as HTMLElement);
-      if (editable && sel) {
-        const range = document.createRange();
-        range.selectNodeContents(editable);
-        sel.removeAllRanges();
-        sel.addRange(range);
-        document.execCommand('underline', false);
-        sel.collapseToEnd();
-      }
+      document.execCommand('underline', false);
+      return;
     }
     editorStore.toggleUnderline();
   };
@@ -565,25 +520,10 @@ export const App: React.FC = () => {
       activeEl &&
       (activeEl.getAttribute('contenteditable') === 'true' ||
         Boolean(activeEl.closest?.('[contenteditable="true"]')));
-    const sel = typeof window !== 'undefined' ? window.getSelection() : null;
 
     if (isEditingInline) {
-      if (true) {
-        document.execCommand('strikeThrough', false);
-        return;
-      }
-      const editable =
-        activeEl.getAttribute('contenteditable') === 'true'
-          ? (activeEl as HTMLElement)
-          : (activeEl.closest?.('[contenteditable="true"]') as HTMLElement);
-      if (editable && sel) {
-        const range = document.createRange();
-        range.selectNodeContents(editable);
-        sel.removeAllRanges();
-        sel.addRange(range);
-        document.execCommand('strikeThrough', false);
-        sel.collapseToEnd();
-      }
+      document.execCommand('strikeThrough', false);
+      return;
     }
     editorStore.toggleStrikethrough();
   };
