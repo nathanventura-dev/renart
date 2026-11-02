@@ -1,4 +1,4 @@
-import { resolveKonvaFontStyle, resolveKonvaTextDecoration, parseHtmlToSpans, spansToHtml, measureSpanWidth, wrapSpansToWidth, TextSpan, isEditingTextElement, calculateTextDimensions, isPointInsideTextAnnotation, shouldShowTextCornerAnchors, resetTextDimensionsToAutoFit, trimSpans } from '../utils/textStyle';
+import { resolveKonvaFontStyle, resolveKonvaTextDecoration, parseHtmlToSpans, spansToHtml, measureSpanWidth, wrapSpansToWidth, TextSpan, isEditingTextElement, calculateTextDimensions, isPointInsideTextAnnotation, shouldShowTextCornerAnchors, resetTextDimensionsToAutoFit, trimSpans, placeCaretAtEnd } from '../utils/textStyle';
 import React, { useRef, useState, useEffect, useMemo } from 'react';
 import {
   Stage,
@@ -152,6 +152,7 @@ interface InlineEditingText {
   width?: number;
   height?: number;
   autoWrap?: boolean;
+  isNew?: boolean;
 }
 
 interface CrownDragState {
@@ -356,15 +357,23 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
 
   useEffect(() => {
     if (editingText && inlineEditableRef.current) {
-      inlineEditableRef.current.focus();
-      const sel = typeof window !== 'undefined' ? window.getSelection() : null;
-      if (sel) {
-        const textContent = inlineEditableRef.current.innerText || inlineEditableRef.current.textContent || '';
-        if (textContent.trim() === 'Digite seu texto aqui') {
+      const el = inlineEditableRef.current;
+      el.focus();
+      const textContent = el.innerText || el.textContent || '';
+      if (editingText.isNew && textContent.trim() === 'Digite seu texto aqui') {
+        const sel = typeof window !== 'undefined' ? window.getSelection() : null;
+        if (sel) {
           const range = document.createRange();
-          range.selectNodeContents(inlineEditableRef.current);
+          range.selectNodeContents(el);
           sel.removeAllRanges();
           sel.addRange(range);
+        }
+      } else {
+        placeCaretAtEnd(el);
+        if (typeof requestAnimationFrame !== 'undefined') {
+          requestAnimationFrame(() => {
+            placeCaretAtEnd(el);
+          });
         }
       }
     }
@@ -1581,6 +1590,7 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
         hasBackground,
         width: textAnn.width,
         autoWrap: textAnn.autoWrap,
+        isNew: true,
       });
       return;
     }
@@ -2716,6 +2726,7 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                         width: ann.width,
                         height: ann.height,
                         autoWrap: ann.autoWrap,
+                        isNew: false,
                       });
                     }}
                   >

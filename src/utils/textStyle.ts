@@ -662,3 +662,43 @@ export function resetTextDimensionsToAutoFit(): { width: undefined; height: unde
   };
 }
 
+/**
+ * Posiciona o cursor de edição (caret) no final do conteúdo de um elemento contentEditable
+ * (sempre à frente da última palavra / letra).
+ */
+export function placeCaretAtEnd(el: HTMLElement): void {
+  if (typeof el.focus === 'function') {
+    el.focus();
+  }
+  const sel = typeof window !== 'undefined' && typeof window.getSelection === 'function' ? window.getSelection() : null;
+  if (!sel) return;
+
+  function findLastTextNode(node: Node): Node | null {
+    if (node.nodeType === 3 && typeof node.nodeValue === 'string' && node.nodeValue.length > 0) {
+      return node;
+    }
+    if (node.childNodes && node.childNodes.length > 0) {
+      for (let i = node.childNodes.length - 1; i >= 0; i--) {
+        const found = findLastTextNode(node.childNodes[i]);
+        if (found) return found;
+      }
+    }
+    return null;
+  }
+
+  const lastTextNode = findLastTextNode(el);
+  if (typeof document !== 'undefined' && typeof document.createRange === 'function') {
+    const range = document.createRange();
+    if (lastTextNode && typeof lastTextNode.nodeValue === 'string') {
+      range.setStart(lastTextNode, lastTextNode.nodeValue.length);
+      range.setEnd(lastTextNode, lastTextNode.nodeValue.length);
+    } else {
+      range.selectNodeContents(el);
+      range.collapse(false);
+    }
+
+    sel.removeAllRanges();
+    sel.addRange(range);
+  }
+}
+

@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import {
   resolveKonvaFontStyle,
   resolveKonvaTextDecoration,
@@ -10,6 +10,7 @@ import {
   calculateTextDimensions,
   measureSpanWidth,
   trimSpans,
+  placeCaretAtEnd,
 } from '../src/utils/textStyle';
 
 describe('Text Styling Helpers', () => {
@@ -316,6 +317,57 @@ describe('Text Styling Helpers', () => {
       const dimsPlain = calculateTextDimensions(annPlain);
       const dimsSpans = calculateTextDimensions(annSpans);
       expect(dimsPlain).toEqual(dimsSpans);
+    });
+
+    it('placeCaretAtEnd positions selection range at the end of the last text node', () => {
+      const mockSelection = {
+        removeAllRanges: vi.fn(),
+        addRange: vi.fn(),
+      };
+
+      const originalWindow = globalThis.window;
+      const originalDocument = globalThis.document;
+
+      const mockTextNode = {
+        nodeType: 3,
+        nodeValue: 'UltimaPalavra',
+        childNodes: [],
+      };
+      const mockParent = {
+        nodeType: 1,
+        focus: vi.fn(),
+        childNodes: [
+          { nodeType: 3, nodeValue: 'Primeira ', childNodes: [] },
+          mockTextNode,
+        ],
+      };
+
+      const mockRange = {
+        setStart: vi.fn(),
+        setEnd: vi.fn(),
+        selectNodeContents: vi.fn(),
+        collapse: vi.fn(),
+      };
+
+      (globalThis as any).window = {
+        getSelection: () => mockSelection,
+      };
+      (globalThis as any).document = {
+        createRange: () => mockRange,
+      };
+
+      try {
+        placeCaretAtEnd(mockParent as any);
+
+        expect(mockParent.focus).toHaveBeenCalled();
+        expect(mockRange.setStart).toHaveBeenCalledWith(mockTextNode, 13);
+        expect(mockRange.setEnd).toHaveBeenCalledWith(mockTextNode, 13);
+        expect(mockSelection.removeAllRanges).toHaveBeenCalled();
+        expect(mockSelection.addRange).toHaveBeenCalledWith(mockRange);
+      } finally {
+        (globalThis as any).window = originalWindow;
+        (globalThis as any).document = originalDocument;
+      }
     });
   });
 });
