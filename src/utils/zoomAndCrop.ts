@@ -1,4 +1,5 @@
 import type { Annotation, ArrowStyle, ToolType, RedactionAnnotation } from '../state/editorStore';
+import { calculateTextDimensions } from './textStyle';
 
 export const MIN_ZOOM_LEVEL = 0.25; // 25%
 export const MAX_ZOOM_LEVEL = 4.0; // 400%
@@ -954,7 +955,8 @@ export function shouldAttachTransformer(
     annotationType === 'ellipse' ||
     annotationType === 'line' ||
     annotationType === 'arrow' ||
-    annotationType === 'redaction'
+    annotationType === 'redaction' ||
+    annotationType === 'text'
   ) {
     return false;
   }
@@ -1036,6 +1038,19 @@ export function getFourCornerPositions(ann: Annotation): FourCornerControls {
     unrotatedBR = { x: cx + rx, y: cy + ry };
     unrotatedBL = { x: cx - rx, y: cy + ry };
     unrotatedRotater = { x: cx, y: cy - ry - 28 };
+  } else if (ann.type === 'text') {
+    const dims = calculateTextDimensions(ann);
+    const w = dims.width;
+    const h = dims.height;
+    const ax = ann.x || 0;
+    const ay = ann.y || 0;
+    cx = ax + w / 2;
+    cy = ay + h / 2;
+    unrotatedTL = { x: ax, y: ay };
+    unrotatedTR = { x: ax + w, y: ay };
+    unrotatedBR = { x: ax + w, y: ay + h };
+    unrotatedBL = { x: ax, y: ay + h };
+    unrotatedRotater = { x: cx, y: ay - 28 };
   }
 
   const center = { x: cx, y: cy };
@@ -1144,28 +1159,77 @@ export function updateCornerResize(
         const ry = Math.round(h / 2);
         return { x: brX - rx, y: brY - ry, radiusX: rx, radiusY: ry };
       }
+    } else if (ann.type === 'text') {
+      const ax = ann.x || 0;
+      const dims = calculateTextDimensions(ann);
+      const aw = dims.width;
+      const minDim = 30;
+      if (cornerIndex === 1 || cornerIndex === 2) {
+        // TR ou BR arrastado: lado esquerdo ax fica fixo
+        const w = Math.max(minDim, px - ax);
+        return { x: ax, width: w, autoWrap: true };
+      }
+      if (cornerIndex === 0 || cornerIndex === 3) {
+        // TL ou BL arrastado: lado direito ax + aw fica fixo
+        const rightX = ax + aw;
+        const w = Math.max(minDim, rightX - px);
+        return { x: rightX - w, width: w, autoWrap: true };
+      }
     }
   }
 
+  const isText = ann.type === 'text';
   const isRectLike = ann.type === 'rect' || (ann.type === 'redaction' && (ann.mode === 'rect' || ann.mode === 'smart-text'));
 
-  // Se tipo não for rect ou ellipse, ignora
-  if (!isRectLike && ann.type !== 'ellipse') {
+  // Se tipo não for rect, ellipse ou text, ignora
+  if (!isRectLike && ann.type !== 'ellipse' && !isText) {
     return {};
   }
 
   // Com rotação não-nula: converte o ponteiro para o sistema de coordenadas local
-  const aw = (ann as any).width || 0;
-  const ah = (ann as any).height || 0;
-  const cx = isRectLike ? (ann.x || 0) + aw / 2 : (ann.x || 0);
-  const cy = isRectLike ? (ann.y || 0) + ah / 2 : (ann.y || 0);
+  const dims = isText ? calculateTextDimensions(ann) : { width: (ann as any).width || 0, height: (ann as any).height || 0 };
+  const aw = dims.width;
+  const ah = dims.height;
+  const cx = isRectLike || isText ? (ann.x || 0) + aw / 2 : (ann.x || 0);
+  const cy = isRectLike || isText ? (ann.y || 0) + ah / 2 : (ann.y || 0);
   const localPointer = rotatePointAround({ x: px, y: py }, { x: cx, y: cy }, -rot);
 
   // Calcula no sistema não-rotacionado
   const unrotatedAnn: Annotation = { ...ann, rotation: 0 };
   const unrotatedRes = updateCornerResize(unrotatedAnn, cornerIndex, localPointer, canvasWidth, canvasHeight);
 
-  if (isRectLike) {
+  if (isText) {
+    const textRes = unrotatedRes as { x?: number; y?: number; width?: number; autoWrap?: boolean };
+    if (textRes.width !== undefined && textRes.x !== undefined) {
+      const nextDims = calculateTextDimensions({ ...ann, width: textRes.width, autoWrap: true });
+      const nextH = nextDims.height;
+      const unrotatedNewCenter = {
+        x: textRes.x + textRes.width / 2,
+        y: (ann.y || 0) + nextH / 2,
+      };
+      const worldNewCenter = rotatePointAround(unrotatedNewCenter, { x: cx, y: cy }, rot);
+      const w = textRes.width;
+      const rawNewX = Math.round(worldNewCenter.x - w / 2);
+      const rawNewY = Math.round(worldNewCenter.y - nextH / 2);
+      const clampedPos = clampRectToBounds(
+        rawNewX,
+        rawNewY,
+        w,
+        nextH,
+        canvasWidth,
+        canvasHeight,
+        1,
+        1,
+        rot
+      );
+      return {
+        x: clampedPos.x,
+        y: clampedPos.y,
+        width: w,
+        autoWrap: true,
+      };
+    }
+  } else if (isRectLike) {
     const rectRes = unrotatedRes as { x?: number; y?: number; width?: number; height?: number };
     if (rectRes.width !== undefined && rectRes.height !== undefined && rectRes.x !== undefined && rectRes.y !== undefined) {
       const unrotatedNewCenter = {
@@ -1234,6 +1298,10 @@ export function updateShapeRotation(
   if (ann.type === 'rect' || (ann.type === 'redaction' && (ann.mode === 'rect' || ann.mode === 'smart-text'))) {
     cx = (ann.x ?? 0) + (((ann as any).width || 0) / 2);
     cy = (ann.y ?? 0) + (((ann as any).height || 0) / 2);
+  } else if (ann.type === 'text') {
+    const dims = calculateTextDimensions(ann);
+    cx = (ann.x ?? 0) + dims.width / 2;
+    cy = (ann.y ?? 0) + dims.height / 2;
   }
   const dx = pointer.x - cx;
   const dy = pointer.y - cy;

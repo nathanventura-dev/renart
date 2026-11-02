@@ -1,4 +1,4 @@
-import { resolveKonvaFontStyle, resolveKonvaTextDecoration, parseHtmlToSpans, spansToHtml, splitSpansIntoLines, measureSpanWidth, wrapSpansToWidth, TextSpan, isEditingTextElement } from '../utils/textStyle';
+import { resolveKonvaFontStyle, resolveKonvaTextDecoration, parseHtmlToSpans, spansToHtml, splitSpansIntoLines, measureSpanWidth, wrapSpansToWidth, TextSpan, isEditingTextElement, calculateTextDimensions } from '../utils/textStyle';
 import React, { useRef, useState, useEffect, useMemo } from 'react';
 import {
   Stage,
@@ -808,6 +808,11 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
         x: draggedNode.x(),
         y: draggedNode.y(),
       });
+    } else if (draggedAnn?.type === 'text') {
+      setLiveFourCornerUpdate({
+        x: draggedNode.x(),
+        y: draggedNode.y(),
+      });
     }
 
     const multi = multiDragStartRef.current;
@@ -1499,8 +1504,8 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
         isStrikethrough,
         textAlign,
         hasBackground,
-        width: textAnn.width,
-        autoWrap: textAnn.autoWrap,
+        width: undefined,
+        autoWrap: false,
       };
       onAddAnnotation(textAnn);
       applySelectionIds([id]);
@@ -1984,7 +1989,13 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
   const selectedFourCornerAnnotation = useMemo(() => {
     if (effectiveSelectedIds.length !== 1) return null;
     const ann = annotations.find((a) => a.id === effectiveSelectedIds[0]);
-    if (ann && (ann.type === 'rect' || ann.type === 'ellipse' || (ann.type === 'redaction' && (ann.mode === 'rect' || ann.mode === 'smart-text')))) {
+    if (
+      ann &&
+      (ann.type === 'rect' ||
+        ann.type === 'ellipse' ||
+        ann.type === 'text' ||
+        (ann.type === 'redaction' && (ann.mode === 'rect' || ann.mode === 'smart-text')))
+    ) {
       return ann;
     }
     return null;
@@ -2014,6 +2025,19 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
         if (update.y !== undefined) base.y = update.y;
         if (update.radiusX !== undefined) base.radiusX = update.radiusX;
         if (update.radiusY !== undefined) base.radiusY = update.radiusY;
+      }
+      if (liveRotation !== null) {
+        base.rotation = liveRotation;
+      }
+      return base;
+    }
+    if (selectedFourCornerAnnotation.type === 'text') {
+      const base = { ...selectedFourCornerAnnotation };
+      if (liveFourCornerUpdate) {
+        if (liveFourCornerUpdate.x !== undefined) base.x = liveFourCornerUpdate.x;
+        if (liveFourCornerUpdate.y !== undefined) base.y = liveFourCornerUpdate.y;
+        if (liveFourCornerUpdate.width !== undefined) base.width = liveFourCornerUpdate.width;
+        if (liveFourCornerUpdate.autoWrap !== undefined) base.autoWrap = liveFourCornerUpdate.autoWrap;
       }
       if (liveRotation !== null) {
         base.rotation = liveRotation;
@@ -2052,32 +2076,49 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
           const rawRot = updateShapeRotation(selectedFourCornerAnnotation, localPos);
           const finalRot = e.shiftKey ? snapAngleToStep(rawRot, 15) : rawRot;
           if (finalRot !== (selectedFourCornerAnnotation.rotation ?? 0)) {
+            const isText4C = selectedFourCornerAnnotation.type === 'text';
             const isRect4C =
               selectedFourCornerAnnotation.type === 'rect' ||
               (selectedFourCornerAnnotation.type === 'redaction' && (selectedFourCornerAnnotation as any).mode === 'rect');
-            const clampedPos = isRect4C
-              ? clampRectToBounds(
-                  selectedFourCornerAnnotation.x || 0,
-                  selectedFourCornerAnnotation.y || 0,
-                  (selectedFourCornerAnnotation as any).width || 0,
-                  (selectedFourCornerAnnotation as any).height || 0,
-                  canvasWidth,
-                  canvasHeight,
-                  1,
-                  1,
-                  finalRot
-                )
-              : clampEllipseToBounds(
-                  (selectedFourCornerAnnotation.x || 0),
-                  (selectedFourCornerAnnotation.y || 0),
-                  (selectedFourCornerAnnotation as EllipseAnnotation).radiusX,
-                  (selectedFourCornerAnnotation as EllipseAnnotation).radiusY,
-                  canvasWidth,
-                  canvasHeight,
-                  1,
-                  1,
-                  finalRot
-                );
+            let clampedPos = { x: selectedFourCornerAnnotation.x || 0, y: selectedFourCornerAnnotation.y || 0 };
+            if (isText4C) {
+              const dims = calculateTextDimensions(selectedFourCornerAnnotation);
+              clampedPos = clampRectToBounds(
+                selectedFourCornerAnnotation.x || 0,
+                selectedFourCornerAnnotation.y || 0,
+                dims.width,
+                dims.height,
+                canvasWidth,
+                canvasHeight,
+                1,
+                1,
+                finalRot
+              );
+            } else if (isRect4C) {
+              clampedPos = clampRectToBounds(
+                selectedFourCornerAnnotation.x || 0,
+                selectedFourCornerAnnotation.y || 0,
+                (selectedFourCornerAnnotation as any).width || 0,
+                (selectedFourCornerAnnotation as any).height || 0,
+                canvasWidth,
+                canvasHeight,
+                1,
+                1,
+                finalRot
+              );
+            } else {
+              clampedPos = clampEllipseToBounds(
+                (selectedFourCornerAnnotation.x || 0),
+                (selectedFourCornerAnnotation.y || 0),
+                (selectedFourCornerAnnotation as EllipseAnnotation).radiusX,
+                (selectedFourCornerAnnotation as EllipseAnnotation).radiusY,
+                canvasWidth,
+                canvasHeight,
+                1,
+                1,
+                finalRot
+              );
+            }
             onUpdateAnnotationRef.current(selectedFourCornerAnnotation.id, {
               rotation: finalRot,
               x: clampedPos.x,
@@ -4176,32 +4217,49 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                         e.cancelBubble = true;
                         setIsRotating(false);
                         setLiveRotation(null);
+                        const isText4C = selectedFourCornerAnnotation.type === 'text';
                         const isRect4C =
                           selectedFourCornerAnnotation.type === 'rect' ||
                           (selectedFourCornerAnnotation.type === 'redaction' && (selectedFourCornerAnnotation as any).mode === 'rect');
-                        const clampedPos = isRect4C
-                          ? clampRectToBounds(
-                              selectedFourCornerAnnotation.x || 0,
-                              selectedFourCornerAnnotation.y || 0,
-                              (selectedFourCornerAnnotation as any).width || 0,
-                              (selectedFourCornerAnnotation as any).height || 0,
-                              canvasWidth,
-                              canvasHeight,
-                              1,
-                              1,
-                              0
-                            )
-                          : clampEllipseToBounds(
-                              (selectedFourCornerAnnotation.x || 0),
-                              (selectedFourCornerAnnotation.y || 0),
-                              (selectedFourCornerAnnotation as EllipseAnnotation).radiusX,
-                              (selectedFourCornerAnnotation as EllipseAnnotation).radiusY,
-                              canvasWidth,
-                              canvasHeight,
-                              1,
-                              1,
-                              0
-                            );
+                        let clampedPos = { x: selectedFourCornerAnnotation.x || 0, y: selectedFourCornerAnnotation.y || 0 };
+                        if (isText4C) {
+                          const dims = calculateTextDimensions(selectedFourCornerAnnotation);
+                          clampedPos = clampRectToBounds(
+                            selectedFourCornerAnnotation.x || 0,
+                            selectedFourCornerAnnotation.y || 0,
+                            dims.width,
+                            dims.height,
+                            canvasWidth,
+                            canvasHeight,
+                            1,
+                            1,
+                            0
+                          );
+                        } else if (isRect4C) {
+                          clampedPos = clampRectToBounds(
+                            selectedFourCornerAnnotation.x || 0,
+                            selectedFourCornerAnnotation.y || 0,
+                            (selectedFourCornerAnnotation as any).width || 0,
+                            (selectedFourCornerAnnotation as any).height || 0,
+                            canvasWidth,
+                            canvasHeight,
+                            1,
+                            1,
+                            0
+                          );
+                        } else {
+                          clampedPos = clampEllipseToBounds(
+                            (selectedFourCornerAnnotation.x || 0),
+                            (selectedFourCornerAnnotation.y || 0),
+                            (selectedFourCornerAnnotation as EllipseAnnotation).radiusX,
+                            (selectedFourCornerAnnotation as EllipseAnnotation).radiusY,
+                            canvasWidth,
+                            canvasHeight,
+                            1,
+                            1,
+                            0
+                          );
+                        }
                         onUpdateAnnotation(selectedFourCornerAnnotation.id, {
                           rotation: 0,
                           x: clampedPos.x,
@@ -4289,6 +4347,15 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                             setDraggingCorner(idx as 0 | 1 | 2 | 3);
                             const stage = stageRef.current;
                             if (stage) stage.container().style.cursor = cursorStyle;
+                          }}
+                          onDblClick={(e) => {
+                            e.cancelBubble = true;
+                            if (selectedFourCornerAnnotation.type === 'text') {
+                              onUpdateAnnotation(selectedFourCornerAnnotation.id, {
+                                width: undefined,
+                                autoWrap: false,
+                              });
+                            }
                           }}
                         />
                       );

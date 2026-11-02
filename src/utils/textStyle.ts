@@ -435,3 +435,64 @@ export function measureSpanWidth(
   // Estimativa segura para ambiente de teste headless
   return text.length * (fontSize * 0.58);
 }
+
+/**
+ * Calcula as dimensões (largura e altura) aproximadas ou medidas de um bloco de texto,
+ * considerando quebras manuais (\n), quebra automática (autoWrap), formatação de spans e preenchimento de fundo.
+ */
+export function calculateTextDimensions(ann: {
+  text?: string;
+  spans?: TextSpan[];
+  fontSize?: number;
+  fontFamily?: string;
+  hasBackground?: boolean;
+  autoWrap?: boolean;
+  width?: number;
+  isBold?: boolean;
+  isItalic?: boolean;
+}): { width: number; height: number } {
+  const padX = ann.hasBackground ? 8 : 0;
+  const padY = ann.hasBackground ? 4 : 0;
+  const fontSize = ann.fontSize || 20;
+  const fontFamily = ann.fontFamily || 'Arial';
+
+  if (ann.spans && ann.spans.length > 0) {
+    const maxWrapWidth = ann.autoWrap && ann.width ? Math.max(30, ann.width - padX * 2) : undefined;
+    const lines = wrapSpansToWidth(ann.spans, maxWrapWidth, fontSize, fontFamily);
+    const lineCalculations = lines.map((lineSpans) => {
+      let w = 0;
+      for (const span of lineSpans) {
+        w += measureSpanWidth(
+          span.text,
+          fontSize,
+          fontFamily,
+          span.isBold ?? ann.isBold,
+          span.isItalic ?? ann.isItalic
+        );
+      }
+      return w;
+    });
+    const maxLineWidth = Math.max(...lineCalculations, 30);
+    const width = ann.autoWrap && ann.width ? Math.max(30, ann.width) : maxLineWidth + padX * 2;
+    const height = Math.max(lines.length, 1) * (fontSize * 1.3) + padY * 2;
+    return { width, height };
+  } else {
+    const textLines = (ann.text || '').split('\n');
+    const maxLen = Math.max(...textLines.map((l) => l.length), 1);
+    if (ann.autoWrap && ann.width) {
+      const width = Math.max(30, ann.width);
+      const wrapInnerW = Math.max(20, ann.width - padX * 2);
+      const charsPerLine = Math.max(1, Math.floor(wrapInnerW / (fontSize * 0.58)));
+      const wrappedLineCount = textLines.reduce(
+        (acc, l) => acc + Math.max(1, Math.ceil(Math.max(l.length, 1) / charsPerLine)),
+        0
+      );
+      const height = wrappedLineCount * (fontSize * 1.3) + padY * 2;
+      return { width, height };
+    } else {
+      const width = ann.width ? Math.max(30, ann.width) : Math.max(30, maxLen * (fontSize * 0.6) + padX * 2);
+      const height = textLines.length * (fontSize * 1.3) + padY * 2;
+      return { width, height };
+    }
+  }
+}

@@ -688,7 +688,7 @@ describe('Pointer and Drag Coordinate Transformations Under Zoom', () => {
       expect(shouldAttachTransformer('arrow', 'curved')).toBe(false);
 
       // Texto, imagem, crop e multi continuam usando Transformer
-      expect(shouldAttachTransformer('text')).toBe(true);
+      expect(shouldAttachTransformer('text')).toBe(false);
       expect(shouldAttachTransformer('image')).toBe(true);
       expect(shouldAttachTransformer('crop')).toBe(true);
       expect(shouldAttachTransformer('multi')).toBe(true);
@@ -1151,6 +1151,41 @@ describe('Pointer and Drag Coordinate Transformations Under Zoom', () => {
       expect(len2).toBeCloseTo(8, 2); // max(8, 7.6) = 8
       expect(len4).toBeCloseTo(4 * 3.8, 2); // 15.2
       expect(len8).toBeCloseTo(8 * 3.8, 2); // 30.4
+    });
+
+    it('computes four corner positions and rotation handle for text annotations', () => {
+      const textAnn: Annotation = {
+        id: 't1',
+        type: 'text',
+        x: 100,
+        y: 100,
+        text: 'Hello World',
+        fontSize: 20,
+        width: 200,
+        rotation: 0,
+      };
+      const controls = getFourCornerPositions(textAnn);
+      expect(controls.corners).toHaveLength(4);
+      expect(controls.rotater).toBeDefined();
+      expect(controls.center.x).toBeGreaterThan(100);
+      expect(controls.center.y).toBeGreaterThan(100);
+      expect(controls.rotater.y).toBeLessThan(100);
+    });
+
+    it('resizes text annotation width and enables autoWrap when dragging corner', () => {
+      const textAnn: Annotation = {
+        id: 't1',
+        type: 'text',
+        x: 100,
+        y: 100,
+        text: 'Hello World',
+        fontSize: 20,
+        width: 200,
+        rotation: 0,
+      };
+      const res = updateCornerResize(textAnn, 2, { x: 350, y: 150 }, 800, 600);
+      expect(res.width).toBe(250);
+      expect(res.autoWrap).toBe(true);
     });
   });
 });
