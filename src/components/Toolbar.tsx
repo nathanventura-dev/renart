@@ -27,7 +27,6 @@ import {
   Image as ImageIcon,
   Search,
   EyeOff,
-  EyeClosed,
   Smile,
   Crop,
   Check,
@@ -170,7 +169,7 @@ export interface RedactionToolbarState {
 export function resolveRedactionToolbarState(
   activeTool: ToolType,
   selectedAnnotations: Annotation[] = [],
-  globalRedactionLevel: RedactionLevel | RedactionEffect = 4,
+  globalRedactionLevel: RedactionLevel | RedactionEffect | number = 1,
   globalRedactionMode: RedactionMode = 'rect'
 ): RedactionToolbarState {
   const showRedactionControls = shouldShowRedactionControls(activeTool, selectedAnnotations);
@@ -180,17 +179,17 @@ export function resolveRedactionToolbarState(
 
   const defaultLevel: RedactionLevel =
     typeof globalRedactionLevel === 'number'
-      ? globalRedactionLevel
-      : globalRedactionLevel === 'blur'
+      ? (globalRedactionLevel === 4 ? 3 : globalRedactionLevel as RedactionLevel)
+      : globalRedactionLevel === 'blackout'
         ? 3
-        : 4;
+        : 1;
 
   const effectiveRedactionLevel: RedactionLevel = selectedRedaction
     ? resolveRedactionLevel(selectedRedaction)
     : defaultLevel;
 
   const effectiveRedactionEffect: RedactionEffect =
-    effectiveRedactionLevel === 4 ? 'blackout' : 'blur';
+    effectiveRedactionLevel === 3 ? 'blackout' : 'blur';
 
   return {
     showRedactionControls,
@@ -378,9 +377,9 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   arrowStyle = 'standard',
   onSelectArrowStyle,
   onToggleCurveDirection,
-  redactionLevel = 4,
+  redactionLevel = 1,
   onSelectRedactionLevel,
-  redactionEffect = 'blackout',
+  redactionEffect = 'blur',
   onSelectRedactionEffect: _onSelectRedactionEffect,
   redactionMode = 'rect',
   onSelectRedactionMode,
@@ -422,7 +421,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   } = resolveRedactionToolbarState(
     activeTool,
     selectedAnnotations,
-    redactionLevel ?? redactionEffect ?? 4,
+    redactionLevel ?? (redactionEffect === 'blackout' ? 3 : 1),
     redactionMode
   );
 
@@ -965,10 +964,10 @@ export const Toolbar: React.FC<ToolbarProps> = ({
               <Type size={15} style={{ opacity: effectiveRedactionLevel === 2 ? 0.9 : 0.4 }} />
             </button>
 
-            {/* Nível 3: Sem visibilidade / Desfoque total */}
+            {/* Nível 3: Tarja preta sólida */}
             <button
               type="button"
-              title="Nível 3: Desfoque total sem visibilidade"
+              title="Nível 3: Tarja preta 100% sólida (Inviolável)"
               onClick={() => onSelectRedactionLevel?.(3)}
               style={{
                 width: '28px',
@@ -981,27 +980,6 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 cursor: 'pointer',
                 backgroundColor: effectiveRedactionLevel === 3 ? '#0071e3' : 'transparent',
                 color: effectiveRedactionLevel === 3 ? '#ffffff' : '#334155',
-              }}
-            >
-              <EyeClosed size={15} />
-            </button>
-
-            {/* Nível 4: Tarja preta sólida */}
-            <button
-              type="button"
-              title="Nível 4: Tarja preta 100% sólida (Inviolável)"
-              onClick={() => onSelectRedactionLevel?.(4)}
-              style={{
-                width: '28px',
-                height: '24px',
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: 'pointer',
-                backgroundColor: effectiveRedactionLevel === 4 ? '#0071e3' : 'transparent',
-                color: effectiveRedactionLevel === 4 ? '#ffffff' : '#334155',
               }}
             >
               <Square size={14} fill="currentColor" />
