@@ -231,6 +231,27 @@ export function parseHtmlToSpans(container: HTMLElement | string): {
   return finalizeSpans(rawSpans, root);
 }
 
+/**
+ * Remove quebras de linha e espaços em branco vazios do final de uma lista de TextSpan.
+ */
+export function trimSpans(spans?: TextSpan[]): TextSpan[] | undefined {
+  if (!spans || spans.length === 0) return undefined;
+  const result: TextSpan[] = spans.map((s) => ({ ...s }));
+
+  while (result.length > 0) {
+    const last = result[result.length - 1];
+    const trimmedRight = last.text.replace(/[\r\n\s]+$/, '');
+    if (trimmedRight.length === 0) {
+      result.pop();
+    } else {
+      last.text = trimmedRight;
+      break;
+    }
+  }
+
+  return result.length > 0 ? result : undefined;
+}
+
 function finalizeSpans(rawSpans: TextSpan[], root?: HTMLElement): { text: string; spans?: TextSpan[] } {
   const fallback = root && typeof root.innerText === "string" ? root.innerText : "";
   if (rawSpans.length === 0) {
@@ -258,9 +279,10 @@ function finalizeSpans(rawSpans: TextSpan[], root?: HTMLElement): { text: string
     }
   }
 
-  const fullText = mergedSpans.map((s) => s.text).join('') || fallback;
+  const trimmedMerged = trimSpans(mergedSpans) || [];
+  const fullText = (trimmedMerged.length > 0 ? trimmedMerged.map((s) => s.text).join('') : mergedSpans.map((s) => s.text).join('')) || fallback;
 
-  const hasFormattingVariation = mergedSpans.some(
+  const hasFormattingVariation = trimmedMerged.some(
     (s) =>
       Boolean(s.isBold) ||
       Boolean(s.isItalic) ||
@@ -270,7 +292,7 @@ function finalizeSpans(rawSpans: TextSpan[], root?: HTMLElement): { text: string
 
   return {
     text: fullText,
-    spans: hasFormattingVariation ? mergedSpans : undefined,
+    spans: hasFormattingVariation ? trimmedMerged : undefined,
   };
 }
 
@@ -536,7 +558,8 @@ export function calculateTextDimensions(ann: {
   const width = ann.autoWrap && ann.width !== undefined ? Math.max(minContentWidth, ann.width) : naturalWidth;
 
   // Altura final: se o usuário definiu height (e autoWrap), respeita a altura definida ou o conteúdo.
-  const height = ann.height !== undefined ? Math.max(contentHeight, ann.height) : contentHeight;
+  // No modo manual, a altura deve abraçar rigorosamente o conteúdo (contentHeight).
+  const height = ann.autoWrap && ann.height !== undefined ? Math.max(contentHeight, ann.height) : contentHeight;
 
   return {
     width,

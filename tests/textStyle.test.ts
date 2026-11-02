@@ -9,6 +9,7 @@ import {
   wrapSpansToWidth,
   calculateTextDimensions,
   measureSpanWidth,
+  trimSpans,
 } from '../src/utils/textStyle';
 
 describe('Text Styling Helpers', () => {
@@ -160,11 +161,12 @@ describe('Text Styling Helpers', () => {
   });
 
   describe('calculateTextDimensions content-first sizing and height', () => {
-    it('respects ann.height when greater than content height', () => {
+    it('respects ann.height when greater than content height in autoWrap mode', () => {
       const ann = {
         text: 'Linha única',
         fontSize: 20,
         height: 150,
+        autoWrap: true,
       };
       const dims = calculateTextDimensions(ann);
       expect(dims.height).toBe(150);
@@ -176,6 +178,7 @@ describe('Text Styling Helpers', () => {
         text: 'Primeira linha\nSegunda linha\nTerceira linha',
         fontSize: 20,
         height: 30, // Muito pequeno para 3 linhas de 20px
+        autoWrap: true,
       };
       const dims = calculateTextDimensions(ann);
       // 3 linhas de 20px * 1.3 = 78px
@@ -236,5 +239,44 @@ describe('Text Styling Helpers', () => {
       const expectedWidest = measureSpanWidth('Linha bem mais longa', 20, 'Arial');
       expect(dims.width).toBe(expectedWidest);
     });
+
+    it('shrinks height and width strictly to reduced content in manual mode even if stale dimensions exist', () => {
+      // Simula anotação que anteriormente tinha 4 linhas e largura maior
+      const annOriginal = {
+        text: 'Linha 1\nLinha 2\nLinha 3\nLinha 4',
+        fontSize: 20,
+        autoWrap: false,
+        hasBackground: false,
+        width: 300,
+        height: 120,
+      };
+      const originalDims = calculateTextDimensions(annOriginal);
+
+      // Usuário exclui 3 linhas, restando apenas 'Linha 1'
+      const annReduced = {
+        text: 'Linha 1',
+        fontSize: 20,
+        autoWrap: false,
+        hasBackground: false,
+        width: 300, // Dimensão stale não deve segurar a largura
+        height: 120, // Dimensão stale não deve segurar a altura
+      };
+      const reducedDims = calculateTextDimensions(annReduced);
+
+      // A altura e a largura reduzidas devem ser estritamente menores e acompanhar o conteúdo
+      expect(reducedDims.height).toBeLessThan(originalDims.height);
+      expect(reducedDims.height).toBe(20 * 1.3); // Exatamente 1 linha
+      expect(reducedDims.width).toBe(measureSpanWidth('Linha 1', 20, 'Arial'));
+    });
+
+    it('trims trailing newlines and whitespace from spans so deleted lines do not linger', () => {
+      const rawSpans = [
+        { text: 'Texto Principal', isBold: true },
+        { text: '\n\n' },
+      ];
+      const trimmed = trimSpans(rawSpans);
+      expect(trimmed).toEqual([{ text: 'Texto Principal', isBold: true }]);
+    });
   });
 });
+

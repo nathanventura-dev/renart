@@ -745,7 +745,11 @@ export function createEditorStore(
             autoWrap: nextWrap,
             annotations: state.annotations.map((ann) => {
               if (!selectedSet.has(ann.id) || ann.type !== 'text') return ann;
-              return { ...ann, autoWrap: nextWrap };
+              return {
+                ...ann,
+                autoWrap: nextWrap,
+                ...(nextWrap ? {} : { width: undefined, height: undefined }),
+              };
             }),
           };
           notify();
@@ -769,7 +773,11 @@ export function createEditorStore(
             autoWrap,
             annotations: state.annotations.map((ann) => {
               if (!selectedSet.has(ann.id) || ann.type !== 'text') return ann;
-              return { ...ann, autoWrap };
+              return {
+                ...ann,
+                autoWrap,
+                ...(autoWrap ? {} : { width: undefined, height: undefined }),
+              };
             }),
           };
           notify();

@@ -1,4 +1,4 @@
-import { resolveKonvaFontStyle, resolveKonvaTextDecoration, parseHtmlToSpans, spansToHtml, measureSpanWidth, wrapSpansToWidth, TextSpan, isEditingTextElement, calculateTextDimensions, isPointInsideTextAnnotation, shouldShowTextCornerAnchors, resetTextDimensionsToAutoFit } from '../utils/textStyle';
+import { resolveKonvaFontStyle, resolveKonvaTextDecoration, parseHtmlToSpans, spansToHtml, measureSpanWidth, wrapSpansToWidth, TextSpan, isEditingTextElement, calculateTextDimensions, isPointInsideTextAnnotation, shouldShowTextCornerAnchors, resetTextDimensionsToAutoFit, trimSpans } from '../utils/textStyle';
 import React, { useRef, useState, useEffect, useMemo } from 'react';
 import {
   Stage,
@@ -4549,7 +4549,28 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
               const { text, spans } = parseHtmlToSpans(inlineEditableRef.current);
               const val = text.trim();
               if (val) {
-                onUpdateAnnotation(editingText.id, { text: val, spans });
+                const trimmedSpans = trimSpans(spans);
+                if (!editingText.autoWrap) {
+                  onUpdateAnnotation(editingText.id, {
+                    text: val,
+                    spans: trimmedSpans,
+                    width: undefined,
+                    height: undefined,
+                  });
+                } else {
+                  // No modo autoWrap, recalculamos a altura estritamente de acordo com as linhas restantes
+                  const newDims = calculateTextDimensions({
+                    ...editingText,
+                    text: val,
+                    spans: trimmedSpans,
+                    height: undefined,
+                  });
+                  onUpdateAnnotation(editingText.id, {
+                    text: val,
+                    spans: trimmedSpans,
+                    height: newDims.height,
+                  });
+                }
               } else if (onRemoveAnnotation) {
                 onRemoveAnnotation(editingText.id);
                 applySelectionIds([]);
@@ -4630,9 +4651,7 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                 outline: 'none',
                 boxSizing: 'border-box',
                 minWidth: `${20 * zoomLevel}px`,
-                minHeight: editingText.height
-                  ? `${editingText.height * zoomLevel}px`
-                  : `${Math.round(editingText.fontSize * 1.3 + (editingText.hasBackground ? 8 : 0)) * zoomLevel}px`,
+                minHeight: `${Math.round(editingText.fontSize * 1.3 + (editingText.hasBackground ? 8 : 0)) * zoomLevel}px`,
                 zIndex: 1000,
                 whiteSpace: 'pre-wrap',
                 width: editingText.autoWrap && editingText.width ? `${editingText.width * zoomLevel}px` : 'fit-content',

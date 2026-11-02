@@ -6,6 +6,7 @@ import {
   isEditingTextElement,
   shouldShowTextCornerAnchors,
   resetTextDimensionsToAutoFit,
+  calculateTextDimensions,
 } from '../src/utils/textStyle';
 
 describe('Canvas Text Rendering & Shortcuts Logic', () => {
@@ -337,7 +338,84 @@ describe('Canvas Text Rendering & Shortcuts Logic', () => {
       expect(removedId).toBe('ann-2');
       expect(editorClosed).toBe(true);
     });
+
+    it('resets width and height in manual mode upon commit so block shrinks strictly to content', () => {
+      let updatedPayload: any = null;
+
+      const commitEditing = (
+        editingText: { id: string; autoWrap?: boolean; width?: number; height?: number },
+        inputText: string,
+        onUpdate: (id: string, updates: any) => void
+      ) => {
+        const val = inputText.trim();
+        if (val) {
+          if (!editingText.autoWrap) {
+            onUpdate(editingText.id, {
+              text: val,
+              spans: undefined,
+              width: undefined,
+              height: undefined,
+            });
+          }
+        }
+      };
+
+      commitEditing(
+        { id: 'ann-manual', autoWrap: false, width: 350, height: 150 },
+        'Apenas uma palavra',
+        (_id, updates) => {
+          updatedPayload = updates;
+        }
+      );
+
+      expect(updatedPayload).toEqual({
+        text: 'Apenas uma palavra',
+        spans: undefined,
+        width: undefined,
+        height: undefined,
+      });
+    });
+
+    it('recalculates height in autoWrap mode upon commit so block height shrinks when lines are deleted', () => {
+      let updatedPayload: any = null;
+
+      const commitEditing = (
+        editingText: { id: string; autoWrap?: boolean; width?: number; height?: number; fontSize?: number; fontFamily?: string },
+        inputText: string,
+        onUpdate: (id: string, updates: any) => void
+      ) => {
+        const val = inputText.trim();
+        if (val) {
+          if (!editingText.autoWrap) {
+            onUpdate(editingText.id, { text: val, width: undefined, height: undefined });
+          } else {
+            const newDims = calculateTextDimensions({
+              ...editingText,
+              text: val,
+              height: undefined,
+            });
+            onUpdate(editingText.id, {
+              text: val,
+              height: newDims.height,
+            });
+          }
+        }
+      };
+
+      // Tinha 4 linhas de texto e altura 120px
+      commitEditing(
+        { id: 'ann-wrap', autoWrap: true, width: 250, height: 120, fontSize: 20 },
+        'Linha unica',
+        (_id, updates) => {
+          updatedPayload = updates;
+        }
+      );
+
+      expect(updatedPayload.height).toBeLessThan(120);
+      expect(updatedPayload.height).toBe(20 * 1.3);
+    });
   });
+
 
   describe('Conditional 4-Corner Handles & Auto-Fit Reset Logic', () => {
     it('hides corner resize handles for text when autoWrap is disabled or undefined', () => {
