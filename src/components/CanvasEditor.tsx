@@ -1,4 +1,4 @@
-import { resolveKonvaFontStyle, resolveKonvaTextDecoration, parseHtmlToSpans, spansToHtml, measureSpanWidth, wrapSpansToWidth, TextSpan, isEditingTextElement, calculateTextDimensions, isPointInsideTextAnnotation } from '../utils/textStyle';
+import { resolveKonvaFontStyle, resolveKonvaTextDecoration, parseHtmlToSpans, spansToHtml, measureSpanWidth, wrapSpansToWidth, TextSpan, isEditingTextElement, calculateTextDimensions, isPointInsideTextAnnotation, shouldShowTextCornerAnchors, resetTextDimensionsToAutoFit } from '../utils/textStyle';
 import React, { useRef, useState, useEffect, useMemo } from 'react';
 import {
   Stage,
@@ -150,6 +150,7 @@ interface InlineEditingText {
   hasBackground?: boolean;
   spans?: TextSpan[];
   width?: number;
+  height?: number;
   autoWrap?: boolean;
 }
 
@@ -2093,6 +2094,7 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
         if (update.x !== undefined) base.x = update.x;
         if (update.y !== undefined) base.y = update.y;
         if (update.width !== undefined) base.width = update.width;
+        if (update.height !== undefined) base.height = update.height;
         if (update.autoWrap !== undefined) base.autoWrap = update.autoWrap;
       }
       if (liveRotation !== null) {
@@ -2728,6 +2730,7 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                         hasBackground: ann.hasBackground,
                         spans: ann.spans,
                         width: ann.width,
+                        height: ann.height,
                         autoWrap: ann.autoWrap,
                       });
                     }}
@@ -4172,6 +4175,7 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                 const corners = fourCornerPositions.corners;
                 const rotaterPos = fourCornerPositions.rotater;
                 const showRotater = shouldShowRotationHandle(selectedFourCornerAnnotation);
+                const showCornerAnchors = shouldShowTextCornerAnchors(selectedFourCornerAnnotation);
 
                 return (
                   <Group name="four-corner-controls-group">
@@ -4320,7 +4324,7 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                     )}
 
                     {/* 4 Âncoras Circulares nos Cantos (TL, TR, BR, BL) */}
-                    {corners.map((pos, idx) => {
+                    {showCornerAnchors && corners.map((pos, idx) => {
                       const cursorStyle = getCornerCursor(
                         idx as 0 | 1 | 2 | 3,
                         effectiveFourCornerAnn?.rotation ?? 0
@@ -4361,10 +4365,10 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                           onDblClick={(e) => {
                             e.cancelBubble = true;
                             if (selectedFourCornerAnnotation.type === 'text') {
-                              onUpdateAnnotation(selectedFourCornerAnnotation.id, {
-                                width: undefined,
-                                autoWrap: false,
-                              });
+                              onUpdateAnnotation(
+                                selectedFourCornerAnnotation.id,
+                                resetTextDimensionsToAutoFit()
+                              );
                             }
                           }}
                         />
@@ -4624,7 +4628,7 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                 padding: '4px 6px',
                 outline: 'none',
                 minWidth: `${150 * zoomLevel}px`,
-                minHeight: `${32 * zoomLevel}px`,
+                minHeight: editingText.height ? `${editingText.height * zoomLevel}px` : `${32 * zoomLevel}px`,
                 zIndex: 1000,
                 whiteSpace: 'pre-wrap',
                 width: editingText.autoWrap && editingText.width ? `${editingText.width * zoomLevel}px` : 'auto',

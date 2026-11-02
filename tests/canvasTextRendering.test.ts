@@ -4,6 +4,8 @@ import {
   resolveKonvaTextDecoration,
   resolveTextCssStyle,
   isEditingTextElement,
+  shouldShowTextCornerAnchors,
+  resetTextDimensionsToAutoFit,
 } from '../src/utils/textStyle';
 
 describe('Canvas Text Rendering & Shortcuts Logic', () => {
@@ -334,6 +336,32 @@ describe('Canvas Text Rendering & Shortcuts Logic', () => {
       expect(updatedAnnotation).toBeNull();
       expect(removedId).toBe('ann-2');
       expect(editorClosed).toBe(true);
+    });
+  });
+
+  describe('Conditional 4-Corner Handles & Auto-Fit Reset Logic', () => {
+    it('hides corner resize handles for text when autoWrap is disabled or undefined', () => {
+      expect(shouldShowTextCornerAnchors({ type: 'text', autoWrap: false })).toBe(false);
+      expect(shouldShowTextCornerAnchors({ type: 'text' })).toBe(false);
+    });
+
+    it('shows corner resize handles for text only when autoWrap is enabled', () => {
+      expect(shouldShowTextCornerAnchors({ type: 'text', autoWrap: true })).toBe(true);
+    });
+
+    it('always shows corner resize handles for non-text annotations', () => {
+      expect(shouldShowTextCornerAnchors({ type: 'rect' })).toBe(true);
+      expect(shouldShowTextCornerAnchors({ type: 'ellipse' })).toBe(true);
+      expect(shouldShowTextCornerAnchors({ type: 'redaction' })).toBe(true);
+    });
+
+    it('resetTextDimensionsToAutoFit resets width, height and autoWrap', () => {
+      const reset = resetTextDimensionsToAutoFit();
+      expect(reset).toEqual({
+        width: undefined,
+        height: undefined,
+        autoWrap: false,
+      });
     });
   });
 });

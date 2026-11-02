@@ -587,4 +587,24 @@ export function isPointInsideTextAnnotation(
     localPoint.y <= ay + h + tolerance
   );
 }
+/**
+ * Determina se as 4 alças circulares de redimensionamento dos cantos devem ser exibidas.
+ * Para anotações de texto, as alças só são exibidas quando a quebra automática estiver ativada (autoWrap: true).
+ * Para outras formas (retângulo, elipse, redação), as alças são sempre visíveis.
+ */
+export function shouldShowTextCornerAnchors(ann: { type: string; autoWrap?: boolean }): boolean {
+  if (ann.type !== 'text') return true;
+  return Boolean(ann.autoWrap);
+}
+
+/**
+ * Retorna os atributos para resetar o bloco de texto para o tamanho automático natural (auto-fit).
+ */
+export function resetTextDimensionsToAutoFit(): { width: undefined; height: undefined; autoWrap: false } {
+  return {
+    width: undefined,
+    height: undefined,
+    autoWrap: false,
+  };
+}
 
