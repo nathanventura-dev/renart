@@ -4,6 +4,7 @@ import {
   createRedactionRect,
   createRedactionBrush,
   REDACTION_BLUR_RADII,
+  REDACTION_SCRAMBLE_CONFIG,
 } from '../src/utils/redaction';
 import { createEditorStore } from '../src/state/editorStore';
 
@@ -21,10 +22,13 @@ describe('Redaction Levels Model', () => {
     expect(resolveRedactionLevel({})).toBe(4);
   });
 
-  it('defines correct blur radii', () => {
+  it('defines correct blur radii and anti-ai scramble configuration', () => {
     expect(REDACTION_BLUR_RADII[1]).toBe(8);
-    expect(REDACTION_BLUR_RADII[2]).toBe(14);
-    expect(REDACTION_BLUR_RADII[3]).toBe(26);
+    expect(REDACTION_BLUR_RADII[2]).toBe(16);
+    expect(REDACTION_BLUR_RADII[3]).toBe(28);
+
+    expect(REDACTION_SCRAMBLE_CONFIG[1]).toEqual({ blockSize: 3, noiseIntensity: 6 });
+    expect(REDACTION_SCRAMBLE_CONFIG[2]).toEqual({ blockSize: 5, noiseIntensity: 10 });
   });
 
   it('creates rect and brush with default or custom level', () => {

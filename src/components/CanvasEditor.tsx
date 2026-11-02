@@ -304,8 +304,20 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
       }
     };
     return {
-      1: createBlurCanvas(REDACTION_BLUR_RADII[1]),
-      2: createBlurCanvas(REDACTION_BLUR_RADII[2]),
+      1:
+        createAntiAiBlurredCanvas(
+          bgImage,
+          REDACTION_BLUR_RADII[1],
+          REDACTION_SCRAMBLE_CONFIG[1].blockSize,
+          REDACTION_SCRAMBLE_CONFIG[1].noiseIntensity
+        ) || createBlurCanvas(REDACTION_BLUR_RADII[1]),
+      2:
+        createAntiAiBlurredCanvas(
+          bgImage,
+          REDACTION_BLUR_RADII[2],
+          REDACTION_SCRAMBLE_CONFIG[2].blockSize,
+          REDACTION_SCRAMBLE_CONFIG[2].noiseIntensity
+        ) || createBlurCanvas(REDACTION_BLUR_RADII[2]),
       3: createBlurCanvas(REDACTION_BLUR_RADII[3]),
     };
   }, [bgImage]);

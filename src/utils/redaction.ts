@@ -4,8 +4,13 @@ export type { RedactionLevel };
 
 export const REDACTION_BLUR_RADII: Record<1 | 2 | 3, number> = {
   1: 8,
-  2: 14,
-  3: 26,
+  2: 16,
+  3: 28,
+};
+
+export const REDACTION_SCRAMBLE_CONFIG: Record<1 | 2, { blockSize: number; noiseIntensity: number }> = {
+  1: { blockSize: 3, noiseIntensity: 6 },
+  2: { blockSize: 5, noiseIntensity: 10 },
 };
 
 /**
