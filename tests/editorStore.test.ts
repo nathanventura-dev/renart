@@ -650,4 +650,28 @@ describe('Editor Store', () => {
     expect(shouldShowRedactionControls('select', [])).toBe(false);
     expect(shouldShowRedactionControls('select', [redactionRect])).toBe(true);
   });
+
+  it('toggles and syncs autoWrap for text annotations', () => {
+    const store = createEditorStore();
+    const ann: Annotation = {
+      id: 'text-1',
+      type: 'text',
+      x: 10,
+      y: 10,
+      text: 'Texto de teste',
+      fontSize: 16,
+    };
+    store.addAnnotation(ann);
+    expect(store.getState().autoWrap).toBe(false);
+
+    store.toggleAutoWrap();
+    expect(store.getState().autoWrap).toBe(true);
+    const updated = store.getState().annotations.find((a) => a.id === 'text-1') as any;
+    expect(updated.autoWrap).toBe(true);
+
+    store.toggleAutoWrap();
+    expect(store.getState().autoWrap).toBe(false);
+    const updated2 = store.getState().annotations.find((a) => a.id === 'text-1') as any;
+    expect(updated2.autoWrap).toBe(false);
+  });
 });

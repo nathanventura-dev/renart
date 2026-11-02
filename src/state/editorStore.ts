@@ -92,6 +92,8 @@ export interface TextAnnotation extends BaseAnnotation {
   hasBackground?: boolean;
   backgroundColor?: string;
   spans?: TextSpan[];
+  width?: number;
+  autoWrap?: boolean;
 }
 
 export interface ImageAnnotation extends BaseAnnotation {
@@ -167,6 +169,7 @@ export interface EditorState {
   redactionEffect: RedactionEffect;
   redactionMode: RedactionMode;
   isLocked: boolean;
+  autoWrap: boolean;
 }
 
 /**
@@ -227,6 +230,7 @@ interface CaptureEditorSession {
   undoStack: HistorySnapshot[];
   redoStack: HistorySnapshot[];
   isLocked: boolean;
+  autoWrap: boolean;
   imageBase64?: string;
 }
 
@@ -253,6 +257,7 @@ export function createEditorStore(
     isStrikethrough: false,
     textAlign: 'left',
     hasBackground: false,
+    autoWrap: false,
     arrowStyle: 'standard',
     arrowCurveDirection: 'right',
     magnifierMode: 'without-focus',
@@ -295,6 +300,7 @@ export function createEditorStore(
         imageBase64: snap.imageBase64,
       })),
       isLocked: state.isLocked,
+      autoWrap: state.autoWrap,
       imageBase64: currentImageBase64,
     });
   };
@@ -341,6 +347,7 @@ export function createEditorStore(
       isStrikethrough: firstText ? Boolean(firstText.isStrikethrough) : state.isStrikethrough,
       textAlign: firstText ? firstText.textAlign || 'left' : state.textAlign,
       hasBackground: firstText ? Boolean(firstText.hasBackground) : state.hasBackground,
+      autoWrap: firstText ? Boolean(firstText.autoWrap) : state.autoWrap,
       arrowStyle: firstArrow ? firstArrow.arrowStyle || 'standard' : state.arrowStyle,
       arrowCurveDirection: firstArrow ? firstArrow.curveDirection || 'right' : state.arrowCurveDirection,
       magnifierMode: nextMagMode,
@@ -720,6 +727,55 @@ export function createEditorStore(
         }
       }
       state = { ...state, hasBackground: nextBg };
+      notify();
+    },
+
+    toggleAutoWrap: () => {
+      const nextWrap = !state.autoWrap;
+      if (state.selectedIds.length > 0 && !state.isLocked) {
+        const selectedSet = new Set(state.selectedIds);
+        const hasSelectedText = state.annotations.some(
+          (ann) => selectedSet.has(ann.id) && ann.type === 'text'
+        );
+        if (hasSelectedText) {
+          pushUndoSnapshot();
+          state = {
+            ...state,
+            autoWrap: nextWrap,
+            annotations: state.annotations.map((ann) => {
+              if (!selectedSet.has(ann.id) || ann.type !== 'text') return ann;
+              return { ...ann, autoWrap: nextWrap };
+            }),
+          };
+          notify();
+          return;
+        }
+      }
+      state = { ...state, autoWrap: nextWrap };
+      notify();
+    },
+
+    setAutoWrap: (autoWrap: boolean) => {
+      if (state.selectedIds.length > 0 && !state.isLocked) {
+        const selectedSet = new Set(state.selectedIds);
+        const hasSelectedText = state.annotations.some(
+          (ann) => selectedSet.has(ann.id) && ann.type === 'text'
+        );
+        if (hasSelectedText) {
+          pushUndoSnapshot();
+          state = {
+            ...state,
+            autoWrap,
+            annotations: state.annotations.map((ann) => {
+              if (!selectedSet.has(ann.id) || ann.type !== 'text') return ann;
+              return { ...ann, autoWrap };
+            }),
+          };
+          notify();
+          return;
+        }
+      }
+      state = { ...state, autoWrap };
       notify();
     },
 
