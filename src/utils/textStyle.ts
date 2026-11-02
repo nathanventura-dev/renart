@@ -59,6 +59,44 @@ export function resolveTextCssStyle(
   };
 }
 
+/**
+ * Verifica se um elemento ou o alvo do evento é um campo de texto editável
+ * (input, textarea ou elemento contentEditable e seus filhos), garantindo que
+ * atalhos globais de canvas (Delete, Backspace, Ctrl+Z, Ctrl+Y, Escape, etc.)
+ * não interfiram ou apaguem blocos durante a digitação.
+ */
+export function isEditingTextElement(target: EventTarget | null | any): boolean {
+  if (!target) return false;
+
+  const isInput =
+    (typeof HTMLInputElement !== 'undefined' && target instanceof HTMLInputElement) ||
+    target.tagName === 'INPUT';
+  const isTextArea =
+    (typeof HTMLTextAreaElement !== 'undefined' && target instanceof HTMLTextAreaElement) ||
+    target.tagName === 'TEXTAREA';
+
+  if (isInput || isTextArea) {
+    return true;
+  }
+
+  if (target.isContentEditable || target.getAttribute?.('contenteditable') === 'true') {
+    return true;
+  }
+
+  if (typeof target.closest === 'function') {
+    const editable = target.closest('[contenteditable="true"]');
+    if (editable) {
+      return true;
+    }
+  }
+
+  if (target.parentElement) {
+    return isEditingTextElement(target.parentElement);
+  }
+
+  return false;
+}
+
 export interface TextSpan {
   text: string;
   isBold?: boolean;

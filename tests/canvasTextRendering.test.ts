@@ -3,6 +3,7 @@ import {
   resolveKonvaFontStyle,
   resolveKonvaTextDecoration,
   resolveTextCssStyle,
+  isEditingTextElement,
 } from '../src/utils/textStyle';
 
 describe('Canvas Text Rendering & Shortcuts Logic', () => {
@@ -164,6 +165,175 @@ describe('Canvas Text Rendering & Shortcuts Logic', () => {
         preventDefault: () => {},
       });
       expect(isCommitted).toBe(true);
+    });
+
+    it('identifies text editable elements correctly via isEditingTextElement', () => {
+      // 1. Inputs e Textareas
+      expect(isEditingTextElement({ tagName: 'INPUT' } as any)).toBe(true);
+      expect(isEditingTextElement({ tagName: 'TEXTAREA' } as any)).toBe(true);
+
+      // 2. Elemento contentEditable
+      expect(isEditingTextElement({ isContentEditable: true } as any)).toBe(true);
+      expect(
+        isEditingTextElement({
+          getAttribute: (attr: string) => (attr === 'contenteditable' ? 'true' : null),
+        } as any)
+      ).toBe(true);
+
+      // 3. Elemento filho de um container contentEditable (ex: span ou b interno)
+      const parentEditable = {
+        getAttribute: (attr: string) => (attr === 'contenteditable' ? 'true' : null),
+        isContentEditable: true,
+      };
+      const childSpan = {
+        tagName: 'SPAN',
+        closest: (selector: string) => (selector.includes('contenteditable') ? parentEditable : null),
+      };
+      expect(isEditingTextElement(childSpan as any)).toBe(true);
+
+      // 4. Elementos normais do canvas / tela (NÃO editáveis)
+      expect(isEditingTextElement(null)).toBe(false);
+      expect(isEditingTextElement({ tagName: 'CANVAS' } as any)).toBe(false);
+      expect(isEditingTextElement({ tagName: 'DIV', isContentEditable: false } as any)).toBe(false);
+    });
+
+    it('prevents global canvas undo/delete/escape when target is an editable element', () => {
+      let canvasUndoCount = 0;
+      let canvasRedoCount = 0;
+      let canvasDeleteCount = 0;
+      let canvasDeselectCount = 0;
+
+      const handleGlobalKeyDown = (e: {
+        key: string;
+        ctrlKey?: boolean;
+        metaKey?: boolean;
+        shiftKey?: boolean;
+        target: any;
+        preventDefault: () => void;
+      }) => {
+        // Guard de proteção: se estiver em elemento editável, não intercepta
+        if (isEditingTextElement(e.target)) {
+          return;
+        }
+
+        const isCtrlOrCmd = Boolean(e.ctrlKey || e.metaKey);
+
+        if (e.key === 'Escape') {
+          canvasDeselectCount++;
+          return;
+        }
+
+        if (e.key === 'Delete' || e.key === 'Backspace') {
+          canvasDeleteCount++;
+          return;
+        }
+
+        if (isCtrlOrCmd && e.key.toLowerCase() === 'z' && !e.shiftKey) {
+          e.preventDefault();
+          canvasUndoCount++;
+          return;
+        }
+
+        if ((isCtrlOrCmd && e.shiftKey && e.key.toLowerCase() === 'z') || (isCtrlOrCmd && e.key.toLowerCase() === 'y')) {
+          e.preventDefault();
+          canvasRedoCount++;
+          return;
+        }
+      };
+
+      const editableTarget = {
+        tagName: 'DIV',
+        isContentEditable: true,
+        getAttribute: () => 'true',
+      };
+      const canvasTarget = {
+        tagName: 'CANVAS',
+      };
+
+      const preventDefault = vi.fn();
+
+      // Quando o foco está no editor de texto:
+      // Ctrl+Z não deve disparar o undo do canvas
+      handleGlobalKeyDown({ key: 'z', ctrlKey: true, target: editableTarget, preventDefault });
+      expect(canvasUndoCount).toBe(0);
+
+      // Backspace e Delete não devem apagar a anotação do canvas
+      handleGlobalKeyDown({ key: 'Backspace', target: editableTarget, preventDefault });
+      handleGlobalKeyDown({ key: 'Delete', target: editableTarget, preventDefault });
+      expect(canvasDeleteCount).toBe(0);
+
+      // Escape não deve desselecionar a anotação pelo listener global do canvas
+      handleGlobalKeyDown({ key: 'Escape', target: editableTarget, preventDefault });
+      expect(canvasDeselectCount).toBe(0);
+
+      // Quando o foco está no canvas:
+      // Ctrl+Z deve disparar o undo do canvas normalmente
+      handleGlobalKeyDown({ key: 'z', ctrlKey: true, target: canvasTarget, preventDefault });
+      expect(canvasUndoCount).toBe(1);
+
+      // Backspace deve apagar a anotação
+      handleGlobalKeyDown({ key: 'Backspace', target: canvasTarget, preventDefault });
+      expect(canvasDeleteCount).toBe(1);
+
+      // Escape deve desselecionar
+      handleGlobalKeyDown({ key: 'Escape', target: canvasTarget, preventDefault });
+      expect(canvasDeselectCount).toBe(1);
+    });
+
+    it('safely commits non-empty text and cleans up empty annotations on commit', () => {
+      let updatedAnnotation: { id: string; text: string } | null = null;
+      let removedId: string | null = null;
+      let editorClosed = false;
+
+      const commitEditing = (
+        editingText: { id: string; text: string } | null,
+        val: string,
+        onUpdate: (id: string, updates: any) => void,
+        onRemove?: (id: string) => void
+      ) => {
+        if (!editingText) return;
+        const trimmed = val.trim();
+        if (trimmed) {
+          onUpdate(editingText.id, { text: trimmed });
+        } else if (onRemove) {
+          onRemove(editingText.id);
+        }
+        editorClosed = true;
+      };
+
+      // 1. Commita texto não vazio: salva a atualização e conclui sem deletar
+      commitEditing(
+        { id: 'ann-1', text: 'Texto Antigo' },
+        'Texto Novo Atualizado',
+        (id, updates) => {
+          updatedAnnotation = { id, text: updates.text };
+        },
+        (id) => {
+          removedId = id;
+        }
+      );
+      expect(updatedAnnotation).toEqual({ id: 'ann-1', text: 'Texto Novo Atualizado' });
+      expect(removedId).toBeNull();
+      expect(editorClosed).toBe(true);
+
+      // 2. Commita texto vazio (usuário limpou tudo): remove o bloco fantasma
+      updatedAnnotation = null;
+      removedId = null;
+      editorClosed = false;
+
+      commitEditing(
+        { id: 'ann-2', text: 'Texto Antigo' },
+        '   ',
+        (id, updates) => {
+          updatedAnnotation = { id, text: updates.text };
+        },
+        (id) => {
+          removedId = id;
+        }
+      );
+      expect(updatedAnnotation).toBeNull();
+      expect(removedId).toBe('ann-2');
+      expect(editorClosed).toBe(true);
     });
   });
 });

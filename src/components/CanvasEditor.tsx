@@ -1,4 +1,4 @@
-import { resolveKonvaFontStyle, resolveKonvaTextDecoration, parseHtmlToSpans, spansToHtml, splitSpansIntoLines, measureSpanWidth, TextSpan } from '../utils/textStyle';
+import { resolveKonvaFontStyle, resolveKonvaTextDecoration, parseHtmlToSpans, spansToHtml, splitSpansIntoLines, measureSpanWidth, TextSpan, isEditingTextElement } from '../utils/textStyle';
 import React, { useRef, useState, useEffect, useMemo } from 'react';
 import {
   Stage,
@@ -129,6 +129,7 @@ interface CanvasEditorProps {
   onAddAnnotation: (annotation: Annotation) => void;
   onUpdateAnnotation: (id: string, updates: Partial<Annotation>) => void;
   onUpdateAnnotations?: (updatesById: Record<string, Partial<Annotation>>) => void;
+  onRemoveAnnotation?: (id: string) => void;
   stageRef: React.RefObject<Konva.Stage | null>;
 }
 
@@ -306,6 +307,7 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
   onAddAnnotation,
   onUpdateAnnotation,
   onUpdateAnnotations,
+  onRemoveAnnotation,
   stageRef,
 }) => {
   const [bgImage, setBgImage] = useState<HTMLImageElement | null>(null);
@@ -585,6 +587,9 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
         isShiftPressedRef.current = true;
       }
       if (e.key === 'Escape') {
+        if (isEditingTextElement(e.target)) {
+          return;
+        }
         applySelectionIds([]);
         if (editingText) {
           setEditingText(null);
@@ -4436,6 +4441,9 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
               const val = text.trim();
               if (val) {
                 onUpdateAnnotation(editingText.id, { text: val, spans });
+              } else if (onRemoveAnnotation) {
+                onRemoveAnnotation(editingText.id);
+                applySelectionIds([]);
               }
             }
             setEditingText(null);
@@ -4454,6 +4462,7 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                 // Enter + Ctrl/Cmd ou Escape: confirma e conclui a edição
                 if ((e.key === 'Enter' && isCmdOrCtrl) || e.key === 'Escape') {
                   e.preventDefault();
+                  e.stopPropagation();
                   commitEditing();
                   return;
                 }
@@ -4481,6 +4490,7 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
 
                 if (formatCmd) {
                   e.preventDefault();
+                  e.stopPropagation();
                   const sel = typeof window !== 'undefined' ? window.getSelection() : null;
                   const hasSelection = sel && !sel.isCollapsed && sel.toString().length > 0;
                   if (hasSelection) {

@@ -16,6 +16,7 @@ import {
   getNextZoomStep,
   isZoomShortcut,
 } from './utils/zoomAndCrop';
+import { isEditingTextElement } from './utils/textStyle';
 
 // Instâncias globais dos stores para a sessão da janela
 const editorStore = createEditorStore();
@@ -187,6 +188,12 @@ export const App: React.FC = () => {
   // Listener global de atalhos de teclado (Ctrl+Z, Ctrl+Shift+Z, Ctrl+Y, Ctrl+S, ESC, Delete, Zoom e Recorte)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Se o usuário estiver interagindo com um campo de texto ou editor inline,
+      // não intercepta atalhos de canvas (Backspace, Delete, Ctrl+Z, Ctrl+Y, Escape, etc.)
+      if (isEditingTextElement(e.target)) {
+        return;
+      }
+
       const isCtrlOrCmd = e.ctrlKey || e.metaKey;
 
       // Atalhos de Zoom Multiplataforma (Ctrl/Cmd +, -, 0)
@@ -685,6 +692,7 @@ export const App: React.FC = () => {
             onSelectIds={(ids: string[]) => editorStore.setSelectedIds(ids)}
             onToggleSelectId={(id: string) => editorStore.toggleSelectedId(id)}
             onAddAnnotation={(ann: Annotation) => editorStore.addAnnotation(ann)}
+            onRemoveAnnotation={(id: string) => editorStore.removeAnnotation(id)}
             onUpdateAnnotation={(id: string, updates: Partial<Annotation>) =>
               editorStore.updateAnnotation(id, updates)
             }
