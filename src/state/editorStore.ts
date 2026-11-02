@@ -103,7 +103,7 @@ export interface MagnifierAnnotation extends BaseAnnotation {
   focusY?: number; // Coordenada Y do ponto focal (quando desacoplado do centro da lente)
 }
 
-export type RedactionLevel = 1 | 2 | 3 | 4;
+export type RedactionLevel = 1 | 2 | 3;
 export type RedactionEffect = 'blackout' | 'blur';
 export type RedactionMode = 'rect' | 'brush' | 'smart-text';
 
@@ -234,8 +234,8 @@ export function createEditorStore(
     arrowStyle: 'standard',
     arrowCurveDirection: 'right',
     magnifierMode: 'without-focus',
-    redactionLevel: 4,
-    redactionEffect: 'blackout',
+    redactionLevel: 1,
+    redactionEffect: 'blur',
     redactionMode: 'rect',
     isLocked: false,
     ...initialState,
@@ -317,10 +317,10 @@ export function createEditorStore(
       arrowCurveDirection: firstArrow ? firstArrow.curveDirection || 'right' : state.arrowCurveDirection,
       magnifierMode: nextMagMode,
       redactionLevel: firstRedaction
-        ? firstRedaction.level ?? (firstRedaction.effect === 'blur' ? 3 : 4)
+        ? (firstRedaction.level === 4 ? 3 : firstRedaction.level ?? (firstRedaction.effect === 'blur' ? 2 : 3))
         : state.redactionLevel,
       redactionEffect: firstRedaction
-        ? firstRedaction.effect ?? (firstRedaction.level === 4 ? 'blackout' : 'blur')
+        ? firstRedaction.effect ?? (firstRedaction.level === 3 || firstRedaction.level === 4 ? 'blackout' : 'blur')
         : state.redactionEffect,
       redactionMode: firstRedaction ? firstRedaction.mode : state.redactionMode,
     };
@@ -700,7 +700,7 @@ export function createEditorStore(
     },
 
     setRedactionLevel: (level: RedactionLevel) => {
-      const effect: RedactionEffect = level === 4 ? 'blackout' : 'blur';
+      const effect: RedactionEffect = level === 3 ? 'blackout' : 'blur';
       if (state.selectedIds.length > 0 && !state.isLocked) {
         const selectedSet = new Set(state.selectedIds);
         const hasSelectedRedaction = state.annotations.some(
@@ -732,11 +732,7 @@ export function createEditorStore(
     setRedactionEffect: (effect: RedactionEffect) => {
       const currentLevel = state.redactionLevel;
       const level: RedactionLevel =
-        effect === 'blackout'
-          ? 4
-          : currentLevel && currentLevel >= 1 && currentLevel <= 3
-            ? currentLevel
-            : 3;
+        effect === 'blackout' ? 3 : currentLevel && (currentLevel === 1 || currentLevel === 2) ? currentLevel : 1;
       if (state.selectedIds.length > 0 && !state.isLocked) {
         const selectedSet = new Set(state.selectedIds);
         const hasSelectedRedaction = state.annotations.some(

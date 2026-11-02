@@ -613,12 +613,14 @@ describe('Editor Store', () => {
 
   it('manages redaction and blur annotations and settings in EditorStore', () => {
     const store = createEditorStore();
-    expect(store.getState().redactionEffect).toBe('blackout');
+    expect(store.getState().redactionEffect).toBe('blur');
+    expect(store.getState().redactionLevel).toBe(1);
     expect(store.getState().redactionMode).toBe('rect');
 
-    store.setRedactionEffect('blur');
+    store.setRedactionEffect('blackout');
     store.setRedactionMode('brush');
-    expect(store.getState().redactionEffect).toBe('blur');
+    expect(store.getState().redactionEffect).toBe('blackout');
+    expect(store.getState().redactionLevel).toBe(3);
     expect(store.getState().redactionMode).toBe('brush');
 
     const redactionRect: Annotation = {
