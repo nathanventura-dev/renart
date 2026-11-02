@@ -33,7 +33,9 @@ import {
   clampRedactionRectToBounds,
   resolveRedactionLevel,
   REDACTION_BLUR_RADII,
+  REDACTION_SCRAMBLE_CONFIG,
 } from '../utils/redaction';
+import { createAntiAiBlurredCanvas } from '../utils/scrambleBlur';
 import { detectTextInImageRegion } from '../services/ocrService';
 import { anonymizeOcrLines } from '../utils/textAnonymizer';
 import { sampleRegionColors } from '../utils/colorSampling';
