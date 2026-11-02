@@ -190,12 +190,13 @@ export function parseHtmlToSpans(container: HTMLElement | string): {
 
   traverse(root, { isBold: false, isItalic: false, isUnderline: false, isStrikethrough: false });
 
-  return finalizeSpans(rawSpans);
+  return finalizeSpans(rawSpans, root);
 }
 
-function finalizeSpans(rawSpans: TextSpan[]): { text: string; spans?: TextSpan[] } {
+function finalizeSpans(rawSpans: TextSpan[], root?: HTMLElement): { text: string; spans?: TextSpan[] } {
+  const fallback = root && typeof root.innerText === "string" ? root.innerText : "";
   if (rawSpans.length === 0) {
-    return { text: '' };
+    return { text: fallback };
   }
 
   // Mescla spans consecutivos com a mesma formatação
@@ -219,7 +220,7 @@ function finalizeSpans(rawSpans: TextSpan[]): { text: string; spans?: TextSpan[]
     }
   }
 
-  const fullText = mergedSpans.map((s) => s.text).join('');
+  const fullText = mergedSpans.map((s) => s.text).join('') || fallback;
 
   const hasFormattingVariation = mergedSpans.some(
     (s) =>

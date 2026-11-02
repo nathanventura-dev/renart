@@ -107,4 +107,63 @@ describe('Canvas Text Rendering & Shortcuts Logic', () => {
     expect(executedCommand).toBe('italic');
     expect(executedOnAll).toBe(true);
   });
+
+  describe('Inline Text Editor Key Cycle & Commit Logic', () => {
+    it('allows Enter to create newlines without prematurely committing or closing', () => {
+      let isCommitted = false;
+      let preventDefaultCalled = false;
+
+      const handleInlineKeyDown = (e: {
+        key: string;
+        ctrlKey?: boolean;
+        metaKey?: boolean;
+        shiftKey?: boolean;
+        preventDefault: () => void;
+      }) => {
+        const isCommitKey =
+          (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) || e.key === 'Escape';
+
+        if (isCommitKey) {
+          e.preventDefault();
+          isCommitted = true;
+          return;
+        }
+
+        // Enter simples: NÃO fecha a edição, permitindo nova linha
+        if (e.key === 'Enter') {
+          // Não dá preventDefault para permitir a inserção da quebra de linha natural
+          return;
+        }
+      };
+
+      // 1. Enter simples: não fecha
+      handleInlineKeyDown({
+        key: 'Enter',
+        preventDefault: () => {
+          preventDefaultCalled = true;
+        },
+      });
+      expect(isCommitted).toBe(false);
+      expect(preventDefaultCalled).toBe(false);
+
+      // 2. Ctrl+Enter: fecha/commita
+      handleInlineKeyDown({
+        key: 'Enter',
+        ctrlKey: true,
+        preventDefault: () => {
+          preventDefaultCalled = true;
+        },
+      });
+      expect(isCommitted).toBe(true);
+      expect(preventDefaultCalled).toBe(true);
+
+      // 3. Escape: fecha
+      isCommitted = false;
+      handleInlineKeyDown({
+        key: 'Escape',
+        preventDefault: () => {},
+      });
+      expect(isCommitted).toBe(true);
+    });
+  });
 });

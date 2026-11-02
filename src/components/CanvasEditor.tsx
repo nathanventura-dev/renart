@@ -1181,15 +1181,11 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
     const computeNodeTransformUpdate = (node: Konva.Node): Partial<Annotation> => {
       const ann = annotations.find((a) => a.id === node.id());
       if (ann?.type === 'text') {
-        const rawScale = Math.max(Math.abs(node.scaleX() || 1), Math.abs(node.scaleY() || 1));
-        const nextFontSize = calculateResizedFontSize(ann.fontSize, rawScale);
-        (node as Konva.Text).fontSize(nextFontSize);
         node.scaleX(1);
         node.scaleY(1);
         return {
           x: node.x(),
           y: node.y(),
-          fontSize: nextFontSize,
           scaleX: 1,
           scaleY: 1,
           rotation: node.rotation(),
@@ -4288,6 +4284,8 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                       'bottom-center',
                       'bottom-right',
                     ]
+                  : hasSelectedText && effectiveSelectedIds.length === 1
+                  ? []
                   : ['top-left', 'top-right', 'bottom-left', 'bottom-right']
               }
               anchorSize={activeTool === 'crop' || isCropping ? 14 : 10}
@@ -4432,67 +4430,68 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
             isStrikethrough: editingText.isStrikethrough,
           });
 
+          const commitEditing = () => {
+            if (inlineEditableRef.current && editingText) {
+              const { text, spans } = parseHtmlToSpans(inlineEditableRef.current);
+              const val = text.trim();
+              if (val) {
+                onUpdateAnnotation(editingText.id, { text: val, spans });
+              }
+            }
+            setEditingText(null);
+          };
+
           return (
             <div
               ref={inlineEditableRef}
               contentEditable
               suppressContentEditableWarning
               dangerouslySetInnerHTML={{ __html: initialHtml }}
-              onBlur={() => {
-                if (inlineEditableRef.current) {
-                  const { text, spans } = parseHtmlToSpans(inlineEditableRef.current);
-                  const val = text.trim();
-                  if (val) {
-                    onUpdateAnnotation(editingText.id, { text: val, spans });
-                  }
-                }
-                setEditingText(null);
-              }}
+              onBlur={commitEditing}
               onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
+                const isCmdOrCtrl = e.ctrlKey || e.metaKey;
+
+                // Enter + Ctrl/Cmd ou Escape: confirma e conclui a edição
+                if ((e.key === 'Enter' && isCmdOrCtrl) || e.key === 'Escape') {
                   e.preventDefault();
-                  if (inlineEditableRef.current) {
-                    const { text, spans } = parseHtmlToSpans(inlineEditableRef.current);
-                    const val = text.trim();
-                    if (val) {
-                      onUpdateAnnotation(editingText.id, { text: val, spans });
-                    }
-                  }
-                  setEditingText(null);
-                } else if (e.key === 'Escape') {
-                  setEditingText(null);
-                } else {
-                  const isCmdOrCtrl = e.ctrlKey || e.metaKey;
-                  const key = e.key.toLowerCase();
-                  let formatCmd: 'bold' | 'italic' | 'underline' | 'strikeThrough' | null = null;
+                  commitEditing();
+                  return;
+                }
 
-                  if (isCmdOrCtrl && (key === 'b' || key === 'n')) {
-                    formatCmd = 'bold';
-                  } else if (isCmdOrCtrl && key === 'i') {
-                    formatCmd = 'italic';
-                  } else if (isCmdOrCtrl && key === 'u') {
-                    formatCmd = 'underline';
-                  } else if (
-                    (isCmdOrCtrl && e.shiftKey && key === 'x') ||
-                    (e.altKey && e.shiftKey && key === '5')
-                  ) {
-                    formatCmd = 'strikeThrough';
-                  }
+                // Enter simples: permite quebra de linha natural (\n) sem fechar o editor
+                if (e.key === 'Enter' && !isCmdOrCtrl) {
+                  return;
+                }
 
-                  if (formatCmd) {
-                    e.preventDefault();
-                    const sel = typeof window !== 'undefined' ? window.getSelection() : null;
-                    const hasSelection = sel && !sel.isCollapsed && sel.toString().length > 0;
-                    if (hasSelection) {
-                      document.execCommand(formatCmd, false);
-                    } else if (inlineEditableRef.current && sel) {
-                      const range = document.createRange();
-                      range.selectNodeContents(inlineEditableRef.current);
-                      sel.removeAllRanges();
-                      sel.addRange(range);
-                      document.execCommand(formatCmd, false);
-                      sel.collapseToEnd();
-                    }
+                const key = e.key.toLowerCase();
+                let formatCmd: 'bold' | 'italic' | 'underline' | 'strikeThrough' | null = null;
+
+                if (isCmdOrCtrl && (key === 'b' || key === 'n')) {
+                  formatCmd = 'bold';
+                } else if (isCmdOrCtrl && key === 'i') {
+                  formatCmd = 'italic';
+                } else if (isCmdOrCtrl && key === 'u') {
+                  formatCmd = 'underline';
+                } else if (
+                  (isCmdOrCtrl && e.shiftKey && key === 'x') ||
+                  (e.altKey && e.shiftKey && key === '5')
+                ) {
+                  formatCmd = 'strikeThrough';
+                }
+
+                if (formatCmd) {
+                  e.preventDefault();
+                  const sel = typeof window !== 'undefined' ? window.getSelection() : null;
+                  const hasSelection = sel && !sel.isCollapsed && sel.toString().length > 0;
+                  if (hasSelection) {
+                    document.execCommand(formatCmd, false);
+                  } else if (inlineEditableRef.current && sel) {
+                    const range = document.createRange();
+                    range.selectNodeContents(inlineEditableRef.current);
+                    sel.removeAllRanges();
+                    sel.addRange(range);
+                    document.execCommand(formatCmd, false);
+                    sel.collapseToEnd();
                   }
                 }
               }}
