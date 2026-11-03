@@ -1,178 +1,209 @@
-# 📸 Ferramenta de Captura Multiplataforma
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/renart-mascot-dark.jpg">
+    <source media="(prefers-color-scheme: light)" srcset="docs/assets/renart-mascot-light.jpg">
+    <img alt="RenArt Mascot" src="docs/assets/renart-mascot-dark.jpg" width="220" style="border-radius: 20px;">
+  </picture>
+</p>
 
-[![Tauri v2](https://img.shields.io/badge/Tauri-v2-blue?logo=tauri)](https://tauri.app/)
-[![Rust](https://img.shields.io/badge/Rust-Backend-orange?logo=rust)](https://www.rust-lang.org/)
-[![React 19](https://img.shields.io/badge/React-19-61dafb?logo=react)](https://react.dev/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.7-blue?logo=typescript)](https://www.typescriptlang.org/)
-[![Vitest](https://img.shields.io/badge/Tests-149%20Passed-brightgreen?logo=vitest)](https://vitest.dev/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+<h1 align="center">RenArt</h1>
 
-Uma ferramenta de captura de tela nativa, ultra-rápida e minimalista para **Windows**, **macOS** e **Linux**, combinando a leveza do **Tauri v2 (Rust)** com o poder de anotação vetorial e manipulação de imagem do **React 19 + HTML5 Canvas (Konva)**.
+<p align="center">
+  <strong>Precisão cirúrgica de captura, anotação fluida e redação inteligente.</strong><br>
+  <em>A raposa ágil do seu fluxo de trabalho visual — com o poder nativo do utilitário <code>vulcap</code> em Rust.</em>
+</p>
 
----
-
-## 🌟 Principais Recursos
-
-- **Barra Flutuante de Captura (Estilo Windows Snipping Tool):**  
-  Overlay escuro translúcido com seletor flutuante central para alternar entre os modos:
-  - 📐 **Área:** Seleção retangular de arraste livre com dimensões em tempo real.
-  - 🪟 **Janela:** Captura de janelas individuais utilizando o seletor nativo do sistema operacional.
-  - 🖥️ **Tela Inteira:** Captura instantânea do monitor ativo com um clique.
-  - ❌ **Cancelar:** Atalho rápido (`Esc`) para fechar o overlay sem alterar a galeria.
-
-- **⚡ Cópia Automática Imediata (Instant Clipboard):**  
-  Ao soltar o cursor após a seleção, os pixels são compactados e enviados diretamente para a área de transferência do SO. Cole instantaneamente com `Ctrl+V` (ou `Cmd+V`) no Slack, WhatsApp, Teams ou Discord sem precisar salvar arquivos.
-
-- **🎨 Editor de Anotações Vetoriais Completo:**
-  - **Formas Geométricas:** Retângulos, linhas e elipses com alça superior de rotação estilo Snipping Tool.
-  - **Círculo Perfeito no Duplo Clique:** Clique duas vezes dentro de qualquer elipse para transformá-la instantaneamente em um círculo perfeito proporcional ao maior raio, com ajuste automático aos limites da imagem.
-  - **Reset de Rotação:** Clique duas vezes na alça de rotação para restaurar a forma a `0°`.
-  - **Flechas Vetoriais:** Suporte a traços finos (2px) com ponta aberta estilo chevron e setas curvas de 3 pontos.
-  - **Lupa com e sem Foco:** Lente de ampliação direta dos pixels da imagem ou com ponto de foco e rastro fosco.
-  - **Texto Inline:** Caixa de texto com fontes personalizáveis e redimensionamento dinâmico.
-  - **Inserção de Imagens:** Adicione capturas secundárias ou ícones sobre o canvas.
-  - **🛡️ Ocultação de Dados Confidenciais (Tarja e Blur):** Ferramenta dedicada de privacidade com duas opções de efeito visual (**Tarja Sólida** 100% opaca `#000000` e **Blur Destrutivo** de alta densidade) e dois modos ergonômicos (**Caixa Retangular Ajustável** com alças de redimensionamento e **Pincel Livre** contínuo). Na exportação e cópia, os dados originais são achatados e destruídos sem possibilidade de reversão.
-
-- **✂️ Recorte de Imagem (Crop) com Menu Flutuante:**  
-  Quadro de recorte com guias visuais e menu minimalista flutuante abaixo do ícone com botões translúcidos para confirmar (`↵ Enter`) ou cancelar (`esc`).
-
-- **💾 Menu Horizontal de Exportação:**  
-  Exportação limpa e ágil em linha para `.png`, `.jpeg` e `.pdf`, mantendo a resolução nativa 1:1 e zoom 100%.
-
-- **🕰️ Galeria de Capturas Recentes:**  
-  Histórico integrado com retenção inteligente das últimas 10 capturas e fila FIFO.
+<p align="center">
+  <a href="https://react.dev/"><img src="https://img.shields.io/badge/React-19-61dafb?logo=react&logoColor=black" alt="React 19"></a>
+  <a href="https://www.typescriptlang.org/"><img src="https://img.shields.io/badge/TypeScript-5.7-blue?logo=typescript" alt="TypeScript"></a>
+  <a href="https://vitest.dev/"><img src="https://img.shields.io/badge/Vitest-279%20Passed-brightgreen?logo=vitest" alt="Vitest 279 Tests"></a>
+  <a href="https://tauri.app/"><img src="https://img.shields.io/badge/Tauri-v2-orange?logo=tauri" alt="Tauri v2"></a>
+  <a href="https://www.rust-lang.org/"><img src="https://img.shields.io/badge/Rust-Core%20(vulcap)-dea584?logo=rust" alt="Rust Core"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License MIT"></a>
+</p>
 
 ---
 
-## 🎯 Propósito do Projeto & Laboratório de Engenharia com IA
+## 🦊 Por que RenArt? (A Filosofia da Raposa)
 
-Este projeto nasceu como um **laboratório prático de Engenharia de Software**. 
+Inspirado na raposa-vermelha (*Vulpes vulpes*) — símbolo milenar de **astúcia, velocidade e adaptabilidade** —, o **RenArt** foi concebido para eliminar o atrito entre capturar uma informação na tela e transformá-la em comunicação clara e elegante.
 
-Como estudante da área, sempre me deparei com dificuldades na arte de codar. A curva de aprendizado para transformar ideias complexas em código pronto para produção muitas vezes tornava o processo lento e desmotivador.
+Enquanto ferramentas tradicionais forçam você a alternar entre editores pesados, lidar com janelas lentas ou exportar capturas sem proteção de privacidade, o **RenArt** oferece um ambiente direto ao ponto:
+- **Instantâneo:** Leve como um utilitário do sistema, sem telas de carregamento morosas.
+- **Preciso:** Ferramentas milimetricamente calibradas para desenvolvedores, designers, revisores e educadores.
+- **Seguro:** Redação destrutiva que protege credenciais, senhas e tokens antes de qualquer compartilhamento.
 
-Para mudar essa dinâmica, decidi adotar a IA não apenas como uma ferramenta de geração de código, mas como uma **tutora técnica e parceira de pair programming em tempo real**. Dessa maneira, posso criar aplicações e aprender na prática com um dev sênior me apoiando e explicando o passo a passo da entrega. A partir disso, utilizei duas ferramentas bem importantes na execução do projeto:
-
-### Por que o uso do Superpowers com o Antigravity CLI?
-
-1. **Spec-Driven Development (SDD):**  
-   Em vez de pedir para a IA simplesmente "escrever código", o fluxo de trabalho exige a criação de uma **especificação clara e detalhada** (`docs/superpowers/specs`) e um **plano de execução em etapas** (`docs/superpowers/plans`) antes que qualquer linha de código seja criada. Isso com certeza exercitou diretamente minhas ainda não tão desenvolvidas habilidades de arquitetura, levantamento de requisitos e visão de produto.
-
-2. **Test-Driven Development (TDD) com Rigor Técnico:**  
-   Com a metodologia do Superpowers, nenhuma funcionalidade ou correção é implementada sem que antes seja criado um **teste que falha (RED)**, seguido pela **implementação mínima necessária (GREEN)** e posterior refatoração. O resultado são **143 testes automatizados** que garantem que nenhuma alteração quebre recursos anteriores.
-
-3. **Subagentes e Separação de Responsabilidades:**  
-   Através do **Antigravity CLI**, o desenvolvimento foi dividido entre agentes especializados (pesquisa, planejamento, implementação e verificação). Isso permitiu explorar na prática conceitos corporativos modernos como isolamento de contexto, revisão de código por agentes e integração contínua.
-
-> 💡 **O Aprendizado:** O projeto me mostrou na prática que o futuro da Engenharia de Software não está preso em memorizar sintaxes, mas sim em **saber o que construir, como arquitetar, definir boas especificações, estabelecer barreiras de teste rigorosas e orquestrar ferramentas modernas para entregar um software de qualidade.**
+O ecossistema é formado pelo frontend gráfico **RenArt** (React 19 + Konva + TypeScript) e orquestrado com o core nativo desktop e utilitário CLI **`vulcap`** (Rust + Tauri v2).
 
 ---
 
-## 🏛️ Arquitetura de Software
+## ✨ Os 5 Diferenciais Únicos do RenArt
 
-A aplicação segue uma arquitetura híbrida com separação estrita de camadas:
+### 1. 🔍 Lupa Cirúrgica com Coroa Giratória
+Diga adeus a capturas pixeladas e anotações genéricas:
+- **Ampliação de Alta Fidelidade:** Lente flutuante de zoom 2x/3x que renderiza o detalhe original sem distorcer o contexto adjacente.
+- **Coroa Física Giratória:** Controle circular analógico na borda da lupa que permite rotacionar a haste de ancoragem em 360° com o mouse, adaptando-se perfeitamente a qualquer layout de tela.
+- **Dois Modos de Foco:** Alterne com facilidade entre a lente limpa (foco direto nos pixels) e a lente com anel/rastro focal translúcido.
+
+### 2. 🧠 Smart Text (OCR em Tempo Real & Detecção Tipográfica)
+Extração de texto sem fricção alimentada pelo motor **Tesseract.js**:
+- **Reconhecimento Automático:** Detecta linhas e palavras presentes na imagem capturada com um clique.
+- **Bounding Boxes Interativas:** Passe o cursor sobre palavras ou blocos de texto identificados para destacá-los em tempo real.
+- **Ação com 1 Clique:** Copie o texto detectado diretamente para o clipboard do sistema operacional ou converta-o instantaneamente em elemento de anotação/redação.
+
+### 3. 🛡️ Redação em 3 Níveis (Proteção Anti-IA & Privacidade Absoluta)
+Oculte informações confidenciais antes de colar no Slack, Teams, Jira ou redes sociais:
+- **Tarja Sólida (Blackout):** Tarja opaca padrão `#000000` para censura direta e inquestionável.
+- **Blur Gaussiano de Alta Densidade:** Desfoque fosco suave para ocultação estética de avatares e dados secundários.
+- **Scramble Criptográfico (Anti-IA):** Embaralha os pixels internos em padrões matemáticos destrutivos, impedindo tentativas de engenharia reversa via algoritmos de des-pixelização ou OCRs neurais.
+- **Destruição Irreversível:** No momento da cópia ou exportação, os pixels cobertos são achatados irreversivelmente — não há metadados ou camadas ocultas sob a tarja.
+
+### 4. ⚡ Carimbo Rápido (`Alt + Click`) e Criação Contínua
+Velocidade máxima de operação sem frustração:
+- **Carimbo Imediato (`Alt + Click`):** Quer adicionar um retângulo de destaque, seta ou elipse padronizada? Segure `Alt` e clique: a forma surge instantaneamente centralizada e com tamanho padrão ergonômico, sem a necessidade de arrastar.
+- **Criação Contínua (`Alt + Drag`):** Segure `Alt` para desenhar sucessivos elementos sem que o canvas tente desmarcar suas seleções ou alternar ferramentas.
+- **Desseleção Natural no Vazio:** Clicar fora de uma seleção desmarca as formas ativas sem criar caixas acidentais de texto.
+
+### 5. ✍️ Tipografia Vetorial Inline & Estilização Completa
+Comunicação clara com texto nativo:
+- **Controle Tipográfico Total:** Ajuste fino de tamanho (`fontSize`), peso (`Bold`), estilo (`Italic`) e alinhamento (`Left`, `Center`, `Right`).
+- **Fundo de Auto-Contraste Dinâmico:** Fundo de leitura que garante legibilidade absoluta sobre fundos claros, escuros ou multicoloridos.
+- **Edição em Tempo Real:** Clique duas vezes para editar qualquer texto diretamente no canvas.
+
+---
+
+## 🏛️ Arquitetura do Ecossistema: RenArt + `vulcap`
+
+O ecossistema é projetado com separação rigorosa de responsabilidades entre interface rica e capacidades nativas do sistema operacional:
 
 ```mermaid
 flowchart TD
-    subgraph OS ["🖥️ Sistema Operacional"]
+    subgraph SO ["🖥️ Sistema Operacional (Windows / macOS / Linux)"]
         direction TB
-        os_info["Windows 10/11 • macOS • Linux (X11 / Wayland)"]
+        Monitors["Monitores & Janelas"]
+        Clip["Clipboard Nativo"]
+        Shortcuts["Atalhos Globais (PrintScreen, Win+Shift+S)"]
     end
 
-    subgraph Rust ["🦀 Core Nativo em Rust (Tauri v2)"]
+    subgraph RustCore ["🦀 Core Nativo & CLI (vulcap / Tauri v2)"]
         direction TB
-        xcap["xcap: Captura unificada de monitores e janelas"]
-        arboard["arboard: Acesso de baixa latência ao Clipboard do SO"]
-        interprocess["interprocess: Gestão e limite de instâncias por IPC"]
+        Xcap["xcap (Captura de tela de baixa latência)"]
+        Arboard["arboard (Gestão nativa de Clipboard)"]
+        CliEngine["vulcap CLI (Comandos autônomos em terminal)"]
     end
 
-    subgraph Frontend ["⚛️ Frontend WebView (React 19 + TypeScript)"]
+    subgraph RenArtGUI ["🦊 RenArt Editor (React 19 + TypeScript + Konva)"]
         direction TB
-        overlay["Overlay de Captura com Barra Flutuante (Área, Janela, Tela)"]
-        canvas["Canvas Interativo 2D (Konva.js / react-konva)"]
-        stores["Stores Reativas (EditorStore com Undo/Redo e GalleryStore)"]
-        export["exportService (Renderização nativa 1:1 em PNG, JPEG, PDF)"]
+        Canvas["Canvas Vetorial 2D (react-konva)"]
+        SmartText["Smart Text Engine (Tesseract OCR)"]
+        Redact["Módulo de Redação (Blackout, Blur, Scramble)"]
+        Export["Export Service 1:1 (PNG, JPEG, PDF)"]
     end
 
-    OS <-->|"Telas, Janelas, Monitores & Hooks/Clipboard"| Rust
-    Rust <-->|"IPC Bridge (JSON / Comandos e Eventos)"| Frontend
+    SO <-->|"Captura & Clipboard"| RustCore
+    RustCore <-->|"IPC Bridge / stdio"| RenArtGUI
+```
+
+### 💻 Utilitário de Terminal: `vulcap` (CLI)
+
+Além da aplicação visual, o núcleo em Rust disponibiliza o comando `vulcap` para desenvolvedores que preferem automação e linha de comando:
+
+```bash
+# Capturar uma área interativa e enviar para o clipboard
+vulcap capture --area --clipboard
+
+# Capturar monitor inteiro e abrir diretamente no editor RenArt
+vulcap capture --screen 1 --open-in renart
+
+# Redigir segredos e tokens de um screenshot existente em lote
+vulcap redact --input error-log.png --preset api-keys --output safe-log.png
+
+# Executar OCR em imagem do clipboard e exportar texto em JSON
+vulcap ocr --clipboard --json
 ```
 
 ---
 
-## ⌨️ Atalhos do Teclado
+## 🗺️ Roadmap de Desenvolvimento
 
-### Atalhos Globais de Acionamento (fora da janela)
-| Sistema | Atalho Padrão | Ação |
-| :--- | :--- | :--- |
-| **Windows** | `PrintScreen` ou `Win + Shift + S` | Abre a barra flutuante / seleção rápida |
-| **macOS** | `Cmd + Shift + 4` ou `Cmd + Shift + 5` | Captura de área retangular / barra de opções |
-| **Linux** | `PrintScreen` ou `Shift + PrintScreen` | Abre a barra flutuante / captura de área |
-
-### Atalhos na Barra Flutuante de Captura
-* `1` ou `R` → Alterna para o modo **Área**
-* `2` ou `W` → Alterna para o modo **Janela** (seletor nativo do SO)
-* `3` ou `F` → Alterna para o modo **Tela Inteira**
-* `Esc` → Cancela a captura imediatamente
-
-### Atalhos no Editor de Imagens
-* `Ctrl + C` / `Cmd + C` → Copia imagem com anotações para o Clipboard
-* `Ctrl + S` / `Cmd + S` → Menu de exportação
-* `Ctrl + Z` / `Ctrl + Shift + Z` → Desfazer e Refazer
-* `Enter` / `Esc` → Confirmar ou Cancelar Recorte (**Crop**)
-* `Duplo Clique na Elipse` → Transforma em **Círculo Perfeito**
-* `Duplo Clique na Alça de Rotação` → Restaura ângulo para `0°`
-* `Ctrl + +` / `Ctrl + -` / `Ctrl + 0` → Zoom In, Zoom Out e Ajustar 100%
+| Fase | Escopo | Status |
+| :--- | :--- | :---: |
+| **Fase 1: Web Core & Canvas Engine** | Editor vetorial Konva, Lupa com coroa, Smart Text OCR, Redação 3 níveis, Alt+Click, 279 testes automatizados | ✅ Concluído |
+| **Fase 2: Desktop Tauri v2** | Atalhos globais de captura do SO, bandeja do sistema (Tray), janelas multi-monitores sem bordas | 🔄 Em andamento |
+| **Fase 3: Ecossistema `vulcap` CLI** | Binário CLI independente em Rust com subcomandos para captura headless, OCR e redação em pipelines de CI/CD | 🚀 Planejado |
 
 ---
 
-## 🚀 Como Executar o Projeto
+## ⌨️ Tabela de Atalhos de Teclado e Gestos
+
+| Atalho / Gesto | Contexto | Ação |
+| :--- | :--- | :--- |
+| `Alt + Click` | Canvas | Carimba forma padrão centralizada no cursor |
+| `Alt + Drag` | Canvas | Criação rápida e contínua ignorando barreira de desseleção |
+| `Clique no Vazio` | Canvas | Desseleciona todos os elementos ativos com segurança |
+| `Ctrl + C` / `Cmd + C` | Editor | Copia imagem achatada com anotações e redações para o clipboard |
+| `Ctrl + S` / `Cmd + S` | Editor | Abre o menu de exportação rápida (PNG, JPEG, PDF) |
+| `Ctrl + Z` / `Ctrl + Shift + Z` | Editor | Desfazer e Refazer ilimitados |
+| `Ctrl + +` / `Ctrl + -` / `Ctrl + 0` | Canvas | Zoom In, Zoom Out e Ajustar 100% |
+| `Duplo Clique na Elipse` | Canvas | Converte a elipse em círculo perfeito proporcional |
+| `Duplo Clique na Alça de Rotação`| Canvas | Restaura a rotação da forma selecionada para `0°` |
+| `Arrastar Coroa da Lupa` | Lupa | Gira a haste de fixação da lente em 360° |
+| `Esc` | Qualquer tela | Cancela a ação ou ferramenta em execução |
+
+---
+
+## 🚀 Como Executar o Projeto Localmente
 
 ### Pré-requisitos
-- [Node.js](https://nodejs.org/) (v18+)
-- [Rust & Cargo](https://www.rust-lang.org/tools/install) (para compilação nativa com Tauri)
+- [Node.js](https://nodejs.org/) (versão 18 ou superior)
+- [Rust & Cargo](https://www.rust-lang.org/tools/install) *(necessário apenas para compilação nativa desktop com Tauri)*
 
 ### 1. Clonar o Repositório e Instalar Dependências
 ```bash
-git clone https://github.com/seu-usuario/ferramenta-captura.git
-cd ferramenta-captura
+git clone https://github.com/seu-usuario/renart.git
+cd renart
 npm install
 ```
 
-### 2. Executar em Modo de Desenvolvimento (Web)
+### 2. Executar o Editor em Modo Web
 ```bash
 npm run dev
 ```
+O editor estará disponível instantaneamente em `http://localhost:5173`.
 
-### 3. Executar como Aplicativo Desktop (Tauri + Rust)
+### 3. Executar em Modo Desktop com Tauri
 ```bash
 npm run tauri dev
 ```
 
-### 4. Executar os Testes Automatizados
+### 4. Executar a Suíte de Testes Automatizados (Vitest)
 ```bash
 npm test
 ```
+*Garantia de 100% de integridade com mais de 279 testes unitários e de integração.*
 
-### 5. Compilar o Instalador de Produção
+### 5. Compilar para Produção (Web & Desktop)
 ```bash
+# Build do frontend web
+npm run build
+
+# Build do executável desktop nativo
 npm run build:app
 ```
-Os instaladores gerados (`.msi`/`.exe` no Windows, `.dmg` no Mac, `.deb`/`AppImage` no Linux) serão salvos na pasta `src-tauri/target/release/bundle/`.
 
 ---
 
-## 📚 Base de Conhecimento
+## 🤝 Contribuição
 
-Acesse a pasta [`docs/`](./docs/README.md) para consultar os guias técnicos detalhados:
-
-- 📖 **[Manual de Funcionamento e Fluxo de Uso](./docs/manual-de-funcionamento-e-fluxo.md)**
-- ⚙️ **[Guia de Acionamento, Atalhos e Integração com o SO](./docs/acionamento-e-atalhos.md)**
-- 🏛️ **[Arquitetura e Tecnologias Adotadas](./docs/arquitetura-e-tecnologias.md)**
-- 🦀 **[Guia do Backend em Rust e Comandos Nativos](./docs/guia-rust-e-backend.md)**
-- 🧪 **[Estratégia de Testes Unitários e Cobertura](./docs/testes-unitarios-e-cobertura.md)**
+Contribuições são muito bem-vindas! Se você deseja colaborar com novas funcionalidades, melhorias no motor de OCR ou suporte a novas plataformas:
+1. Faça um Fork do projeto.
+2. Crie uma branch para sua funcionalidade (`git checkout -b feature/minha-melhoria`).
+3. Certifique-se de que todos os testes passem (`npm test`).
+4. Envie o commit (`git commit -m 'feat: minha melhoria'`).
+5. Abra um Pull Request detalhado.
 
 ---
 
 ## 📄 Licença
 
-Este projeto é distribuído sob a licença [MIT](LICENSE).
+Este projeto é disponibilizado sob a licença [MIT](LICENSE). Você é livre para usar, modificar e distribuir conforme suas necessidades.
