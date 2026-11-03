@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Ferramenta de Captura",
+  "productName": "RenArt",
   "version": "0.1.0",
-  "identifier": "com.ferramenta.captura",
+  "identifier": "com.renart.app",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "Ferramenta de Captura",
+        "title": "RenArt — Captura de precisão e anotação fluida",
         "width": 1100,
         "height": 720,
         "minWidth": 800,

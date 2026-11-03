@@ -1,5 +1,6 @@
 {
-  "name": "ferramenta-captura",
+  "name": "renart",
+  "description": "RenArt — Captura de precisão e anotação fluida (CLI: vulcap)",
   "private": true,
   "version": "0.1.0",
   "type": "module",

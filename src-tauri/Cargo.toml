@@ -1,12 +1,12 @@
 [package]
-name = "ferramenta-captura"
+name = "renart"
 version = "0.1.0"
-description = "Ferramenta de Captura Multiplataforma"
+description = "RenArt — Captura de precisão e anotação fluida"
 authors = ["Antigravity & Usuario"]
 edition = "2021"
 
 [lib]
-name = "ferramenta_captura_lib"
+name = "renart_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
