@@ -94,7 +94,7 @@ import {
   getOpenChevronArrowPoints,
   getCropVisualGuides,
 } from '../utils/zoomAndCrop';
-import { shouldDeselectOnEmptyClick } from '../utils/canvasPointerActions';
+import { shouldDeselectOnEmptyClick, getDefaultShapeDimensions, isSimpleClick } from '../utils/canvasPointerActions';
 
 interface CanvasEditorProps {
   imageBase64: string;
@@ -409,6 +409,7 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
   const focusDragRef = useRef<FocusDragState | null>(null);
   const onUpdateAnnotationRef = useRef(onUpdateAnnotation);
   const isShiftPressedRef = useRef(false);
+  const isAltPressedRef = useRef(false);
   const multiDragStartRef = useRef<{
     draggedId: string;
     initialPositions: Record<string, { x: number; y: number }>;
@@ -1546,6 +1547,7 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
     }
 
     const isAltPressed = Boolean(e.evt?.altKey);
+    isAltPressedRef.current = isAltPressed;
     const hasActiveSelection = effectiveSelectedIds.length > 0;
     const isEditingActive = editingText !== null;
 
@@ -1880,12 +1882,19 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
 
     if (newAnnotation.type === 'redaction') {
       if (newAnnotation.mode === 'rect') {
-        if (Math.abs(newAnnotation.width || 0) > 4 && Math.abs(newAnnotation.height || 0) > 4) {
+        const isDragged = Math.abs(newAnnotation.width || 0) > 4 && Math.abs(newAnnotation.height || 0) > 4;
+        const shouldStamp = isAltPressedRef.current && isSimpleClick(newAnnotation.width || 0, newAnnotation.height || 0, 4);
+
+        if (isDragged || shouldStamp) {
+          const defaultDims = getDefaultShapeDimensions('redaction');
+          const finalW = isDragged ? (newAnnotation.width || 0) : (defaultDims.width ?? 120);
+          const finalH = isDragged ? (newAnnotation.height || 0) : (defaultDims.height ?? 40);
+
           const clamped = clampRedactionRectToBounds(
             newAnnotation.x || 0,
             newAnnotation.y || 0,
-            newAnnotation.width || 0,
-            newAnnotation.height || 0,
+            finalW,
+            finalH,
             imgW,
             imgH
           );
@@ -1899,12 +1908,19 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
           applySelectionIds([newAnnotation.id]);
         }
       } else if (newAnnotation.mode === 'smart-text') {
-        if (Math.abs(newAnnotation.width || 0) > 4 && Math.abs(newAnnotation.height || 0) > 4) {
+        const isDragged = Math.abs(newAnnotation.width || 0) > 4 && Math.abs(newAnnotation.height || 0) > 4;
+        const shouldStamp = isAltPressedRef.current && isSimpleClick(newAnnotation.width || 0, newAnnotation.height || 0, 4);
+
+        if (isDragged || shouldStamp) {
+          const defaultDims = getDefaultShapeDimensions('redaction');
+          const finalW = isDragged ? (newAnnotation.width || 0) : (defaultDims.width ?? 120);
+          const finalH = isDragged ? (newAnnotation.height || 0) : (defaultDims.height ?? 40);
+
           const clamped = clampRedactionRectToBounds(
             newAnnotation.x || 0,
             newAnnotation.y || 0,
-            newAnnotation.width || 0,
-            newAnnotation.height || 0,
+            finalW,
+            finalH,
             imgW,
             imgH
           );
@@ -1937,40 +1953,63 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
           applySelectionIds([newAnnotation.id]);
         }
       }
+      isAltPressedRef.current = false;
       setNewAnnotation(null);
       return;
     }
 
-    if (newAnnotation.type === 'rect' && Math.abs(newAnnotation.width) > 5 && Math.abs(newAnnotation.height) > 5) {
-      const rawX = newAnnotation.width < 0 ? newAnnotation.x + newAnnotation.width : newAnnotation.x;
-      const rawY = newAnnotation.height < 0 ? newAnnotation.y + newAnnotation.height : newAnnotation.y;
-      const w = Math.abs(newAnnotation.width);
-      const h = Math.abs(newAnnotation.height);
-      const clamped = clampRectToBounds(rawX, rawY, w, h, imgW, imgH);
-      onAddAnnotation({
-        ...newAnnotation,
-        x: clamped.x,
-        y: clamped.y,
-        width: Math.min(w, imgW - clamped.x),
-        height: Math.min(h, imgH - clamped.y),
-      });
-      applySelectionIds([newAnnotation.id]);
-    } else if (newAnnotation.type === 'ellipse' && newAnnotation.radiusX > 5 && newAnnotation.radiusY > 5) {
-      const clamped = clampEllipseToBounds(newAnnotation.x, newAnnotation.y, newAnnotation.radiusX, newAnnotation.radiusY, imgW, imgH);
-      onAddAnnotation({
-        ...newAnnotation,
-        x: clamped.x,
-        y: clamped.y,
-      });
-      applySelectionIds([newAnnotation.id]);
+    if (newAnnotation.type === 'rect') {
+      const isDragged = Math.abs(newAnnotation.width) > 5 && Math.abs(newAnnotation.height) > 5;
+      const shouldStamp = isAltPressedRef.current && isSimpleClick(newAnnotation.width, newAnnotation.height, 5);
+
+      if (isDragged || shouldStamp) {
+        const defaultDims = getDefaultShapeDimensions('rect');
+        const w = isDragged ? Math.abs(newAnnotation.width) : (defaultDims.width ?? 120);
+        const h = isDragged ? Math.abs(newAnnotation.height) : (defaultDims.height ?? 60);
+        const rawX = isDragged && newAnnotation.width < 0 ? newAnnotation.x + newAnnotation.width : newAnnotation.x;
+        const rawY = isDragged && newAnnotation.height < 0 ? newAnnotation.y + newAnnotation.height : newAnnotation.y;
+        const clamped = clampRectToBounds(rawX, rawY, w, h, imgW, imgH);
+        onAddAnnotation({
+          ...newAnnotation,
+          x: clamped.x,
+          y: clamped.y,
+          width: Math.min(w, imgW - clamped.x),
+          height: Math.min(h, imgH - clamped.y),
+        });
+        applySelectionIds([newAnnotation.id]);
+      }
+    } else if (newAnnotation.type === 'ellipse') {
+      const isDragged = newAnnotation.radiusX > 5 && newAnnotation.radiusY > 5;
+      const shouldStamp = isAltPressedRef.current && isSimpleClick(newAnnotation.radiusX, newAnnotation.radiusY, 5);
+
+      if (isDragged || shouldStamp) {
+        const defaultDims = getDefaultShapeDimensions('ellipse');
+        const rx = isDragged ? newAnnotation.radiusX : (defaultDims.radiusX ?? 35);
+        const ry = isDragged ? newAnnotation.radiusY : (defaultDims.radiusY ?? 25);
+        const clamped = clampEllipseToBounds(newAnnotation.x, newAnnotation.y, rx, ry, imgW, imgH);
+        onAddAnnotation({
+          ...newAnnotation,
+          x: clamped.x,
+          y: clamped.y,
+          radiusX: rx,
+          radiusY: ry,
+        });
+        applySelectionIds([newAnnotation.id]);
+      }
     } else if (newAnnotation.type === 'line') {
       const [x1, y1, x2, y2] = newAnnotation.points;
-      if (Math.hypot(x2 - x1, y2 - y1) > 3) {
+      const dist = Math.hypot(x2 - x1, y2 - y1);
+      const isDragged = dist > 3;
+      const shouldStamp = isAltPressedRef.current && dist <= 3;
+
+      if (isDragged || shouldStamp) {
+        const finalX2 = isDragged ? x2 : x1 + 100;
+        const finalY2 = isDragged ? y2 : y1;
         const clampedP = [
           Math.max(0, Math.min(x1, imgW)),
           Math.max(0, Math.min(y1, imgH)),
-          Math.max(0, Math.min(x2, imgW)),
-          Math.max(0, Math.min(y2, imgH)),
+          Math.max(0, Math.min(finalX2, imgW)),
+          Math.max(0, Math.min(finalY2, imgH)),
         ];
         onAddAnnotation({ ...newAnnotation, points: clampedP });
         applySelectionIds([newAnnotation.id]);
@@ -1981,8 +2020,22 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
       const startY = p[1];
       const endX = p[p.length - 2];
       const endY = p[p.length - 1];
-      if (Math.hypot(endX - startX, endY - startY) > 3) {
-        const clampedP = p.map((val, idx) =>
+      const dist = Math.hypot(endX - startX, endY - startY);
+      const isDragged = dist > 3;
+      const shouldStamp = isAltPressedRef.current && dist <= 3;
+
+      if (isDragged || shouldStamp) {
+        const finalEndX = isDragged ? endX : startX + 100;
+        const finalEndY = isDragged ? endY : startY;
+        let finalPoints = p;
+        if (shouldStamp) {
+          if (newAnnotation.arrowStyle === 'curved') {
+            finalPoints = [startX, startY, startX + 50, startY - 20, finalEndX, finalEndY];
+          } else {
+            finalPoints = [startX, startY, finalEndX, finalEndY];
+          }
+        }
+        const clampedP = finalPoints.map((val, idx) =>
           Math.max(0, Math.min(val, idx % 2 === 0 ? imgW : imgH))
         );
         onAddAnnotation({ ...newAnnotation, points: clampedP });
@@ -2012,6 +2065,7 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
       applySelectionIds([newAnnotation.id]);
     }
 
+    isAltPressedRef.current = false;
     setNewAnnotation(null);
   };
 
