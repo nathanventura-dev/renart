@@ -72,7 +72,7 @@ export const App: React.FC = () => {
 
         ctx.fillStyle = '#102a43';
         ctx.font = 'bold 26px system-ui';
-        ctx.fillText('Ferramenta de Captura Multiplataforma', 40, 70);
+        ctx.fillText('RenArt — Captura de precisão e anotação fluida', 40, 70);
 
         ctx.fillStyle = '#627d98';
         ctx.font = '15px system-ui';

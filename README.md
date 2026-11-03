@@ -16,7 +16,7 @@
 <p align="center">
   <a href="https://react.dev/"><img src="https://img.shields.io/badge/React-19-61dafb?logo=react&logoColor=black" alt="React 19"></a>
   <a href="https://www.typescriptlang.org/"><img src="https://img.shields.io/badge/TypeScript-5.7-blue?logo=typescript" alt="TypeScript"></a>
-  <a href="https://vitest.dev/"><img src="https://img.shields.io/badge/Vitest-279%20Passed-brightgreen?logo=vitest" alt="Vitest 279 Tests"></a>
+  <a href="https://vitest.dev/"><img src="https://img.shields.io/badge/Vitest-281%20Passed-brightgreen?logo=vitest" alt="Vitest 281 Tests"></a>
   <a href="https://tauri.app/"><img src="https://img.shields.io/badge/Tauri-v2-orange?logo=tauri" alt="Tauri v2"></a>
   <a href="https://www.rust-lang.org/"><img src="https://img.shields.io/badge/Rust-Core%20(vulcap)-dea584?logo=rust" alt="Rust Core"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License MIT"></a>
@@ -104,9 +104,9 @@ flowchart TD
     RustCore <-->|"IPC Bridge / stdio"| RenArtGUI
 ```
 
-### 💻 Utilitário de Terminal: `vulcap` (CLI)
+### 💻 Utilitário de Terminal: `vulcap` (CLI — Especificação Fase 3)
 
-Além da aplicação visual, o núcleo em Rust disponibiliza o comando `vulcap` para desenvolvedores que preferem automação e linha de comando:
+Além da aplicação visual, o ecossistema projeta o utilitário de terminal autônomo `vulcap` (especificação planejada para a Fase 3 do roadmap) para desenvolvedores que necessitam de automação headless e integração com pipelines:
 
 ```bash
 # Capturar uma área interativa e enviar para o clipboard
@@ -128,7 +128,7 @@ vulcap ocr --clipboard --json
 
 | Fase | Escopo | Status |
 | :--- | :--- | :---: |
-| **Fase 1: Web Core & Canvas Engine** | Editor vetorial Konva, Lupa com coroa, Smart Text OCR, Redação 3 níveis, Alt+Click, 279 testes automatizados | ✅ Concluído |
+| **Fase 1: Web Core & Canvas Engine** | Editor vetorial Konva, Lupa com coroa, Smart Text OCR, Redação 3 níveis, Alt+Click, 281 testes automatizados | ✅ Concluído |
 | **Fase 2: Desktop Tauri v2** | Atalhos globais de captura do SO, bandeja do sistema (Tray), janelas multi-monitores sem bordas | 🔄 Em andamento |
 | **Fase 3: Ecossistema `vulcap` CLI** | Binário CLI independente em Rust com subcomandos para captura headless, OCR e redação em pipelines de CI/CD | 🚀 Planejado |
 
@@ -180,7 +180,7 @@ npm run tauri dev
 ```bash
 npm test
 ```
-*Garantia de 100% de integridade com mais de 279 testes unitários e de integração.*
+*Garantia de 100% de integridade com 281 testes unitários e de integração.*
 
 ### 5. Compilar para Produção (Web & Desktop)
 ```bash
@@ -190,6 +190,18 @@ npm run build
 # Build do executável desktop nativo
 npm run build:app
 ```
+
+---
+
+## 📚 Documentação Técnica Aprofundada
+
+Para explorar a fundo as decisões de engenharia, arquitetura e especificações de subsistemas, consulte a pasta [`docs/`](./docs/README.md):
+
+- 📖 **[Manual de Funcionamento e Fluxo de Uso](./docs/manual-de-funcionamento-e-fluxo.md)**
+- ⚙️ **[Guia de Acionamento, Atalhos e Integração com o SO](./docs/acionamento-e-atalhos.md)**
+- 🏛️ **[Arquitetura e Tecnologias Adotadas](./docs/arquitetura-e-tecnologias.md)**
+- 🦀 **[Guia do Backend em Rust e Comandos Nativos](./docs/guia-rust-e-backend.md)**
+- 🧪 **[Estratégia de Testes Unitários e Cobertura](./docs/testes-unitarios-e-cobertura.md)**
 
 ---
 
