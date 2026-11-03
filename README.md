@@ -9,8 +9,8 @@
 <h1 align="center">RenArt</h1>
 
 <p align="center">
-  <strong>Precisão cirúrgica de captura, anotação fluida e redação inteligente.</strong><br>
-  <em>A raposa ágil do seu fluxo de trabalho visual — com o poder nativo do utilitário <code>vulcap</code> em Rust.</em>
+  <strong>Captura de tela, anotação vetorial e laboratório de engenharia de software.</strong><br>
+  <em>Frontend interativo em React + Konva com motor nativo desktop e utilitário CLI <code>vulcap</code> em Rust.</em>
 </p>
 
 <p align="center">
@@ -24,57 +24,80 @@
 
 ---
 
-## 🦊 Por que RenArt? (A Filosofia da Raposa)
+## 🦊 Origem do Nome & Escolha do Mascote
 
-Inspirado na raposa-vermelha (*Vulpes vulpes*) — símbolo milenar de **astúcia, velocidade e adaptabilidade** —, o **RenArt** foi concebido para eliminar o atrito entre capturar uma informação na tela e transformá-la em comunicação clara e elegante.
+Para representar a aplicação, busquei um animal para se tornar o mascote do projeto, e a **raposa-vermelha** se encaixou perfeitamente: é um animal com facilidade de se adaptar a vários ambientes, além de ser astuta e ágil — exatamente o que a aplicação tinha como objetivo na experiência de uso.
 
-Enquanto ferramentas tradicionais forçam você a alternar entre editores pesados, lidar com janelas lentas ou exportar capturas sem proteção de privacidade, o **RenArt** oferece um ambiente direto ao ponto:
-- **Instantâneo:** Leve como um utilitário do sistema, sem telas de carregamento morosas.
-- **Preciso:** Ferramentas milimetricamente calibradas para desenvolvedores, designers, revisores e educadores.
-- **Seguro:** Redação destrutiva que protege credenciais, senhas e tokens antes de qualquer compartilhamento.
+A definição dos nomes do projeto reflete essa identidade:
 
-O ecossistema é formado pelo frontend gráfico **RenArt** (React 19 + Konva + TypeScript) e orquestrado com o core nativo desktop e utilitário CLI **`vulcap`** (Rust + Tauri v2).
+- **RenArt:** *Renard* significa raposa em francês. Como a França possui um grande histórico com arte, escolhi o nome **RenArt** por remeter ao nome da raposa em francês e pela função artística do nome e da aplicação (desenhar, anotar e expressar ideias visualmente sobre a imagem).
+- **`vulcap`:** O nome do núcleo nativo e CLI do projeto vem da união do nome científico da raposa (*Vulpes*) com *Cap* (de Captura).
 
 ---
 
-## ✨ Os 5 Diferenciais Únicos do RenArt
+## 🎯 Propósito do Projeto & Laboratório de Engenharia com IA
+
+Este projeto nasceu como um **laboratório prático de Engenharia de Software**. 
+
+Como estudante da área, sempre me deparei com dificuldades na arte de codar. A curva de aprendizado para transformar ideias complexas em código pronto para produção muitas vezes tornava o processo lento e desmotivador.
+
+Para mudar essa dinâmica, decidi adotar a IA não apenas como uma ferramenta de geração de código, mas como uma **tutora técnica e parceira de pair programming em tempo real**. Dessa maneira, posso criar aplicações e aprender na prática com um dev sênior me apoiando e explicando o passo a passo da entrega. A partir disso, utilizei duas ferramentas fundamentais na execução do projeto:
+
+### Por que o uso do Superpowers com o Antigravity CLI?
+
+1. **Spec-Driven Development (SDD):**  
+   Em vez de pedir para a IA simplesmente "escrever código", o fluxo de trabalho exige a criação de uma **especificação clara e detalhada** (`docs/superpowers/specs`) e um **plano de execução em etapas** (`docs/superpowers/plans`) antes que qualquer linha de código seja criada. Isso com certeza exercitou diretamente minhas habilidades de arquitetura, levantamento de requisitos e visão de produto.
+
+2. **Test-Driven Development (TDD) com Rigor Técnico:**  
+   Com a metodologia do Superpowers, nenhuma funcionalidade ou correção é implementada sem que antes seja criado um **teste que falha (RED)**, seguido pela **implementação mínima necessária (GREEN)** e posterior refatoração. O resultado são **281 testes automatizados** que garantem que nenhuma alteração quebre recursos anteriores.
+
+3. **Subagentes e Separação de Responsabilidades:**  
+   Através do **Antigravity CLI**, o desenvolvimento foi dividido entre agentes especializados (pesquisa, planejamento, implementação e verificação). Isso permitiu explorar na prática conceitos corporativos modernos como isolamento de contexto, revisão de código por agentes e integração contínua.
+
+> 💡 **O Aprendizado:** O projeto me mostrou na prática que o futuro da Engenharia de Software não está preso em memorizar sintaxes, mas sim em **saber o que construir, como arquitetar, definir boas especificações, estabelecer barreiras de teste rigorosas e orquestrar ferramentas modernas para entregar um software de qualidade.**
+
+---
+
+## 🛠️ O que foi construído (Funcionalidades do Editor)
 
 ### 1. 🔍 Lupa Cirúrgica com Coroa Giratória
-Diga adeus a capturas pixeladas e anotações genéricas:
 - **Ampliação de Alta Fidelidade:** Lente flutuante de zoom 2x/3x que renderiza o detalhe original sem distorcer o contexto adjacente.
-- **Coroa Física Giratória:** Controle circular analógico na borda da lupa que permite rotacionar a haste de ancoragem em 360° com o mouse, adaptando-se perfeitamente a qualquer layout de tela.
-- **Dois Modos de Foco:** Alterne com facilidade entre a lente limpa (foco direto nos pixels) e a lente com anel/rastro focal translúcido.
+- **Coroa Física Giratória:** Controle circular analógico na borda da lupa que permite rotacionar a haste de ancoragem em 360° com o mouse, adaptando-se a qualquer layout da tela.
+- **Dois Modos de Foco:** Alterne facilmente entre a lente limpa (foco direto nos pixels) e a lente com anel/rastro focal translúcido.
 
 ### 2. 🧠 Smart Text (OCR em Tempo Real & Detecção Tipográfica)
-Extração de texto sem fricção alimentada pelo motor **Tesseract.js**:
-- **Reconhecimento Automático:** Detecta linhas e palavras presentes na imagem capturada com um clique.
+- **Reconhecimento Automático:** Identifica linhas e palavras presentes na imagem capturada via **Tesseract.js**.
 - **Bounding Boxes Interativas:** Passe o cursor sobre palavras ou blocos de texto identificados para destacá-los em tempo real.
-- **Ação com 1 Clique:** Copie o texto detectado diretamente para o clipboard do sistema operacional ou converta-o instantaneamente em elemento de anotação/redação.
+- **Ação com 1 Clique:** Copie o texto detectado diretamente para o clipboard do sistema operacional ou converta-o instantaneamente em elemento de anotação ou redação.
 
-### 3. 🛡️ Redação em 3 Níveis (Proteção Anti-IA & Privacidade Absoluta)
-Oculte informações confidenciais antes de colar no Slack, Teams, Jira ou redes sociais:
-- **Tarja Sólida (Blackout):** Tarja opaca padrão `#000000` para censura direta e inquestionável.
-- **Blur Gaussiano de Alta Densidade:** Desfoque fosco suave para ocultação estética de avatares e dados secundários.
-- **Scramble Criptográfico (Anti-IA):** Embaralha os pixels internos em padrões matemáticos destrutivos, impedindo tentativas de engenharia reversa via algoritmos de des-pixelização ou OCRs neurais.
-- **Destruição Irreversível:** No momento da cópia ou exportação, os pixels cobertos são achatados irreversivelmente — não há metadados ou camadas ocultas sob a tarja.
+### 3. 🛡️ Redação em 3 Níveis (Proteção Anti-IA & Privacidade)
+- **Tarja Sólida (Blackout):** Tarja opaca padrão `#000000` para censura direta e total.
+- **Blur Gaussiano de Alta Densidade:** Desfoque fosco suave para ocultação visual de avatares e dados secundários.
+- **Scramble Criptográfico (Anti-IA):** Embaralha os pixels internos em padrões matemáticos destrutivos, prevenindo tentativas de engenharia reversa via algoritmos de des-pixelização ou OCRs neurais.
+- **Destruição Irreversível:** Na cópia ou exportação, os pixels cobertos são achatados irreversivelmente — não há metadados ou camadas ocultas sob a tarja.
 
 ### 4. ⚡ Carimbo Rápido (`Alt + Click`) e Criação Contínua
-Velocidade máxima de operação sem frustração:
-- **Carimbo Imediato (`Alt + Click`):** Quer adicionar um retângulo de destaque, seta ou elipse padronizada? Segure `Alt` e clique: a forma surge instantaneamente centralizada e com tamanho padrão ergonômico, sem a necessidade de arrastar.
-- **Criação Contínua (`Alt + Drag`):** Segure `Alt` para desenhar sucessivos elementos sem que o canvas tente desmarcar suas seleções ou alternar ferramentas.
-- **Desseleção Natural no Vazio:** Clicar fora de uma seleção desmarca as formas ativas sem criar caixas acidentais de texto.
+- **Carimbo Imediato (`Alt + Click`):** Segure `Alt` e clique no canvas: a forma geométrica surge centralizada com dimensões padrão ergonômicas, sem a necessidade de arrastar.
+- **Criação Contínua (`Alt + Drag`):** Segure `Alt` para desenhar sucessivos elementos sem desseleção acidental de ferramentas.
+- **Desseleção Natural no Vazio:** Clicar fora de uma seleção desmarca as formas ativas sem criar caixas indesejadas de texto.
 
 ### 5. ✍️ Tipografia Vetorial Inline & Estilização Completa
-Comunicação clara com texto nativo:
-- **Controle Tipográfico Total:** Ajuste fino de tamanho (`fontSize`), peso (`Bold`), estilo (`Italic`) e alinhamento (`Left`, `Center`, `Right`).
-- **Fundo de Auto-Contraste Dinâmico:** Fundo de leitura que garante legibilidade absoluta sobre fundos claros, escuros ou multicoloridos.
-- **Edição em Tempo Real:** Clique duas vezes para editar qualquer texto diretamente no canvas.
+- **Controle Tipográfico:** Ajuste de tamanho (`fontSize`), peso (`Bold`), estilo (`Italic`) e alinhamento (`Left`, `Center`, `Right`).
+- **Fundo de Auto-Contraste Dinâmico:** Fundo de leitura que garante legibilidade sobre áreas claras, escuras ou multicoloridas.
+- **Edição Direta:** Clique duplo para editar qualquer bloco de texto diretamente no canvas.
+
+### Outros Recursos do Editor:
+- **Barra Flutuante de Captura (Estilo Snipping Tool):** Seleção retangular por Área, Janela individual ou Tela Inteira com atalho `Esc` para cancelamento.
+- **Cópia Instantânea para o Clipboard:** Ao soltar o cursor após uma seleção, os pixels são enviados diretamente para a área de transferência do SO (`Ctrl+V` imediato).
+- **Recorte de Imagem (Crop):** Quadro de recorte com menu flutuante translúcido para confirmação (`Enter`) ou cancelamento (`Esc`).
+- **Exportação Multiformato 1:1:** Exportação direta para `.png`, `.jpeg` e `.pdf` mantendo a resolução nativa da captura.
+- **Galeria Recente (FIFO):** Histórico das últimas 10 capturas na sessão com retenção em memória.
 
 ---
 
-## 🏛️ Arquitetura do Ecossistema: RenArt + `vulcap`
+## 🏛️ Arquitetura de Software
 
-O ecossistema é projetado com separação rigorosa de responsabilidades entre interface rica e capacidades nativas do sistema operacional:
+A aplicação segue uma arquitetura híbrida com separação estrita de camadas:
 
 ```mermaid
 flowchart TD
@@ -134,7 +157,7 @@ vulcap ocr --clipboard --json
 
 ---
 
-## ⌨️ Tabela de Atalhos de Teclado e Gestos
+## ⌨️ Atalhos do Teclado e Gestos
 
 | Atalho / Gesto | Contexto | Ação |
 | :--- | :--- | :--- |
@@ -202,17 +225,6 @@ Para explorar a fundo as decisões de engenharia, arquitetura e especificações
 - 🏛️ **[Arquitetura e Tecnologias Adotadas](./docs/arquitetura-e-tecnologias.md)**
 - 🦀 **[Guia do Backend em Rust e Comandos Nativos](./docs/guia-rust-e-backend.md)**
 - 🧪 **[Estratégia de Testes Unitários e Cobertura](./docs/testes-unitarios-e-cobertura.md)**
-
----
-
-## 🤝 Contribuição
-
-Contribuições são muito bem-vindas! Se você deseja colaborar com novas funcionalidades, melhorias no motor de OCR ou suporte a novas plataformas:
-1. Faça um Fork do projeto.
-2. Crie uma branch para sua funcionalidade (`git checkout -b feature/minha-melhoria`).
-3. Certifique-se de que todos os testes passem (`npm test`).
-4. Envie o commit (`git commit -m 'feat: minha melhoria'`).
-5. Abra um Pull Request detalhado.
 
 ---
 

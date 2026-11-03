@@ -14,11 +14,18 @@ describe('README.md Structure', () => {
     expect(content).toContain('docs/assets/renart-mascot-light.jpg');
     expect(content).toContain('prefers-color-scheme: dark');
 
-    // Nomes oficiais
+    // Nomes oficiais e contexto do mascote
     expect(content).toContain('RenArt');
     expect(content).toContain('vulcap');
+    expect(content).toContain('Renard');
+    expect(content).toContain('Vulpes');
 
-    // Diferenciais fundamentais
+    // Propósito e Laboratório de Estudo
+    expect(content).toContain('Laboratório de Engenharia com IA');
+    expect(content).toContain('Superpowers');
+    expect(content).toContain('Antigravity CLI');
+
+    // Funcionalidades técnicas
     expect(content).toContain('Lupa Cirúrgica com Coroa Giratória');
     expect(content).toContain('Smart Text');
     expect(content).toContain('Alt + Click');
