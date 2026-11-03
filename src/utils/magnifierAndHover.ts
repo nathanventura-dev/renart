@@ -421,6 +421,29 @@ export function getAnnotationsInSelectionBox(
       maxY = ann.y + ann.radius;
     }
 
+    else if (ann.type === 'redaction') {
+      if ((ann as any).mode === 'brush' && (ann as any).points && (ann as any).points.length >= 2) {
+        const pts: number[] = (ann as any).points;
+        const xs = pts.filter((_, idx) => idx % 2 === 0);
+        const ys = pts.filter((_, idx) => idx % 2 === 1);
+        minX = Math.min(...xs);
+        maxX = Math.max(...xs);
+        minY = Math.min(...ys);
+        maxY = Math.max(...ys);
+      } else {
+        const w = (ann as any).width || 0;
+        const h = (ann as any).height || 0;
+        const x1 = ann.x || 0;
+        const y1 = ann.y || 0;
+        const x2 = x1 + w * sx;
+        const y2 = y1 + h * sy;
+        minX = Math.min(x1, x2);
+        maxX = Math.max(x1, x2);
+        minY = Math.min(y1, y2);
+        maxY = Math.max(y1, y2);
+      }
+    }
+
     const intersects =
       maxX >= boxLeft && minX <= boxRight && maxY >= boxTop && minY <= boxBottom;
     if (intersects) {

@@ -274,6 +274,40 @@ describe('Smart Hover & Drag-and-Drop Pointer Recognition', () => {
 
     expect(selected).toEqual(['r1', 'l1', 'a1']);
   });
+
+  it('includes redaction annotations within selection box bounds', () => {
+    const annotations: any[] = [
+      {
+        id: 'redact-1',
+        type: 'redaction',
+        mode: 'rect',
+        x: 50,
+        y: 50,
+        width: 100,
+        height: 40,
+      },
+      {
+        id: 'redact-brush',
+        type: 'redaction',
+        mode: 'brush',
+        points: [60, 60, 80, 80],
+      },
+      {
+        id: 'redact-outside',
+        type: 'redaction',
+        mode: 'rect',
+        x: 300,
+        y: 300,
+        width: 50,
+        height: 50,
+      },
+    ];
+    const box = { x: 40, y: 40, width: 120, height: 100 };
+    const hitIds = getAnnotationsInSelectionBox(annotations, box);
+    expect(hitIds).toContain('redact-1');
+    expect(hitIds).toContain('redact-brush');
+    expect(hitIds).not.toContain('redact-outside');
+  });
 });
 
 describe('Text Block Stepped Font-Size Resizing (12..48 Sem Distorção)', () => {

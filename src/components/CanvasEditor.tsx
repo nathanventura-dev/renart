@@ -731,7 +731,8 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
     if (stage && !isLocked && hoveredCorner === null && !isHoveringRotater) {
       stage.container().style.cursor = 'move';
     }
-    if (e.evt.shiftKey && onToggleSelectId) {
+    const isMultiSelectModifier = Boolean(e.evt?.ctrlKey || e.evt?.metaKey || e.evt?.shiftKey);
+    if (isMultiSelectModifier && onToggleSelectId) {
       onToggleSelectId(id);
       return;
     }
