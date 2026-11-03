@@ -479,5 +479,23 @@ describe('Text Block Stepped Font-Size Resizing (12..48 Sem Distorção)', () =>
       expect(outline.width).toBe(258); // 250 + padding*2 (4*2 = 8)
       expect(outline.x).toBe(225); // 100 + 250/2
     });
+
+    it('generates rectangular outline for smart-text redaction annotation matching its width and height', () => {
+      const smartTextAnn: any = {
+        id: 'st1',
+        type: 'redaction',
+        mode: 'smart-text',
+        x: 80,
+        y: 40,
+        width: 160,
+        height: 50,
+      };
+      const outline = getAnnotationSelectionOutline(smartTextAnn);
+      expect(outline.type).toBe('rect');
+      expect(outline.width).toBe(166); // 160 + padding*2 (3*2 = 6)
+      expect(outline.height).toBe(56); // 50 + padding*2 (3*2 = 6)
+      expect(outline.x).toBe(160); // 80 + 160 / 2
+      expect(outline.y).toBe(65); // 40 + 50 / 2
+    });
   });
 });

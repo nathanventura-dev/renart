@@ -1540,19 +1540,22 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
       return;
     }
 
-    applySelectionIds([]);
-
-    if (inlineEditableRef.current) {
-      inlineEditableRef.current.blur();
-    }
-
     const isAltPressed = Boolean(e.evt?.altKey);
     isAltPressedRef.current = isAltPressed;
     const hasActiveSelection = effectiveSelectedIds.length > 0;
     const isEditingActive = editingText !== null;
 
     if (shouldDeselectOnEmptyClick(hasActiveSelection, isEditingActive, isAltPressed)) {
+      applySelectionIds([]);
+      if (inlineEditableRef.current) {
+        inlineEditableRef.current.blur();
+      }
       return;
+    }
+
+    applySelectionIds([]);
+    if (inlineEditableRef.current) {
+      inlineEditableRef.current.blur();
     }
 
     const emptyClickBehavior = resolveCanvasPointerBehavior(activeTool, false, isLocked);

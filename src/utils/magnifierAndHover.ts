@@ -530,7 +530,7 @@ export function getAnnotationSelectionOutline(ann: Annotation): SelectionOutline
   }
 
   if (ann.type === 'redaction') {
-    if (ann.mode === 'rect') {
+    if (ann.mode === 'rect' || ann.mode === 'smart-text') {
       const w = ann.width || 0;
       const h = ann.height || 0;
       const padding = 3;
