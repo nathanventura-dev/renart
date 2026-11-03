@@ -94,7 +94,7 @@ import {
   getOpenChevronArrowPoints,
   getCropVisualGuides,
 } from '../utils/zoomAndCrop';
-import { shouldDeselectOnEmptyClick, getDefaultShapeDimensions, isSimpleClick } from '../utils/canvasPointerActions';
+import { shouldDeselectOnEmptyClick, isSimpleClick, calculateStampedShapeGeometry } from '../utils/canvasPointerActions';
 
 interface CanvasEditorProps {
   imageBase64: string;
@@ -410,6 +410,9 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
   const onUpdateAnnotationRef = useRef(onUpdateAnnotation);
   const isShiftPressedRef = useRef(false);
   const isAltPressedRef = useRef(false);
+  const isDrawingRef = useRef(false);
+  const newAnnotationRef = useRef<Annotation | null>(null);
+  const startPointerPosRef = useRef<{ x: number; y: number } | null>(null);
   const multiDragStartRef = useRef<{
     draggedId: string;
     initialPositions: Record<string, { x: number; y: number }>;
@@ -601,6 +604,9 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
       if (e.key === 'Shift') {
         isShiftPressedRef.current = true;
       }
+      if (e.key === 'Alt') {
+        isAltPressedRef.current = true;
+      }
       if (e.key === 'Escape') {
         if (isEditingTextElement(e.target)) {
           return;
@@ -615,9 +621,13 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
       if (e.key === 'Shift') {
         isShiftPressedRef.current = false;
       }
+      if (e.key === 'Alt') {
+        isAltPressedRef.current = false;
+      }
     };
     const handleBlur = () => {
       isShiftPressedRef.current = false;
+      isAltPressedRef.current = false;
     };
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
@@ -1540,8 +1550,11 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
       return;
     }
 
-    const isAltPressed = Boolean(e.evt?.altKey);
+    const isAltPressed = Boolean(e.evt?.altKey || isAltPressedRef.current);
     isAltPressedRef.current = isAltPressed;
+    if (isAltPressed) {
+      e.evt?.preventDefault();
+    }
     const hasActiveSelection = effectiveSelectedIds.length > 0;
     const isEditingActive = editingText !== null;
 
@@ -1648,10 +1661,13 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
       return;
     }
 
+    startPointerPosRef.current = { x: clampedStartX, y: clampedStartY };
+    isDrawingRef.current = true;
     setIsDrawing(true);
 
+    let initAnn: Annotation | null = null;
     if (activeTool === 'rect') {
-      setNewAnnotation({
+      initAnn = {
         id,
         type: 'rect',
         x: clampedStartX,
@@ -1660,9 +1676,9 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
         height: 1,
         stroke: strokeColor,
         strokeWidth,
-      });
+      };
     } else if (activeTool === 'ellipse') {
-      setNewAnnotation({
+      initAnn = {
         id,
         type: 'ellipse',
         x: clampedStartX,
@@ -1671,9 +1687,9 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
         radiusY: 1,
         stroke: strokeColor,
         strokeWidth,
-      });
+      };
     } else if (activeTool === 'line') {
-      setNewAnnotation({
+      initAnn = {
         id,
         type: 'line',
         x: 0,
@@ -1681,20 +1697,18 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
         points: [clampedStartX, clampedStartY, clampedStartX, clampedStartY],
         stroke: strokeColor,
         strokeWidth,
-      });
+      };
     } else if (activeTool === 'redaction') {
       const activeLevel = redactionLevel ?? (redactionEffect === 'blur' ? 3 : 4);
       if (redactionMode === 'brush') {
-        setNewAnnotation(
-          createRedactionBrush(
-            [clampedStartX, clampedStartY],
-            activeLevel,
-            strokeWidth ? strokeWidth * 4 : 24,
-            id
-          )
+        initAnn = createRedactionBrush(
+          [clampedStartX, clampedStartY],
+          activeLevel,
+          strokeWidth ? strokeWidth * 4 : 24,
+          id
         );
       } else if (redactionMode === 'smart-text') {
-        setNewAnnotation({
+        initAnn = {
           id,
           type: 'redaction',
           mode: 'smart-text',
@@ -1702,11 +1716,9 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
           y: clampedStartY,
           width: 1,
           height: 1,
-        });
+        };
       } else {
-        setNewAnnotation(
-          createRedactionRect(clampedStartX, clampedStartY, 1, 1, activeLevel, id)
-        );
+        initAnn = createRedactionRect(clampedStartX, clampedStartY, 1, 1, activeLevel, id);
       }
     } else if (activeTool === 'arrow') {
       const initialStroke = arrowStyle === 'thin' ? 2 : strokeWidth || 4;
@@ -1715,7 +1727,7 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
           ? [clampedStartX, clampedStartY, clampedStartX, clampedStartY, clampedStartX, clampedStartY]
           : [clampedStartX, clampedStartY, clampedStartX, clampedStartY];
 
-      setNewAnnotation({
+      initAnn = {
         id,
         type: 'arrow',
         x: 0,
@@ -1725,7 +1737,11 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
         strokeWidth: initialStroke,
         arrowStyle,
         curveDirection: arrowCurveDirection,
-      });
+      };
+    }
+    if (initAnn) {
+      newAnnotationRef.current = initAnn;
+      setNewAnnotation(initAnn);
     }
   };
 
@@ -1808,22 +1824,22 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
     if (newAnnotation.type === 'rect') {
       if (isShift) {
         const sq = snapRectWithShift(newAnnotation.x, newAnnotation.y, clampedDrawingX, clampedDrawingY);
-        setNewAnnotation({ ...newAnnotation, width: sq.width, height: sq.height });
+        const nextRect1 = { ...newAnnotation, width: sq.width, height: sq.height }; newAnnotationRef.current = nextRect1; setNewAnnotation(nextRect1);
       } else {
         const width = clampedDrawingX - newAnnotation.x;
         const height = clampedDrawingY - newAnnotation.y;
-        setNewAnnotation({ ...newAnnotation, width, height });
+        const nextRect2 = { ...newAnnotation, width, height }; newAnnotationRef.current = nextRect2; setNewAnnotation(nextRect2);
       }
     } else if (newAnnotation.type === 'ellipse') {
       const radiusX = Math.abs(clampedDrawingX - newAnnotation.x);
       const radiusY = Math.abs(clampedDrawingY - newAnnotation.y);
-      setNewAnnotation({ ...newAnnotation, radiusX, radiusY });
+      const nextEllipse = { ...newAnnotation, radiusX, radiusY }; newAnnotationRef.current = nextEllipse; setNewAnnotation(nextEllipse);
     } else if (newAnnotation.type === 'line') {
       const p1 = newAnnotation.points;
       const targetPt = isShift
         ? snapLinePointsWithShift(p1[0], p1[1], clampedDrawingX, clampedDrawingY)
         : { x: clampedDrawingX, y: clampedDrawingY };
-      setNewAnnotation({ ...newAnnotation, points: [p1[0], p1[1], targetPt.x, targetPt.y] });
+      const nextLine = { ...newAnnotation, points: [p1[0], p1[1], targetPt.x, targetPt.y] }; newAnnotationRef.current = nextLine; setNewAnnotation(nextLine);
     } else if (newAnnotation.type === 'arrow') {
       const p1 = newAnnotation.points;
       const startX = p1[0];
@@ -1836,38 +1852,40 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
           clampedDrawingY,
           newAnnotation.curveDirection || arrowCurveDirection || 'right'
         );
-        setNewAnnotation({ ...newAnnotation, points: curvedPoints });
+        const nextArrow1 = { ...newAnnotation, points: curvedPoints }; newAnnotationRef.current = nextArrow1; setNewAnnotation(nextArrow1);
       } else {
         const targetPt = isShift
           ? snapLinePointsWithShift(startX, startY, clampedDrawingX, clampedDrawingY)
           : { x: clampedDrawingX, y: clampedDrawingY };
-        setNewAnnotation({ ...newAnnotation, points: [startX, startY, targetPt.x, targetPt.y] });
+        const nextArrow2 = { ...newAnnotation, points: [startX, startY, targetPt.x, targetPt.y] }; newAnnotationRef.current = nextArrow2; setNewAnnotation(nextArrow2);
       }
     } else if (newAnnotation.type === 'redaction') {
       if (newAnnotation.mode === 'brush') {
         const prevPoints = newAnnotation.points || [];
-        setNewAnnotation({ ...newAnnotation, points: [...prevPoints, clampedDrawingX, clampedDrawingY] });
+        const nextRed1 = { ...newAnnotation, points: [...prevPoints, clampedDrawingX, clampedDrawingY] }; newAnnotationRef.current = nextRed1; setNewAnnotation(nextRed1);
       } else {
         if (isShift) {
           const sq = snapRectWithShift(newAnnotation.x || 0, newAnnotation.y || 0, clampedDrawingX, clampedDrawingY);
-          setNewAnnotation({ ...newAnnotation, width: sq.width, height: sq.height });
+          const nextRed2 = { ...newAnnotation, width: sq.width, height: sq.height }; newAnnotationRef.current = nextRed2; setNewAnnotation(nextRed2);
         } else {
           const width = clampedDrawingX - (newAnnotation.x ?? 0);
           const height = clampedDrawingY - (newAnnotation.y ?? 0);
-          setNewAnnotation({ ...newAnnotation, width, height });
+          const nextRed3 = { ...newAnnotation, width, height }; newAnnotationRef.current = nextRed3; setNewAnnotation(nextRed3);
         }
       }
     } else if (newAnnotation.type === 'magnifier') {
       const clampedLens = clampMagnifierToImageBounds(pos.x, pos.y, newAnnotation.radius, imgW, imgH);
-      setNewAnnotation({
+      const nextMag = {
         ...newAnnotation,
         x: clampedLens.x,
         y: clampedLens.y,
-      });
+      };
+      newAnnotationRef.current = nextMag;
+      setNewAnnotation(nextMag);
     }
   };
 
-  const handleMouseUp = () => {
+  const handleMouseUp = (e?: Konva.KonvaEventObject<MouseEvent>) => {
     if (marqueeBox) {
       if (marqueeBox.width > 3 || marqueeBox.height > 3) {
         const hitIds = getAnnotationsInSelectionBox(annotations, marqueeBox);
@@ -1877,53 +1895,85 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
       return;
     }
 
-    if (!isDrawing || !newAnnotation) return;
+    const activeAnn = newAnnotationRef.current || newAnnotation;
+    const activeIsDrawing = isDrawingRef.current || isDrawing;
+    if (!activeIsDrawing || !activeAnn) return;
+
+    isDrawingRef.current = false;
     setIsDrawing(false);
+
+    const isAltPressed = Boolean(e?.evt?.altKey || isAltPressedRef.current);
+    const startPos = startPointerPosRef.current;
+    const stage = stageRef.current;
+    const rawPos = stage?.getPointerPosition();
+    const pos = rawPos ? getTransformedPointerPosition(rawPos, zoomLevel) : null;
+    const displacement = (pos && startPos) ? Math.hypot(pos.x - startPos.x, pos.y - startPos.y) : 0;
+    const isClick = isSimpleClick(displacement, 0, 4);
 
     const imgW = bgImage ? bgImage.width : 800;
     const imgH = bgImage ? bgImage.height : 600;
 
-    if (newAnnotation.type === 'redaction') {
-      if (newAnnotation.mode === 'rect') {
-        const isDragged = Math.abs(newAnnotation.width || 0) > 4 && Math.abs(newAnnotation.height || 0) > 4;
-        const shouldStamp = isAltPressedRef.current && isSimpleClick(newAnnotation.width || 0, newAnnotation.height || 0, 4);
-
-        if (isDragged || shouldStamp) {
-          const defaultDims = getDefaultShapeDimensions('redaction');
-          const finalW = isDragged ? (newAnnotation.width || 0) : (defaultDims.width ?? 120);
-          const finalH = isDragged ? (newAnnotation.height || 0) : (defaultDims.height ?? 40);
-
+    if (activeAnn.type === 'redaction') {
+      if (activeAnn.mode === 'rect') {
+        if (isAltPressed && isClick && startPos) {
+          const stamped = calculateStampedShapeGeometry('redaction', startPos, imgW, imgH);
+          onAddAnnotation({ ...activeAnn, ...stamped });
+          applySelectionIds([activeAnn.id]);
+        } else if (Math.abs(activeAnn.width || 0) > 4 && Math.abs(activeAnn.height || 0) > 4) {
           const clamped = clampRedactionRectToBounds(
-            newAnnotation.x || 0,
-            newAnnotation.y || 0,
-            finalW,
-            finalH,
+            activeAnn.x || 0,
+            activeAnn.y || 0,
+            activeAnn.width || 0,
+            activeAnn.height || 0,
             imgW,
             imgH
           );
           onAddAnnotation({
-            ...newAnnotation,
+            ...activeAnn,
             x: clamped.x,
             y: clamped.y,
             width: clamped.width,
             height: clamped.height,
           });
-          applySelectionIds([newAnnotation.id]);
+          applySelectionIds([activeAnn.id]);
         }
-      } else if (newAnnotation.mode === 'smart-text') {
-        const isDragged = Math.abs(newAnnotation.width || 0) > 4 && Math.abs(newAnnotation.height || 0) > 4;
-        const shouldStamp = isAltPressedRef.current && isSimpleClick(newAnnotation.width || 0, newAnnotation.height || 0, 4);
-
-        if (isDragged || shouldStamp) {
-          const defaultDims = getDefaultShapeDimensions('redaction');
-          const finalW = isDragged ? (newAnnotation.width || 0) : (defaultDims.width ?? 120);
-          const finalH = isDragged ? (newAnnotation.height || 0) : (defaultDims.height ?? 40);
-
+      } else if (activeAnn.mode === 'smart-text') {
+        if (isAltPressed && isClick && startPos) {
+          const stamped = calculateStampedShapeGeometry('redaction', startPos, imgW, imgH);
+          const clamped = {
+            x: stamped.x,
+            y: stamped.y,
+            width: stamped.width || 120,
+            height: stamped.height || 40,
+          };
+          const colors = sampleRegionColors(
+            bgImage || { data: new Uint8ClampedArray(4), width: 1, height: 1 },
+            clamped
+          );
+          const annId = activeAnn.id;
+          detectTextInImageRegion(imageBase64, clamped).then((ocrLines) => {
+            if (!ocrLines || ocrLines.length === 0) return;
+            const anonymizedLines = anonymizeOcrLines(ocrLines);
+            onAddAnnotation({
+              id: annId,
+              type: 'redaction',
+              mode: 'smart-text',
+              x: clamped.x,
+              y: clamped.y,
+              width: clamped.width,
+              height: clamped.height,
+              bgColor: colors.bgColor,
+              textColor: colors.textColor,
+              lines: anonymizedLines,
+            });
+            applySelectionIds([annId]);
+          });
+        } else if (Math.abs(activeAnn.width || 0) > 4 && Math.abs(activeAnn.height || 0) > 4) {
           const clamped = clampRedactionRectToBounds(
-            newAnnotation.x || 0,
-            newAnnotation.y || 0,
-            finalW,
-            finalH,
+            activeAnn.x || 0,
+            activeAnn.y || 0,
+            activeAnn.width || 0,
+            activeAnn.height || 0,
             imgW,
             imgH
           );
@@ -1931,7 +1981,7 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
             bgImage || { data: new Uint8ClampedArray(4), width: 1, height: 1 },
             clamped
           );
-          const annId = newAnnotation.id;
+          const annId = activeAnn.id;
           detectTextInImageRegion(imageBase64, clamped).then((ocrLines) => {
             if (!ocrLines || ocrLines.length === 0) return;
             const anonymizedLines = anonymizeOcrLines(ocrLines);
@@ -1950,125 +2000,120 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
             applySelectionIds([annId]);
           });
         }
-      } else if (newAnnotation.mode === 'brush') {
-        if ((newAnnotation.points || []).length >= 4) {
-          onAddAnnotation(newAnnotation);
-          applySelectionIds([newAnnotation.id]);
+      } else if (activeAnn.mode === 'brush') {
+        if ((activeAnn.points || []).length >= 4) {
+          onAddAnnotation(activeAnn);
+          applySelectionIds([activeAnn.id]);
         }
       }
       isAltPressedRef.current = false;
+      newAnnotationRef.current = null;
+      startPointerPosRef.current = null;
       setNewAnnotation(null);
       return;
     }
 
-    if (newAnnotation.type === 'rect') {
-      const isDragged = Math.abs(newAnnotation.width) > 5 && Math.abs(newAnnotation.height) > 5;
-      const shouldStamp = isAltPressedRef.current && isSimpleClick(newAnnotation.width, newAnnotation.height, 5);
-
-      if (isDragged || shouldStamp) {
-        const defaultDims = getDefaultShapeDimensions('rect');
-        const w = isDragged ? Math.abs(newAnnotation.width) : (defaultDims.width ?? 120);
-        const h = isDragged ? Math.abs(newAnnotation.height) : (defaultDims.height ?? 60);
-        const rawX = isDragged && newAnnotation.width < 0 ? newAnnotation.x + newAnnotation.width : newAnnotation.x;
-        const rawY = isDragged && newAnnotation.height < 0 ? newAnnotation.y + newAnnotation.height : newAnnotation.y;
-        const clamped = clampRectToBounds(rawX, rawY, w, h, imgW, imgH);
+    if (activeAnn.type === 'rect') {
+      if (isAltPressed && isClick && startPos) {
+        const stamped = calculateStampedShapeGeometry('rect', startPos, imgW, imgH);
+        onAddAnnotation({ ...activeAnn, ...stamped });
+        applySelectionIds([activeAnn.id]);
+      } else if (Math.abs(activeAnn.width) > 5 && Math.abs(activeAnn.height) > 5) {
+        const rawX = activeAnn.width < 0 ? activeAnn.x + activeAnn.width : activeAnn.x;
+        const rawY = activeAnn.height < 0 ? activeAnn.y + activeAnn.height : activeAnn.y;
+        const clamped = clampRectToBounds(rawX, rawY, Math.abs(activeAnn.width), Math.abs(activeAnn.height), imgW, imgH);
         onAddAnnotation({
-          ...newAnnotation,
+          ...activeAnn,
           x: clamped.x,
           y: clamped.y,
-          width: Math.min(w, imgW - clamped.x),
-          height: Math.min(h, imgH - clamped.y),
+          width: Math.min(Math.abs(activeAnn.width), imgW - clamped.x),
+          height: Math.min(Math.abs(activeAnn.height), imgH - clamped.y),
         });
-        applySelectionIds([newAnnotation.id]);
+        applySelectionIds([activeAnn.id]);
       }
-    } else if (newAnnotation.type === 'ellipse') {
-      const isDragged = newAnnotation.radiusX > 5 && newAnnotation.radiusY > 5;
-      const shouldStamp = isAltPressedRef.current && isSimpleClick(newAnnotation.radiusX, newAnnotation.radiusY, 5);
-
-      if (isDragged || shouldStamp) {
-        const defaultDims = getDefaultShapeDimensions('ellipse');
-        const rx = isDragged ? newAnnotation.radiusX : (defaultDims.radiusX ?? 35);
-        const ry = isDragged ? newAnnotation.radiusY : (defaultDims.radiusY ?? 25);
-        const clamped = clampEllipseToBounds(newAnnotation.x, newAnnotation.y, rx, ry, imgW, imgH);
+    } else if (activeAnn.type === 'ellipse') {
+      if (isAltPressed && isClick && startPos) {
+        const stamped = calculateStampedShapeGeometry('ellipse', startPos, imgW, imgH);
+        onAddAnnotation({ ...activeAnn, ...stamped });
+        applySelectionIds([activeAnn.id]);
+      } else if (activeAnn.radiusX > 5 && activeAnn.radiusY > 5) {
+        const clamped = clampEllipseToBounds(activeAnn.x, activeAnn.y, activeAnn.radiusX, activeAnn.radiusY, imgW, imgH);
         onAddAnnotation({
-          ...newAnnotation,
+          ...activeAnn,
           x: clamped.x,
           y: clamped.y,
-          radiusX: rx,
-          radiusY: ry,
+          radiusX: activeAnn.radiusX,
+          radiusY: activeAnn.radiusY,
         });
-        applySelectionIds([newAnnotation.id]);
+        applySelectionIds([activeAnn.id]);
       }
-    } else if (newAnnotation.type === 'line') {
-      const [x1, y1, x2, y2] = newAnnotation.points;
-      const dist = Math.hypot(x2 - x1, y2 - y1);
-      const isDragged = dist > 3;
-      const shouldStamp = isAltPressedRef.current && dist <= 3;
-
-      if (isDragged || shouldStamp) {
-        const finalX2 = isDragged ? x2 : x1 + 100;
-        const finalY2 = isDragged ? y2 : y1;
-        const clampedP = [
-          Math.max(0, Math.min(x1, imgW)),
-          Math.max(0, Math.min(y1, imgH)),
-          Math.max(0, Math.min(finalX2, imgW)),
-          Math.max(0, Math.min(finalY2, imgH)),
-        ];
-        onAddAnnotation({ ...newAnnotation, points: clampedP });
-        applySelectionIds([newAnnotation.id]);
-      }
-    } else if (newAnnotation.type === 'arrow') {
-      const p = newAnnotation.points;
-      const startX = p[0];
-      const startY = p[1];
-      const endX = p[p.length - 2];
-      const endY = p[p.length - 1];
-      const dist = Math.hypot(endX - startX, endY - startY);
-      const isDragged = dist > 3;
-      const shouldStamp = isAltPressedRef.current && dist <= 3;
-
-      if (isDragged || shouldStamp) {
-        const finalEndX = isDragged ? endX : startX + 100;
-        const finalEndY = isDragged ? endY : startY;
-        let finalPoints = p;
-        if (shouldStamp) {
-          if (newAnnotation.arrowStyle === 'curved') {
-            finalPoints = [startX, startY, startX + 50, startY - 20, finalEndX, finalEndY];
-          } else {
-            finalPoints = [startX, startY, finalEndX, finalEndY];
-          }
+    } else if (activeAnn.type === 'line') {
+      if (isAltPressed && isClick && startPos) {
+        const stamped = calculateStampedShapeGeometry('line', startPos, imgW, imgH);
+        onAddAnnotation({ ...activeAnn, ...stamped });
+        applySelectionIds([activeAnn.id]);
+      } else {
+        const [x1, y1, x2, y2] = activeAnn.points;
+        if (Math.hypot(x2 - x1, y2 - y1) > 3) {
+          const clampedP = [
+            Math.max(0, Math.min(x1, imgW)),
+            Math.max(0, Math.min(y1, imgH)),
+            Math.max(0, Math.min(x2, imgW)),
+            Math.max(0, Math.min(y2, imgH)),
+          ];
+          onAddAnnotation({ ...activeAnn, points: clampedP });
+          applySelectionIds([activeAnn.id]);
         }
-        const clampedP = finalPoints.map((val, idx) =>
-          Math.max(0, Math.min(val, idx % 2 === 0 ? imgW : imgH))
-        );
-        onAddAnnotation({ ...newAnnotation, points: clampedP });
-        applySelectionIds([newAnnotation.id]);
       }
-    } else if (newAnnotation.type === 'magnifier') {
-      const fx = newAnnotation.focusX ?? newAnnotation.x;
-      const fy = newAnnotation.focusY ?? newAnnotation.y;
-      const dragDist = Math.hypot(newAnnotation.x - fx, newAnnotation.y - fy);
+    } else if (activeAnn.type === 'arrow') {
+      if (isAltPressed && isClick && startPos) {
+        const stamped = calculateStampedShapeGeometry('arrow', startPos, imgW, imgH);
+        let finalPoints = stamped.points || [];
+        if (activeAnn.arrowStyle === 'curved' && startPos) {
+          finalPoints = [startPos.x, startPos.y, startPos.x + 50, startPos.y - 20, Math.min(startPos.x + 100, imgW), startPos.y];
+        }
+        onAddAnnotation({ ...activeAnn, points: finalPoints });
+        applySelectionIds([activeAnn.id]);
+      } else {
+        const p = activeAnn.points;
+        const startX = p[0];
+        const startY = p[1];
+        const endX = p[p.length - 2];
+        const endY = p[p.length - 1];
+        if (Math.hypot(endX - startX, endY - startY) > 3) {
+          const clampedP = p.map((val, idx) =>
+            Math.max(0, Math.min(val, idx % 2 === 0 ? imgW : imgH))
+          );
+          onAddAnnotation({ ...activeAnn, points: clampedP });
+          applySelectionIds([activeAnn.id]);
+        }
+      }
+    } else if (activeAnn.type === 'magnifier') {
+      const fx = activeAnn.focusX ?? activeAnn.x;
+      const fy = activeAnn.focusY ?? activeAnn.y;
+      const dragDist = Math.hypot(activeAnn.x - fx, activeAnn.y - fy);
       if (dragDist <= 10) {
-        // Se no modo V2 o usuário apenas clicou sem arrastar, destaca a lente diagonalmente para exibir o cone de foco imediato
         const offsetLens = clampMagnifierToImageBounds(
           fx + 110,
           fy - 85,
-          newAnnotation.radius,
+          activeAnn.radius,
           imgW,
           imgH
         );
         onAddAnnotation({
-          ...newAnnotation,
+          ...activeAnn,
           x: offsetLens.x,
           y: offsetLens.y,
         });
       } else {
-        onAddAnnotation(newAnnotation);
+        onAddAnnotation(activeAnn);
       }
-      applySelectionIds([newAnnotation.id]);
+      applySelectionIds([activeAnn.id]);
     }
 
     isAltPressedRef.current = false;
+    newAnnotationRef.current = null;
+    startPointerPosRef.current = null;
     setNewAnnotation(null);
   };
 
