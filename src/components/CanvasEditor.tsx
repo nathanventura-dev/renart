@@ -94,6 +94,7 @@ import {
   getOpenChevronArrowPoints,
   getCropVisualGuides,
 } from '../utils/zoomAndCrop';
+import { shouldDeselectOnEmptyClick } from '../utils/canvasPointerActions';
 
 interface CanvasEditorProps {
   imageBase64: string;
@@ -1539,6 +1540,18 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
     }
 
     applySelectionIds([]);
+
+    if (inlineEditableRef.current) {
+      inlineEditableRef.current.blur();
+    }
+
+    const isAltPressed = Boolean(e.evt?.altKey);
+    const hasActiveSelection = effectiveSelectedIds.length > 0;
+    const isEditingActive = editingText !== null;
+
+    if (shouldDeselectOnEmptyClick(hasActiveSelection, isEditingActive, isAltPressed)) {
+      return;
+    }
 
     const emptyClickBehavior = resolveCanvasPointerBehavior(activeTool, false, isLocked);
     if (emptyClickBehavior.clickAction !== 'create-new') {
