@@ -183,7 +183,7 @@ vulcap ocr --clipboard --json
 
 ### 1. Clonar o Repositório e Instalar Dependências
 ```bash
-git clone https://github.com/seu-usuario/renart.git
+git clone https://github.com/nathanventura-dev/renart.git
 cd renart
 npm install
 ```
