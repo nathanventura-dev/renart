@@ -1,3 +1,4 @@
+import { RENART_THEME } from './theme/colors';
 import React, { useState, useRef, useSyncExternalStore, useEffect, useCallback } from 'react';
 import Konva from 'konva';
 import { Toolbar } from './components/Toolbar';
@@ -70,7 +71,7 @@ export const App: React.FC = () => {
         ctx.fillStyle = grad;
         ctx.fillRect(0, 0, 900, 550);
 
-        ctx.fillStyle = '#102a43';
+        ctx.fillStyle = RENART_THEME.primary;
         ctx.font = 'bold 26px system-ui';
         ctx.fillText('RenArt — Captura de precisão e anotação fluida', 40, 70);
 

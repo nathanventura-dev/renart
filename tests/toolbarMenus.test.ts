@@ -307,7 +307,7 @@ describe('Toolbar Horizontal Menus & Palette Dropdown', () => {
     expect(htmlCapture).not.toContain('Nova Captura</span>');
     expect(htmlCapture).toContain('title="Nova Captura"');
     expect(htmlCapture).toContain('lucide-camera');
-    expect(htmlCapture).toContain('rgba(0, 113, 227, 0.12)');
+    expect(htmlCapture).toContain('rgba(211, 85, 29, 0.12)');
 
     // Menu suspenso de captura à direita com as 3 opções
     expect(htmlCapture).toContain('Área');
@@ -350,8 +350,8 @@ describe('Toolbar Horizontal Menus & Palette Dropdown', () => {
     );
 
     // Botão de exportar fica com estilo azul ativo
-    expect(htmlExport).toContain('rgba(0, 113, 227, 0.12)');
-    expect(htmlExport).toContain('#0071e3');
+    expect(htmlExport).toContain('rgba(211, 85, 29, 0.12)');
+    expect(htmlExport).toContain('#d3551d');
 
     // Menu horizontal com opções minimalistas
     expect(htmlExport).toContain('.png');

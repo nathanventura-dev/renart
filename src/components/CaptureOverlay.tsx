@@ -1,3 +1,4 @@
+import { RENART_THEME } from '../theme/colors';
 import React, { useState, useRef, useEffect } from 'react';
 import { CaptureMode, Point, RectBounds } from '../types/capture';
 import { calculateNormalizedRect, clampPointToScreen, simplifyFreeformPath } from '../utils/geometry';
@@ -121,7 +122,7 @@ export const CaptureOverlay: React.FC<CaptureOverlayProps> = ({
             top: `${currentRect.y}px`,
             width: `${currentRect.width}px`,
             height: `${currentRect.height}px`,
-            border: '2px solid #0071e3',
+            border: `2px solid ${RENART_THEME.primary}`,
             boxShadow: '0 0 0 9999px rgba(0, 0, 0, 0.45)',
             pointerEvents: 'none',
           }}
@@ -131,7 +132,7 @@ export const CaptureOverlay: React.FC<CaptureOverlayProps> = ({
               position: 'absolute',
               top: '-24px',
               left: 0,
-              backgroundColor: '#0071e3',
+              backgroundColor: RENART_THEME.primary,
               color: '#fff',
               fontSize: '11px',
               padding: '2px 6px',
@@ -158,7 +159,7 @@ export const CaptureOverlay: React.FC<CaptureOverlayProps> = ({
           <polyline
             points={freeformPoints.map((p) => `${p.x},${p.y}`).join(' ')}
             fill="none"
-            stroke="#0071e3"
+            stroke={RENART_THEME.primary}
             strokeWidth="3"
             strokeDasharray="4 4"
           />

@@ -1,3 +1,4 @@
+import { RENART_THEME } from '../theme/colors';
 import React, { useRef, useState, useEffect } from 'react';
 import {
   ToolType,
@@ -573,9 +574,9 @@ export const Toolbar: React.FC<ToolbarProps> = ({
               width: openMenu === 'capture' ? layoutMetrics.captureButtonHeight : 'auto',
               height: layoutMetrics.captureButtonHeight,
               boxSizing: 'border-box',
-              backgroundColor: openMenu === 'capture' ? 'rgba(0, 113, 227, 0.12)' : 'rgba(0, 0, 0, 0.04)',
-              color: openMenu === 'capture' ? '#0071e3' : '#1e293b',
-              border: openMenu === 'capture' ? '1px solid rgba(0, 113, 227, 0.3)' : '1px solid rgba(0, 0, 0, 0.08)',
+              backgroundColor: openMenu === 'capture' ? RENART_THEME.primaryTint : 'rgba(0, 0, 0, 0.04)',
+              color: openMenu === 'capture' ? RENART_THEME.primary : '#1e293b',
+              border: openMenu === 'capture' ? `1px solid ${RENART_THEME.primaryBorder}` : '1px solid rgba(0, 0, 0, 0.08)',
               borderRadius: '8px',
               padding: openMenu === 'capture' ? 0 : '0 12px',
               fontWeight: 600,
@@ -637,7 +638,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.backgroundColor = '#ffffff';
-                  e.currentTarget.style.color = '#0071e3';
+                  e.currentTarget.style.color = RENART_THEME.primary;
                   e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.08)';
                 }}
                 onMouseLeave={(e) => {
@@ -674,7 +675,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.backgroundColor = '#ffffff';
-                  e.currentTarget.style.color = '#0071e3';
+                  e.currentTarget.style.color = RENART_THEME.primary;
                   e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.08)';
                 }}
                 onMouseLeave={(e) => {
@@ -711,7 +712,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.backgroundColor = '#ffffff';
-                  e.currentTarget.style.color = '#0071e3';
+                  e.currentTarget.style.color = RENART_THEME.primary;
                   e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.08)';
                 }}
                 onMouseLeave={(e) => {
@@ -817,7 +818,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                     border: 'none',
                     borderRadius: '4px',
                     cursor: 'pointer',
-                    backgroundColor: isSelected ? '#0071e3' : 'transparent',
+                    backgroundColor: isSelected ? RENART_THEME.primary : 'transparent',
                     color: isSelected ? '#ffffff' : '#334155',
                     transition: 'all 0.15s ease',
                   }}
@@ -936,7 +937,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 border: 'none',
                 borderRadius: '4px',
                 cursor: 'pointer',
-                backgroundColor: isBold ? '#0071e3' : 'transparent',
+                backgroundColor: isBold ? RENART_THEME.primary : 'transparent',
                 color: isBold ? '#ffffff' : '#334155',
               }}
             >
@@ -956,7 +957,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 border: 'none',
                 borderRadius: '4px',
                 cursor: 'pointer',
-                backgroundColor: isItalic ? '#0071e3' : 'transparent',
+                backgroundColor: isItalic ? RENART_THEME.primary : 'transparent',
                 color: isItalic ? '#ffffff' : '#334155',
               }}
             >
@@ -976,7 +977,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 border: 'none',
                 borderRadius: '4px',
                 cursor: 'pointer',
-                backgroundColor: isUnderline ? '#0071e3' : 'transparent',
+                backgroundColor: isUnderline ? RENART_THEME.primary : 'transparent',
                 color: isUnderline ? '#ffffff' : '#334155',
               }}
             >
@@ -996,7 +997,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 border: 'none',
                 borderRadius: '4px',
                 cursor: 'pointer',
-                backgroundColor: isStrikethrough ? '#0071e3' : 'transparent',
+                backgroundColor: isStrikethrough ? RENART_THEME.primary : 'transparent',
                 color: isStrikethrough ? '#ffffff' : '#334155',
               }}
             >
@@ -1021,7 +1022,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 border: 'none',
                 borderRadius: '4px',
                 cursor: 'pointer',
-                backgroundColor: textAlign === 'left' ? '#0071e3' : 'transparent',
+                backgroundColor: textAlign === 'left' ? RENART_THEME.primary : 'transparent',
                 color: textAlign === 'left' ? '#ffffff' : '#334155',
               }}
             >
@@ -1041,7 +1042,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 border: 'none',
                 borderRadius: '4px',
                 cursor: 'pointer',
-                backgroundColor: textAlign === 'center' ? '#0071e3' : 'transparent',
+                backgroundColor: textAlign === 'center' ? RENART_THEME.primary : 'transparent',
                 color: textAlign === 'center' ? '#ffffff' : '#334155',
               }}
             >
@@ -1061,7 +1062,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 border: 'none',
                 borderRadius: '4px',
                 cursor: 'pointer',
-                backgroundColor: textAlign === 'right' ? '#0071e3' : 'transparent',
+                backgroundColor: textAlign === 'right' ? RENART_THEME.primary : 'transparent',
                 color: textAlign === 'right' ? '#ffffff' : '#334155',
               }}
             >
@@ -1086,7 +1087,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 border: 'none',
                 borderRadius: '4px',
                 cursor: 'pointer',
-                backgroundColor: hasBackground ? '#0071e3' : 'transparent',
+                backgroundColor: hasBackground ? RENART_THEME.primary : 'transparent',
                 color: hasBackground ? '#ffffff' : '#334155',
               }}
             >
@@ -1108,7 +1109,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 border: 'none',
                 borderRadius: '4px',
                 cursor: 'pointer',
-                backgroundColor: autoWrap ? '#0071e3' : 'transparent',
+                backgroundColor: autoWrap ? RENART_THEME.primary : 'transparent',
                 color: autoWrap ? '#ffffff' : '#334155',
               }}
             >
@@ -1169,7 +1170,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 border: 'none',
                 borderRadius: '4px',
                 cursor: 'pointer',
-                backgroundColor: effectiveRedactionLevel === 1 ? '#0071e3' : 'transparent',
+                backgroundColor: effectiveRedactionLevel === 1 ? RENART_THEME.primary : 'transparent',
                 color: effectiveRedactionLevel === 1 ? '#ffffff' : '#334155',
               }}
             >
@@ -1190,7 +1191,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 border: 'none',
                 borderRadius: '4px',
                 cursor: 'pointer',
-                backgroundColor: effectiveRedactionLevel === 2 ? '#0071e3' : 'transparent',
+                backgroundColor: effectiveRedactionLevel === 2 ? RENART_THEME.primary : 'transparent',
                 color: effectiveRedactionLevel === 2 ? '#ffffff' : '#334155',
               }}
             >
@@ -1211,7 +1212,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 border: 'none',
                 borderRadius: '4px',
                 cursor: 'pointer',
-                backgroundColor: effectiveRedactionLevel === 3 ? '#0071e3' : 'transparent',
+                backgroundColor: effectiveRedactionLevel === 3 ? RENART_THEME.primary : 'transparent',
                 color: effectiveRedactionLevel === 3 ? '#ffffff' : '#334155',
               }}
             >
@@ -1234,7 +1235,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 border: 'none',
                 borderRadius: '4px',
                 cursor: 'pointer',
-                backgroundColor: effectiveRedactionMode === 'rect' ? '#0071e3' : 'transparent',
+                backgroundColor: effectiveRedactionMode === 'rect' ? RENART_THEME.primary : 'transparent',
                 color: effectiveRedactionMode === 'rect' ? '#ffffff' : '#334155',
               }}
             >
@@ -1252,7 +1253,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 border: 'none',
                 borderRadius: '4px',
                 cursor: 'pointer',
-                backgroundColor: effectiveRedactionMode === 'brush' ? '#0071e3' : 'transparent',
+                backgroundColor: effectiveRedactionMode === 'brush' ? RENART_THEME.primary : 'transparent',
                 color: effectiveRedactionMode === 'brush' ? '#ffffff' : '#334155',
               }}
             >
@@ -1295,7 +1296,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 border: 'none',
                 borderRadius: '4px',
                 cursor: 'pointer',
-                backgroundColor: effectiveMagnifierMode === 'without-focus' ? '#0071e3' : 'transparent',
+                backgroundColor: effectiveMagnifierMode === 'without-focus' ? RENART_THEME.primary : 'transparent',
                 color: effectiveMagnifierMode === 'without-focus' ? '#ffffff' : '#334155',
               }}
             >
@@ -1313,7 +1314,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 border: 'none',
                 borderRadius: '4px',
                 cursor: 'pointer',
-                backgroundColor: effectiveMagnifierMode === 'with-focus' ? '#0071e3' : 'transparent',
+                backgroundColor: effectiveMagnifierMode === 'with-focus' ? RENART_THEME.primary : 'transparent',
                 color: effectiveMagnifierMode === 'with-focus' ? '#ffffff' : '#334155',
               }}
             >
@@ -1486,7 +1487,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                   boxSizing: 'border-box',
                   borderRadius: '50%',
                   backgroundColor: c,
-                  border: strokeColor === c ? '2px solid #0071e3' : '1px solid #ccc',
+                  border: strokeColor === c ? `2px solid ${RENART_THEME.primary}` : '1px solid #ccc',
                   padding: 0,
                   cursor: 'pointer',
                 }}
@@ -1747,7 +1748,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                   }}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.backgroundColor = '#ffffff';
-                    e.currentTarget.style.color = '#0071e3';
+                    e.currentTarget.style.color = RENART_THEME.primary;
                     e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.08)';
                   }}
                   onMouseLeave={(e) => {
@@ -1779,15 +1780,15 @@ export const Toolbar: React.FC<ToolbarProps> = ({
               boxSizing: 'border-box',
               border:
                 openMenu === 'export'
-                  ? '1px solid rgba(0, 113, 227, 0.3)'
+                  ? `1px solid ${RENART_THEME.primaryBorder}`
                   : '1px solid #e2e8f0',
               backgroundColor:
                 openMenu === 'export'
-                  ? 'rgba(0, 113, 227, 0.12)'
+                  ? RENART_THEME.primaryTint
                   : hoveredAction === 'export'
                     ? '#f1f5f9'
                     : '#f8fafc',
-              color: openMenu === 'export' ? '#0071e3' : '#1e293b',
+              color: openMenu === 'export' ? RENART_THEME.primary : '#1e293b',
               borderRadius: '8px',
               cursor: 'pointer',
               transition: 'background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease',

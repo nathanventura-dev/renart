@@ -1,3 +1,4 @@
+import { RENART_THEME } from '../theme/colors';
 import React from 'react';
 import { GalleryItem } from '../state/galleryStore';
 import { X, Clock } from 'lucide-react';
@@ -72,8 +73,8 @@ export const GallerySidebar: React.FC<GallerySidebarProps> = ({
                 onClick={() => onSelect(item.id)}
                 style={{
                   position: 'relative',
-                  border: isActive ? '2px solid #0071e3' : '1px solid #e5e5e7',
-                  backgroundColor: isActive ? 'rgba(0, 113, 227, 0.08)' : '#f9f9fa',
+                  border: isActive ? `2px solid ${RENART_THEME.primary}` : '1px solid #e5e5e7',
+                  backgroundColor: isActive ? RENART_THEME.galleryActiveBg : '#f9f9fa',
                   borderRadius: '6px',
                   padding: '6px',
                   cursor: 'pointer',
@@ -128,7 +129,7 @@ export const GallerySidebar: React.FC<GallerySidebarProps> = ({
 
                 {/* Detalhes do Item */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '6px' }}>
-                  <span style={{ fontSize: '11px', fontWeight: isActive ? 600 : 500, color: isActive ? '#0071e3' : '#1d1d1f' }}>
+                  <span style={{ fontSize: '11px', fontWeight: isActive ? 600 : 500, color: isActive ? RENART_THEME.primary : '#1d1d1f' }}>
                     {item.title}
                   </span>
                   <span style={{ fontSize: '10px', color: '#86868b', display: 'flex', alignItems: 'center', gap: '2px' }}>

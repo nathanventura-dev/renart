@@ -105,12 +105,12 @@ describe('Toolbar Redaction Levels UI (3-Level System)', () => {
       );
 
     const html1 = renderForLevel(1);
-    expect(html1).toContain('title="Nível 1: Desfoque suave para rostos e fundos" style="width:28px;height:24px;display:inline-flex;align-items:center;justify-content:center;border:none;border-radius:4px;cursor:pointer;background-color:#0071e3;color:#ffffff"');
+    expect(html1).toContain('title="Nível 1: Desfoque suave para rostos e fundos" style="width:28px;height:24px;display:inline-flex;align-items:center;justify-content:center;border:none;border-radius:4px;cursor:pointer;background-color:#d3551d;color:#ffffff"');
 
     const html2 = renderForLevel(2);
-    expect(html2).toContain('title="Nível 2: Desfoque moderado para texto" style="width:28px;height:24px;display:inline-flex;align-items:center;justify-content:center;border:none;border-radius:4px;cursor:pointer;background-color:#0071e3;color:#ffffff"');
+    expect(html2).toContain('title="Nível 2: Desfoque moderado para texto" style="width:28px;height:24px;display:inline-flex;align-items:center;justify-content:center;border:none;border-radius:4px;cursor:pointer;background-color:#d3551d;color:#ffffff"');
 
     const html3 = renderForLevel(3);
-    expect(html3).toContain('title="Nível 3: Tarja preta 100% sólida (Inviolável)" style="width:28px;height:24px;display:inline-flex;align-items:center;justify-content:center;border:none;border-radius:4px;cursor:pointer;background-color:#0071e3;color:#ffffff"');
+    expect(html3).toContain('title="Nível 3: Tarja preta 100% sólida (Inviolável)" style="width:28px;height:24px;display:inline-flex;align-items:center;justify-content:center;border:none;border-radius:4px;cursor:pointer;background-color:#d3551d;color:#ffffff"');
   });
 });

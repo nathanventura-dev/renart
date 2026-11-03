@@ -1,3 +1,4 @@
+import { RENART_THEME } from '../theme/colors';
 import { resolveKonvaFontStyle, resolveKonvaTextDecoration, parseHtmlToSpans, spansToHtml, measureSpanWidth, wrapSpansToWidth, TextSpan, isEditingTextElement, calculateTextDimensions, isPointInsideTextAnnotation, shouldShowTextCornerAnchors, resetTextDimensionsToAutoFit, trimSpans, placeCaretAtEnd } from '../utils/textStyle';
 import React, { useRef, useState, useEffect, useMemo } from 'react';
 import {
@@ -2955,7 +2956,7 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                         <Rect
                           width={w}
                           height={h}
-                          stroke="#0071e3"
+                          stroke={RENART_THEME.primary}
                           strokeWidth={1.5}
                           dash={[4, 4]}
                           fill="transparent"
@@ -3243,7 +3244,7 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                 const zoomProgress = calculateZoomBarProgress(activeZoom);
                 const isSelected = effectiveSelectedIds.includes(ann.id);
                 const grooveShift = (activeZoom - 2.0) * 4;
-                const ringColor = ann.stroke || (isSelected ? '#0071e3' : '#64748b');
+                const ringColor = ann.stroke || (isSelected ? RENART_THEME.primary : '#64748b');
 
                 const startFocusDrag = (e: Konva.KonvaEventObject<MouseEvent>) => {
                   if (isLocked) return;
@@ -3781,7 +3782,7 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                       width={Math.abs(newAnnotation.width!)}
                       height={Math.abs(newAnnotation.height!)}
                       fill={isSolid ? '#000000' : 'rgba(100, 116, 139, 0.4)'}
-                      stroke={!isSolid ? '#0071e3' : undefined}
+                      stroke={!isSolid ? RENART_THEME.primary : undefined}
                       strokeWidth={1}
                       dash={!isSolid ? [4, 4] : undefined}
                       listening={false}
@@ -3891,7 +3892,7 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                             x={previewFocusGeo.dx}
                             y={previewFocusGeo.dy}
                             radius={previewFocusGeo.focusDotRadius}
-                            fill="#0071e3"
+                            fill={RENART_THEME.primary}
                             stroke="#ffffff"
                             strokeWidth={1.5}
                             listening={false}
@@ -3919,7 +3920,7 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                       </Group>
                       <Circle
                         radius={newAnnotation.radius}
-                        stroke="#0071e3"
+                        stroke={RENART_THEME.primary}
                         strokeWidth={2}
                         listening={false}
                       />
@@ -3937,8 +3938,8 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                 y={marqueeBox.y}
                 width={marqueeBox.width}
                 height={marqueeBox.height}
-                fill="rgba(0, 113, 227, 0.12)"
-                stroke="#0071e3"
+                fill={RENART_THEME.primaryTint}
+                stroke={RENART_THEME.primary}
                 strokeWidth={1.5}
                 dash={[4, 4]}
                 listening={false}
@@ -4094,7 +4095,7 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                         y={pos.y}
                         radius={6}
                         fill="#ffffff"
-                        stroke="#0071e3"
+                        stroke={RENART_THEME.primary}
                         strokeWidth={2}
                         shadowColor="rgba(0, 0, 0, 0.25)"
                         shadowBlur={3}
@@ -4179,7 +4180,7 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                         y={pos.y}
                         radius={6}
                         fill="#ffffff"
-                        stroke="#0071e3"
+                        stroke={RENART_THEME.primary}
                         strokeWidth={2}
                         shadowColor="rgba(0, 0, 0, 0.25)"
                         shadowBlur={3}
@@ -4304,7 +4305,7 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                           corners[3].y,
                         ]}
                         closed
-                        stroke="#0071e3"
+                        stroke={RENART_THEME.primary}
                         strokeWidth={1}
                         dash={[4, 4]}
                         opacity={0.75}
@@ -4518,7 +4519,7 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
               anchorFill={activeTool === 'crop' || isCropping ? 'rgba(255, 255, 255, 0.01)' : '#ffffff'}
               anchorStroke={activeTool === 'crop' || isCropping ? 'rgba(0, 0, 0, 0.01)' : '#71717a'}
               anchorStrokeWidth={activeTool === 'crop' || isCropping ? 0 : 1.5}
-              borderStroke={activeTool === 'crop' || isCropping ? 'transparent' : '#0071e3'}
+              borderStroke={activeTool === 'crop' || isCropping ? 'transparent' : RENART_THEME.primary}
               borderStrokeWidth={activeTool === 'crop' || isCropping ? 0 : 1.5}
               rotateAnchorOffset={28}
               rotateAnchorCursor="grab"
@@ -4755,7 +4756,7 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
                 color: editingText.fill,
                 fontFamily: editingText.fontFamily || 'Arial',
                 textAlign: editingText.textAlign || 'left',
-                border: '1px dashed #0071e3',
+                border: `1px dashed ${RENART_THEME.primary}`,
                 borderRadius: '4px',
                 backgroundColor: editingText.hasBackground ? 'rgba(255, 255, 255, 0.96)' : 'transparent',
                 padding: `${(editingText.hasBackground ? 4 : 0) * zoomLevel}px ${(editingText.hasBackground ? 8 : 0) * zoomLevel}px`,

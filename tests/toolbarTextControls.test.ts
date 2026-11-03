@@ -53,12 +53,12 @@ describe('Toolbar Advanced Text Controls UI', () => {
     expect(html).toContain('title="Caixa de destaque / Fundo do texto"');
     expect(html).toContain('title="Quebra automática de linha (Auto-wrap)"');
 
-    // Verifica destaques ativos (#0071e3)
+    // Verifica destaques ativos (#d3551d)
     // Negrito está ativo
-    expect(html).toContain('title="Negrito (Ctrl+B)" style="width:28px;height:24px;display:inline-flex;align-items:center;justify-content:center;border:none;border-radius:4px;cursor:pointer;background-color:#0071e3;color:#ffffff"');
+    expect(html).toContain('title="Negrito (Ctrl+B)" style="width:28px;height:24px;display:inline-flex;align-items:center;justify-content:center;border:none;border-radius:4px;cursor:pointer;background-color:#d3551d;color:#ffffff"');
     // Centralizar está ativo
-    expect(html).toContain('title="Centralizar" style="width:28px;height:24px;display:inline-flex;align-items:center;justify-content:center;border:none;border-radius:4px;cursor:pointer;background-color:#0071e3;color:#ffffff"');
+    expect(html).toContain('title="Centralizar" style="width:28px;height:24px;display:inline-flex;align-items:center;justify-content:center;border:none;border-radius:4px;cursor:pointer;background-color:#d3551d;color:#ffffff"');
     // Fundo está ativo
-    expect(html).toContain('title="Caixa de destaque / Fundo do texto" style="width:28px;height:24px;display:inline-flex;align-items:center;justify-content:center;border:none;border-radius:4px;cursor:pointer;background-color:#0071e3;color:#ffffff"');
+    expect(html).toContain('title="Caixa de destaque / Fundo do texto" style="width:28px;height:24px;display:inline-flex;align-items:center;justify-content:center;border:none;border-radius:4px;cursor:pointer;background-color:#d3551d;color:#ffffff"');
   });
 });
