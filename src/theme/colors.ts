@@ -44,7 +44,7 @@ export const LIGHT_PALETTE: ThemePalette = {
 export const DARK_PALETTE: ThemePalette = {
   chrome: '#1a2227',
   control: '#272f34',
-  controlActive: '#323a40',
+  controlActive: '#3d484f',
   hover: '#323a40',
   popup: '#2b2c2d',
   border: '#2c3338',

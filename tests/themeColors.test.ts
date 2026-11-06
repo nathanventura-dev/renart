@@ -38,4 +38,10 @@ describe('RenArt Theme Colors', () => {
     expect(LIGHT_PALETTE.textMuted).toBe('#86868b');
     expect(LIGHT_PALETTE.workspace).toBe('#e5e5e7');
   });
+
+  it('selected tool highlight is distinguishable from the tool group background', () => {
+    expect(LIGHT_PALETTE.controlActive).not.toBe(LIGHT_PALETTE.control);
+    expect(DARK_PALETTE.controlActive).not.toBe(DARK_PALETTE.control);
+    expect(DARK_PALETTE.controlActive).not.toBe(DARK_PALETTE.hover);
+  });
 });

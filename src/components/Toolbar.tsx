@@ -743,7 +743,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
           height: layoutMetrics.centerToolbarHeight,
           boxSizing: 'border-box',
           gap: '4px',
-          backgroundColor: palette.hover,
+          backgroundColor: palette.control,
           padding: '0 6px',
           borderRadius: '8px',
           border: `1px solid ${palette.border}`,
