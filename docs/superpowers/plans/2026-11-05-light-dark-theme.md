@@ -1,6 +1,6 @@
 # Tema Claro e Escuro Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Adicionar tema claro/escuro à interface do RenArt, seguindo o SO por padrão com alternância manual persistida.
 
@@ -44,14 +44,14 @@ Ajuste em relação ao spec: a tabela de tokens ganhou `controlActive`, `hover`,
 Valores claros (reaproveitam os literais atuais): chrome `#ffffff`, control `rgba(0,0,0,0.04)`, controlActive `#ffffff`, hover `#f1f5f9`, popup `#f8fafc`, border `#e5e5e7`, borderStrong `#d1d1d6`, textPrimary `#1e293b`, textSecondary `#475569`, textMuted `#86868b`, icon `#334155`, workspace `#e5e5e7`, shadow `rgba(0,0,0,0.12)`, thumbBg `#f9f9fa`.
 Valores escuros: chrome `#1a2227`, control `#272f34`, controlActive `#323a40`, hover `#323a40`, popup `#2b2c2d`, border `#2c3338`, borderStrong `#3b444a`, textPrimary `#ffffff`, textSecondary `#c5c5c5`, textMuted `#9aa0a6`, icon `#e6e8ea`, workspace `#121211`, shadow `rgba(0,0,0,0.5)`, thumbBg `#20282d`.
 
-- [ ] **Step 1: Escrever os testes que falham** em `tests/themeColors.test.ts` (manter os existentes):
+- [x] **Step 1: Escrever os testes que falham** em `tests/themeColors.test.ts` (manter os existentes):
   - `'light and dark palettes expose exactly the same keys'`: `Object.keys(LIGHT_PALETTE).sort()` igual a `Object.keys(DARK_PALETTE).sort()`.
   - `'dark palette matches colors measured from Windows Snipping Tool'`: `DARK_PALETTE.chrome === '#1a2227'`, `.control === '#272f34'`, `.popup === '#2b2c2d'`, `.border === '#2c3338'`, `.textPrimary === '#ffffff'`, `.textSecondary === '#c5c5c5'`, `.workspace === '#121211'`.
   - `'light palette keeps current interface colors'`: `LIGHT_PALETTE.chrome === '#ffffff'`, `.border === '#e5e5e7'`, `.textMuted === '#86868b'`, `.workspace === '#e5e5e7'`.
-- [ ] **Step 2: Rodar `npx vitest run tests/themeColors.test.ts`.** Esperado: FAIL (exports não existem).
-- [ ] **Step 3: Implementar** `ThemePalette`, `LIGHT_PALETTE` e `DARK_PALETTE` em `src/theme/colors.ts` com os valores acima.
-- [ ] **Step 4: Rodar `npx vitest run tests/themeColors.test.ts`.** Esperado: PASS.
-- [ ] **Step 5: Commit**
+- [x] **Step 2: Rodar `npx vitest run tests/themeColors.test.ts`.** Esperado: FAIL (exports não existem).
+- [x] **Step 3: Implementar** `ThemePalette`, `LIGHT_PALETTE` e `DARK_PALETTE` em `src/theme/colors.ts` com os valores acima.
+- [x] **Step 4: Rodar `npx vitest run tests/themeColors.test.ts`.** Esperado: PASS.
+- [x] **Step 5: Commit**
 ```bash
 git add src/theme/colors.ts tests/themeColors.test.ts
 git commit -m "feat(theme): adicionar paletas clara e escura baseadas na Ferramenta de Captura"
@@ -75,7 +75,7 @@ git commit -m "feat(theme): adicionar paletas clara e escura baseadas na Ferrame
   - `themeStore`: instância singleton exportada de `themeStore.ts`.
   - `useTheme(): { palette: ThemePalette; resolved: ResolvedTheme; preference: ThemePreference; setPreference; cyclePreference }`, via `useSyncExternalStore` sobre `themeStore`. O snapshot precisa ter identidade estável entre mudanças (reaproveitar o objeto de estado enquanto nada muda).
 
-- [ ] **Step 1: Escrever os testes que falham** em `tests/themeStore.test.ts`, com um `matchMedia` falso que permite disparar `change` e um `storage` falso em memória:
+- [x] **Step 1: Escrever os testes que falham** em `tests/themeStore.test.ts`, com um `matchMedia` falso que permite disparar `change` e um `storage` falso em memória:
   - `'defaults to system and resolves from matchMedia'` (matches true → `dark`; false → `light`).
   - `'forced light/dark ignore the OS'`: após `setPreference('light')` com SO escuro, `resolved === 'light'`; idem para `'dark'`.
   - `'OS change updates resolved only in system mode'`: em `system` o `change` atualiza e notifica; em `light` não altera `resolved`.
@@ -85,11 +85,11 @@ git commit -m "feat(theme): adicionar paletas clara e escura baseadas na Ferrame
   - `'missing matchMedia resolves light'`.
   - `'cyclePreference walks system, light, dark, system'`.
   - `'dispose removes the matchMedia listener'` e `'unsubscribe stops notifications'`.
-- [ ] **Step 2: Rodar `npx vitest run tests/themeStore.test.ts`.** Esperado: FAIL.
-- [ ] **Step 3: Implementar `createThemeStore` e o singleton `themeStore`** em `src/state/themeStore.ts`, no estilo de `src/state/galleryStore.ts` (estado imutável + `Set` de listeners). Objeto de estado só é recriado quando `preference` ou `resolved` mudam de fato.
-- [ ] **Step 4: Implementar `useTheme`** em `src/hooks/useTheme.ts`; `palette` vem de `resolved === 'dark' ? DARK_PALETTE : LIGHT_PALETTE`.
-- [ ] **Step 5: Rodar `npx vitest run tests/themeStore.test.ts && npx tsc --noEmit`.** Esperado: PASS e sem erros.
-- [ ] **Step 6: Commit**
+- [x] **Step 2: Rodar `npx vitest run tests/themeStore.test.ts`.** Esperado: FAIL.
+- [x] **Step 3: Implementar `createThemeStore` e o singleton `themeStore`** em `src/state/themeStore.ts`, no estilo de `src/state/galleryStore.ts` (estado imutável + `Set` de listeners). Objeto de estado só é recriado quando `preference` ou `resolved` mudam de fato.
+- [x] **Step 4: Implementar `useTheme`** em `src/hooks/useTheme.ts`; `palette` vem de `resolved === 'dark' ? DARK_PALETTE : LIGHT_PALETTE`.
+- [x] **Step 5: Rodar `npx vitest run tests/themeStore.test.ts && npx tsc --noEmit`.** Esperado: PASS e sem erros.
+- [x] **Step 6: Commit**
 ```bash
 git add src/state/themeStore.ts src/hooks/useTheme.ts tests/themeStore.test.ts
 git commit -m "feat(theme): adicionar themeStore com preferencia persistida e hook useTheme"
@@ -110,12 +110,12 @@ git commit -m "feat(theme): adicionar themeStore com preferencia persistida e ho
 
 Mapeamento literal → token em `Toolbar.tsx`: `#ffffff` de fundo/superfície → `chrome` (botão ativo → `controlActive`); `#f8fafc` → `popup`; `#f1f5f9` → `hover`; `#e5e5e7` e `#e2e8f0` → `border`; `#d1d1d6` → `borderStrong`; `#334155` → `icon`; `#1e293b` → `textPrimary`; `#475569` → `textSecondary`; `#f5f5f7` → `workspace`; `rgba(0,0,0,0.04)` → `control`; sombras `rgba(0,0,0,0.08–0.15)` → `shadow`. Ficam como estão, com `// theme-exempt`: o array `TOOLBAR_COLORS` (swatches de anotação, inclui `#ffffff`), `#ffffff` usado como texto sobre fundo laranja, e as cores semânticas verde/vermelho (`#16a34a`, `#15803d`, `#b91c1c`, `rgba(34,197,94,…)`, `rgba(239,68,68,…)`).
 
-- [ ] **Step 1: Escrever o teste de regressão que falha** em `tests/themeSurfaces.test.ts`: helper `findLiteralSurfaceColors(file: string): string[]` que lê o arquivo, ignora linhas com `theme-exempt`, e retorna as linhas contendo qualquer de `#ffffff`, `#e5e5e7`, `#86868b`, `#f8fafc`, `#475569`, `#334155`, `#e2e8f0`, `#f5f5f7`, `#f1f5f9`, `#d1d1d6`, `#1e293b`. Teste: `'Toolbar.tsx has no literal surface colors'` espera lista vazia. Teste: `'Toolbar.tsx exposes a theme toggle'` espera que o arquivo contenha `data-testid="theme-toggle"` e `cyclePreference`.
-- [ ] **Step 2: Rodar `npx vitest run tests/themeSurfaces.test.ts`.** Esperado: FAIL listando as linhas de `Toolbar.tsx`.
-- [ ] **Step 3: Migrar `Toolbar.tsx`** conforme o mapeamento, chamando `useTheme()` em `Toolbar` e em `HorizontalFloatingMenu`; marcar as isenções com `// theme-exempt`.
-- [ ] **Step 4: Adicionar o botão `theme-toggle`** ao lado das ações da direita, com ícone SVG inline (sol/lua/monitor conforme `preference`), mesma altura `INNER_CONTROL_HEIGHT` dos demais botões.
-- [ ] **Step 5: Rodar `npx vitest run && npx tsc --noEmit`.** Esperado: todos passam, incluindo os testes de toolbar existentes.
-- [ ] **Step 6: Commit**
+- [x] **Step 1: Escrever o teste de regressão que falha** em `tests/themeSurfaces.test.ts`: helper `findLiteralSurfaceColors(file: string): string[]` que lê o arquivo, ignora linhas com `theme-exempt`, e retorna as linhas contendo qualquer de `#ffffff`, `#e5e5e7`, `#86868b`, `#f8fafc`, `#475569`, `#334155`, `#e2e8f0`, `#f5f5f7`, `#f1f5f9`, `#d1d1d6`, `#1e293b`. Teste: `'Toolbar.tsx has no literal surface colors'` espera lista vazia. Teste: `'Toolbar.tsx exposes a theme toggle'` espera que o arquivo contenha `data-testid="theme-toggle"` e `cyclePreference`.
+- [x] **Step 2: Rodar `npx vitest run tests/themeSurfaces.test.ts`.** Esperado: FAIL listando as linhas de `Toolbar.tsx`.
+- [x] **Step 3: Migrar `Toolbar.tsx`** conforme o mapeamento, chamando `useTheme()` em `Toolbar` e em `HorizontalFloatingMenu`; marcar as isenções com `// theme-exempt`.
+- [x] **Step 4: Adicionar o botão `theme-toggle`** ao lado das ações da direita, com ícone SVG inline (sol/lua/monitor conforme `preference`), mesma altura `INNER_CONTROL_HEIGHT` dos demais botões.
+- [x] **Step 5: Rodar `npx vitest run && npx tsc --noEmit`.** Esperado: todos passam, incluindo os testes de toolbar existentes.
+- [x] **Step 6: Commit**
 ```bash
 git add src/components/Toolbar.tsx tests/themeSurfaces.test.ts
 git commit -m "feat(theme): aplicar paleta no Toolbar e adicionar botao de alternancia de tema"
@@ -135,11 +135,11 @@ git commit -m "feat(theme): aplicar paleta no Toolbar e adicionar botao de alter
 
 Mapeamento: em `GallerySidebar.tsx`, `#ffffff`→`chrome`, `#e5e5e7`→`border`, `#86868b`→`textMuted`, `#aeaeb2`→`textMuted`, `#f9f9fa`→`thumbBg`, `#f5f5f7`→`control`, `#1d1d1f`→`textPrimary`; o `#ffffff` do contador em laranja (`#ff9f0a`) fica com `// theme-exempt`. Em `App.tsx`, só o `#86868b` do texto de placeholder vira `textMuted`; o gradiente `#f0f4f8`/`#d9e2ec`/`#627d98` (linhas 69–78) desenha uma imagem de exemplo, não interface: `// theme-exempt`. Em `CanvasEditor.tsx`, `#e5e5e7` do container → `workspace` e a sombra da imagem → `shadow`; as outras ~70 cores do arquivo são conteúdo de canvas e não entram no teste. `index.html`: adicionar `@media (prefers-color-scheme: dark)` com `background-color: #121211; color: #ffffff` em `html, body, #root`, para evitar flash branco; o React assume o controle depois. O fundo inicial do `html` deve usar o tema escolhido no `localStorage` quando existir, via um script inline curto no `<head>` que define `document.documentElement.dataset.theme` e uma regra `html[data-theme='dark']` com as mesmas cores.
 
-- [ ] **Step 1: Estender `tests/themeSurfaces.test.ts`** com `'GallerySidebar.tsx has no literal surface colors'` e `'App.tsx has no literal surface colors'` (mesmo helper), mais `'index.html defines dark startup colors'` (contém `prefers-color-scheme: dark` e `#121211`), `'CanvasEditor workspace background comes from the palette'` (a linha do container não contém `#e5e5e7`), e `'exportService does not depend on the theme'` (`src/services/exportService.ts` não contém `theme`).
-- [ ] **Step 2: Rodar `npx vitest run tests/themeSurfaces.test.ts`.** Esperado: FAIL.
-- [ ] **Step 3: Migrar os quatro arquivos** conforme o mapeamento; `CanvasEditor` chama `useTheme()` apenas para `workspace` e `shadow`.
-- [ ] **Step 4: Rodar `npx vitest run && npx tsc --noEmit && npx vite build`.** Esperado: tudo passa, build gera `dist/`.
-- [ ] **Step 5: Commit**
+- [x] **Step 1: Estender `tests/themeSurfaces.test.ts`** com `'GallerySidebar.tsx has no literal surface colors'` e `'App.tsx has no literal surface colors'` (mesmo helper), mais `'index.html defines dark startup colors'` (contém `prefers-color-scheme: dark` e `#121211`), `'CanvasEditor workspace background comes from the palette'` (a linha do container não contém `#e5e5e7`), e `'exportService does not depend on the theme'` (`src/services/exportService.ts` não contém `theme`).
+- [x] **Step 2: Rodar `npx vitest run tests/themeSurfaces.test.ts`.** Esperado: FAIL.
+- [x] **Step 3: Migrar os quatro arquivos** conforme o mapeamento; `CanvasEditor` chama `useTheme()` apenas para `workspace` e `shadow`.
+- [x] **Step 4: Rodar `npx vitest run && npx tsc --noEmit && npx vite build`.** Esperado: tudo passa, build gera `dist/`.
+- [x] **Step 5: Commit**
 ```bash
 git add src/components/GallerySidebar.tsx src/App.tsx src/components/CanvasEditor.tsx index.html tests/themeSurfaces.test.ts
 git commit -m "feat(theme): aplicar paleta na galeria, area de edicao e cores iniciais da pagina"
@@ -157,12 +157,12 @@ git commit -m "feat(theme): aplicar paleta na galeria, area de edicao e cores in
 - Consumes: tudo das tasks anteriores.
 - Produces: roadmap atualizado.
 
-- [ ] **Step 1: Escrever o teste que falha** em `tests/readmeStructure.test.ts`: o README contém `Alternância de tema` na lista de recursos do editor e o badge/contagem de testes bate com o total real de testes (rodar `npx vitest run` e usar o número impresso).
-- [ ] **Step 2: Rodar `npx vitest run tests/readmeStructure.test.ts`.** Esperado: FAIL.
-- [ ] **Step 3: Atualizar o `README.md`**: recurso "Alternância de tema (Sistema / Claro / Escuro)" nos Outros Recursos; roadmap da Fase 2 passa a citar o tema como concluído (os demais itens da fase continuam em andamento); corrigir badge e texto do número de testes.
-- [ ] **Step 4: Validação visual manual** com `npm run dev` em `http://127.0.0.1:1420/`: alternar pelo botão nos três modos; trocar o tema do macOS em modo `system` e ver a mudança sem recarregar; recarregar e confirmar que a preferência persiste e que não há flash branco com tema escuro; conferir toolbar, dropdowns, galeria e área de edição; fazer uma captura, anotar e exportar nos dois temas e confirmar que a imagem exportada é idêntica. Ajustar `control`, `textMuted`, `controlActive`, `hover`, `borderStrong`, `icon` ou `thumbBg` em `DARK_PALETTE` se algo estiver ilegível, atualizando o teste de valores só para chaves que o spec mediu.
-- [ ] **Step 5: Rodar `npx vitest run && npx tsc --noEmit && npx vite build`.** Esperado: tudo verde.
-- [ ] **Step 6: Commit**
+- [x] **Step 1: Escrever o teste que falha** em `tests/readmeStructure.test.ts`: o README contém `Alternância de tema` na lista de recursos do editor e o badge/contagem de testes bate com o total real de testes (rodar `npx vitest run` e usar o número impresso).
+- [x] **Step 2: Rodar `npx vitest run tests/readmeStructure.test.ts`.** Esperado: FAIL.
+- [x] **Step 3: Atualizar o `README.md`**: recurso "Alternância de tema (Sistema / Claro / Escuro)" nos Outros Recursos; roadmap da Fase 2 passa a citar o tema como concluído (os demais itens da fase continuam em andamento); corrigir badge e texto do número de testes.
+- [x] **Step 4: Validação visual manual** com `npm run dev` em `http://127.0.0.1:1420/`: alternar pelo botão nos três modos; trocar o tema do macOS em modo `system` e ver a mudança sem recarregar; recarregar e confirmar que a preferência persiste e que não há flash branco com tema escuro; conferir toolbar, dropdowns, galeria e área de edição; fazer uma captura, anotar e exportar nos dois temas e confirmar que a imagem exportada é idêntica. Ajustar `control`, `textMuted`, `controlActive`, `hover`, `borderStrong`, `icon` ou `thumbBg` em `DARK_PALETTE` se algo estiver ilegível, atualizando o teste de valores só para chaves que o spec mediu.
+- [x] **Step 5: Rodar `npx vitest run && npx tsc --noEmit && npx vite build`.** Esperado: tudo verde.
+- [x] **Step 6: Commit**
 ```bash
 git add README.md tests/readmeStructure.test.ts docs/superpowers/plans
 git commit -m "docs: registrar tema claro e escuro no roadmap e corrigir contagem de testes"

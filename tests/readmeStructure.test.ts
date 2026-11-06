@@ -37,6 +37,7 @@ describe('README.md Structure', () => {
     // Roadmap com Tema Claro e Escuro
     expect(content).toContain('Tema Claro e Escuro');
     expect(content).toContain('Light / Dark Mode');
+    expect(content).toContain('Alternância de tema');
 
     // Link para documentação técnica em docs/
     expect(content).toContain('docs/README.md');

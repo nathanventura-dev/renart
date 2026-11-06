@@ -1,6 +1,6 @@
 # RenArt Orange Theme & Roadmap Dark/Light Mode Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Implementar o módulo centralizado de tema `src/theme/colors.ts` aplicando o laranja terracota da raposa (`#d3551d`) na interface onde antes era usado o azul `#0071e3`, e documentar o suporte planejado a Tema Claro/Escuro no roadmap do `README.md`.
 
@@ -37,7 +37,7 @@
 **Interfaces:**
 - Produces: `RENART_THEME` contendo `primary`, `primaryHover`, `primaryTint`, `primaryBorder` e `galleryActiveBg`.
 
-- [ ] **Step 1: Escrever teste unitário falhando para o módulo de tema**
+- [x] **Step 1: Escrever teste unitário falhando para o módulo de tema**
 
 ```ts
 // tests/themeColors.test.ts
@@ -55,12 +55,12 @@ describe('RenArt Theme Colors', () => {
 });
 ```
 
-- [ ] **Step 2: Executar teste e verificar falha (RED)**
+- [x] **Step 2: Executar teste e verificar falha (RED)**
 
 Run: `cmd /c npx vitest run tests/themeColors.test.ts`
 Expected: FAIL (módulo `src/theme/colors.ts` não existe).
 
-- [ ] **Step 3: Implementar `src/theme/colors.ts` (GREEN)**
+- [x] **Step 3: Implementar `src/theme/colors.ts` (GREEN)**
 
 ```ts
 export const RENART_THEME = {
@@ -72,12 +72,12 @@ export const RENART_THEME = {
 } as const;
 ```
 
-- [ ] **Step 4: Executar testes e verificar aprovação**
+- [x] **Step 4: Executar testes e verificar aprovação**
 
 Run: `cmd /c npx vitest run tests/themeColors.test.ts`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/theme/colors.ts tests/themeColors.test.ts
@@ -100,20 +100,20 @@ git commit -m "feat(theme): adicionar modulo central de cores da raposa RenArt"
 - Consumes: `RENART_THEME` de `src/theme/colors.ts`.
 - Produces: Interface visual completa com acentos laranja da raposa.
 
-- [ ] **Step 1: Atualizar asserções de estilo em testes se houver acoplamento com `#0071e3`**
+- [x] **Step 1: Atualizar asserções de estilo em testes se houver acoplamento com `#0071e3`**
 
 Verificar arquivos de teste para garantir que testes que verificam cor de destaque esperem a nova paleta.
 
-- [ ] **Step 2: Atualizar `Toolbar.tsx`, `CanvasEditor.tsx`, `CaptureOverlay.tsx`, `GallerySidebar.tsx` e `App.tsx`**
+- [x] **Step 2: Atualizar `Toolbar.tsx`, `CanvasEditor.tsx`, `CaptureOverlay.tsx`, `GallerySidebar.tsx` e `App.tsx`**
 
 Substituir o azul `#0071e3` e `rgba(0, 113, 227, ...)` por `RENART_THEME.primary` e variantes.
 
-- [ ] **Step 3: Executar testes unitários dos componentes**
+- [x] **Step 3: Executar testes unitários dos componentes**
 
 Run: `cmd /c npx vitest run tests/toolbarAppIntegration.test.ts tests/galleryStore.test.ts`
 Expected: PASS.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/components/Toolbar.tsx src/components/CanvasEditor.tsx src/components/CaptureOverlay.tsx src/components/GallerySidebar.tsx src/App.tsx
@@ -131,28 +131,28 @@ git commit -m "style(ui): aplicar paleta laranja da raposa RenArt na toolbar, ca
 **Interfaces:**
 - Produces: Documentação do Roadmap atualizada com Tema Claro/Escuro.
 
-- [ ] **Step 1: Atualizar teste unitário em `tests/readmeStructure.test.ts` com asserção do tema (RED)**
+- [x] **Step 1: Atualizar teste unitário em `tests/readmeStructure.test.ts` com asserção do tema (RED)**
 
 Adicionar asserção verificando que o README cita `Tema Claro e Escuro` no roadmap.
 
-- [ ] **Step 2: Executar teste e verificar falha**
+- [x] **Step 2: Executar teste e verificar falha**
 
 Run: `cmd /c npx vitest run tests/readmeStructure.test.ts`
 Expected: FAIL.
 
-- [ ] **Step 3: Atualizar `README.md` com a entrada do roadmap (GREEN)**
+- [x] **Step 3: Atualizar `README.md` com a entrada do roadmap (GREEN)**
 
 Na tabela de Roadmap:
 ```markdown
 | **Fase 2: Desktop Tauri v2 & Temas** | Atalhos globais de captura do SO, bandeja do sistema (Tray), janelas multi-monitores sem bordas e suporte a Tema Claro e Escuro (Light / Dark Mode) | 🔄 Em andamento |
 ```
 
-- [ ] **Step 4: Executar testes e verificar aprovação**
+- [x] **Step 4: Executar testes e verificar aprovação**
 
 Run: `cmd /c npx vitest run tests/readmeStructure.test.ts`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add README.md tests/readmeStructure.test.ts
@@ -163,11 +163,11 @@ git commit -m "docs: adicionar tema claro e escuro no roadmap do README"
 
 ### Task 4: Verificação Completa e Build
 
-- [ ] **Step 1: Executar suíte completa de testes (`npx vitest run`)**
+- [x] **Step 1: Executar suíte completa de testes (`npx vitest run`)**
 Expected: 100% dos testes aprovados (282 testes).
 
-- [ ] **Step 2: Executar verificação estrita de tipos TypeScript (`npx tsc --noEmit`)**
+- [x] **Step 2: Executar verificação estrita de tipos TypeScript (`npx tsc --noEmit`)**
 Expected: 0 erros.
 
-- [ ] **Step 3: Executar build de produção (`npm run build`)**
+- [x] **Step 3: Executar build de produção (`npm run build`)**
 Expected: Build concluído com sucesso.
