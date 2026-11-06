@@ -1,7 +1,7 @@
 use image::{Rgba, RgbaImage};
 use renart_lib::capture::{MonitorInfo, Selection};
 use renart_lib::capture_session::{
-    overlay_label, replace_session, take_session, CaptureSession, SessionState, DENIED_ERROR,
+    build_overlay_url, overlay_label, replace_session, validate_mode, take_session, CaptureSession, SessionState, DENIED_ERROR,
     EVENT_CAPTURE_CANCELLED, EVENT_CAPTURE_COMPLETE, EVENT_OVERLAY_MODE,
 };
 use renart_lib::permissions::ensure_screen_recording;
@@ -93,4 +93,18 @@ fn test_denied_permission_maps_to_error_code() {
     assert_eq!(ensure_screen_recording(false), Err(DENIED_ERROR.to_string()));
     assert_eq!(DENIED_ERROR, "screen-recording-denied");
     assert!(ensure_screen_recording(true).is_ok());
+}
+
+#[test]
+fn test_build_overlay_url_has_id_and_mode() {
+    assert_eq!(build_overlay_url(3, "fullscreen"), "index.html?overlay=3&mode=fullscreen");
+    assert_eq!(build_overlay_url(0, "region"), "index.html?overlay=0&mode=region");
+}
+
+#[test]
+fn test_validate_mode_accepts_only_region_and_fullscreen() {
+    assert!(validate_mode("region").is_ok());
+    assert!(validate_mode("fullscreen").is_ok());
+    assert!(validate_mode("window").is_err());
+    assert!(validate_mode("").is_err());
 }

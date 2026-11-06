@@ -2,6 +2,6 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
   "description": "Permissões da janela principal do RenArt (eventos, janela e núcleo do Tauri).",
-  "windows": ["main"],
+  "windows": ["main", "capture-overlay-*"],
   "permissions": ["core:default"]
 }
