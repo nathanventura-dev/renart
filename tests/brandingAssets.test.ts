@@ -32,14 +32,14 @@ describe('Tauri bundle icons', () => {
 });
 
 describe('macOS icon grid', () => {
-  const alphaAt = (img: ReturnType<typeof decodeRgba>, x: number, y: number) => img.px[(y * img.width + x) * 4 + 3];
-
-  it('icon.png keeps the artwork inside ~80% of the canvas with a transparent margin', () => {
+  it('icon.png artwork fills about 86% of the canvas (880 of 1024px) with a transparent margin', () => {
     const img = decodeRgba(path.resolve(__dirname, '../src-tauri/icons/icon.png'));
-    const m = (n: number) => Math.round((img.width * n) / 1024);
-    expect(alphaAt(img, m(40), m(512))).toBe(0); // margem esquerda
-    expect(alphaAt(img, m(512), m(40))).toBe(0); // margem superior
-    expect(alphaAt(img, m(150), m(512))).toBe(255); // dentro da arte
-    expect(alphaAt(img, m(512), m(512))).toBe(255);
+    const row = Math.floor(img.height / 2);
+    const alphaAt = (x: number) => img.px[(row * img.width + x) * 4 + 3];
+    const firstOpaque = Array.from({ length: img.width }, (_, x) => x).find((x) => alphaAt(x) === 255) as number;
+    const margin = (firstOpaque / img.width) * 1024;
+    expect(margin).toBeGreaterThanOrEqual(68);
+    expect(margin).toBeLessThanOrEqual(76);
+    expect(alphaAt(0)).toBe(0);
   });
 });
