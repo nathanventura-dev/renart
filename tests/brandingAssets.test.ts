@@ -52,8 +52,10 @@ describe('macOS icon grid', () => {
     };
     const first = Array.from({ length: img.width }, (_, x) => x).find((x) => img.px[(row * img.width + x) * 4 + 3] === 255) as number;
     const k = img.width / 1024;
-    expect(rgbSum(first + Math.round(3 * k))).toBeGreaterThanOrEqual(200); // aro claro na borda
-    expect(rgbSum(first + Math.round(60 * k))).toBeGreaterThanOrEqual(80); // corpo grafite, mais claro que o Dock (~40)
-    expect(rgbSum(first + Math.round(60 * k))).toBeLessThanOrEqual(170); // ainda escuro
+    const rim = rgbSum(first + Math.round(3 * k));
+    const body = rgbSum(first + Math.round(60 * k));
+    expect(body).toBeGreaterThanOrEqual(65); // corpo grafite, mais claro que o Dock (~40)
+    expect(body).toBeLessThanOrEqual(110); // bem escuro, sem parecer cinza
+    expect(rim - body).toBeGreaterThanOrEqual(80); // aro claramente mais claro que o corpo
   });
 });
