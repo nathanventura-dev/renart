@@ -1,25 +1,24 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { Camera, Crop, X } from 'lucide-react';
 
-export function resolvePickerState(hovered: boolean): { dimmed: boolean; showCamera: boolean; hint: string } {
-  return hovered
+export function resolvePickerState(active: boolean): { dimmed: boolean; showCamera: boolean; hint: string } {
+  return active
     ? { dimmed: false, showCamera: true, hint: 'Clique para capturar esta tela' }
     : { dimmed: true, showCamera: false, hint: '' };
 }
 
 interface ScreenPickerProps {
   frameDataUrl: string;
-  /** `true` quando o Rust informa que o cursor está neste monitor (não depende de eventos de mouse). */
-  active?: boolean;
+  /** `true` quando o Rust informa que o cursor está neste monitor (janelas sem foco não recebem eventos de mouse). */
+  active: boolean;
   onPick: () => void;
   onCancel: () => void;
   onSwitchMode: (mode: 'region') => void;
 }
 
 /** Seletor de "tela inteira": escurece o monitor e mostra uma câmera quando o mouse está sobre ele. */
-export const ScreenPicker: React.FC<ScreenPickerProps> = ({ frameDataUrl, active = false, onPick, onCancel, onSwitchMode }) => {
-  const [hovered, setHovered] = useState(false);
-  const state = resolvePickerState(hovered || active);
+export const ScreenPicker: React.FC<ScreenPickerProps> = ({ frameDataUrl, active, onPick, onCancel, onSwitchMode }) => {
+  const state = resolvePickerState(active);
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -31,9 +30,6 @@ export const ScreenPicker: React.FC<ScreenPickerProps> = ({ frameDataUrl, active
 
   return (
     <div
-      onMouseEnter={() => setHovered(true)}
-      onMouseMove={() => !hovered && setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
       onClick={onPick}
       style={{
         position: 'fixed',

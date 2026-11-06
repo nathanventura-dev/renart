@@ -46,6 +46,10 @@ impl CaptureSession {
         self.generation
     }
 
+    pub fn set_mode(&mut self, mode: String) {
+        self.mode = mode;
+    }
+
     pub fn mode(&self) -> &str {
         &self.mode
     }
@@ -131,6 +135,40 @@ pub fn frame_bytes_with(
     convert(&frame)
 }
 
+/// Cursor que os overlays devem mostrar.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OverlayCursor {
+    Crosshair,
+    Default,
+}
+
+/// Mira (+) para selecionar uma área; cursor normal na tela inteira (a câmera é desenhada na página).
+pub fn cursor_for_mode(mode: &str) -> OverlayCursor {
+    if mode == "region" {
+        OverlayCursor::Crosshair
+    } else {
+        OverlayCursor::Default
+    }
+}
+
+/// Define o cursor do sistema. O webview de uma janela sem foco não recebe movimento do mouse e, com
+/// isso, não aplica o `cursor: crosshair` da página; por isso o Rust reaplica a cada tick.
+/// `NSCursor` só pode ser alterado na thread principal.
+#[cfg(target_os = "macos")]
+fn apply_overlay_cursor(app: &AppHandle, cursor: OverlayCursor) {
+    let _ = app.run_on_main_thread(move || {
+        use objc2_app_kit::NSCursor;
+        let ns_cursor = match cursor {
+            OverlayCursor::Crosshair => NSCursor::crosshairCursor(),
+            OverlayCursor::Default => NSCursor::arrowCursor(),
+        };
+        ns_cursor.set();
+    });
+}
+
+#[cfg(not(target_os = "macos"))]
+fn apply_overlay_cursor(_app: &AppHandle, _cursor: OverlayCursor) {}
+
 /// URL (relativa ao frontend) carregada por cada janela de overlay.
 pub fn build_overlay_url(id: u32, mode: &str) -> String {
     format!("index.html?overlay={id}&mode={mode}")
@@ -192,15 +230,20 @@ fn spawn_cursor_tracker(app: AppHandle, generation: u64, monitors: Vec<MonitorIn
         loop {
             std::thread::sleep(std::time::Duration::from_millis(16));
             tick = tick.wrapping_add(1);
-            let alive = {
+            let mode = {
                 let state = app.state::<SessionState>();
                 let guard = state.lock().unwrap();
-                guard.as_ref().map(|s| s.generation()) == Some(generation)
+                guard
+                    .as_ref()
+                    .filter(|s| s.generation() == generation)
+                    .map(|s| s.mode().to_string())
             };
-            if !alive {
+            let Some(mode) = mode else {
+                apply_overlay_cursor(&app, OverlayCursor::Default);
                 break;
-            }
+            };
             let Some((x, y)) = cursor_position() else { break };
+            apply_overlay_cursor(&app, cursor_for_mode(&mode));
             if let Some(id) = monitor_at(&monitors, x, y) {
                 // Reenvia a cada ~320ms: um overlay que acabou de abrir ainda pode não estar ouvindo.
                 if desired != Some(id) || tick % 20 == 0 {
@@ -409,7 +452,14 @@ pub async fn cancel_capture(app: AppHandle, state: State<'_, SessionState>) -> R
 
 /// Troca o modo (região ↔ tela inteira) em todos os overlays abertos.
 #[tauri::command]
-pub async fn set_overlay_mode(app: AppHandle, mode: String) -> Result<(), String> {
+pub async fn set_overlay_mode(
+    app: AppHandle,
+    state: State<'_, SessionState>,
+    mode: String,
+) -> Result<(), String> {
     validate_mode(&mode)?;
+    if let Some(session) = state.lock().unwrap().as_mut() {
+        session.set_mode(mode.clone());
+    }
     app.emit(EVENT_OVERLAY_MODE, mode).map_err(|e| e.to_string())
 }

@@ -1,7 +1,7 @@
 use image::{Rgba, RgbaImage};
 use renart_lib::capture::{MonitorInfo, Selection};
 use renart_lib::capture_session::{
-    build_overlay_url, frame_bytes_with, overlay_label, replace_session, validate_mode, BeginGuard, take_session, CaptureSession, SessionState, DENIED_ERROR,
+    build_overlay_url, cursor_for_mode, frame_bytes_with, OverlayCursor, overlay_label, replace_session, validate_mode, BeginGuard, take_session, CaptureSession, SessionState, DENIED_ERROR,
     EVENT_ACTIVE_MONITOR, EVENT_CAPTURE_CANCELLED, EVENT_CAPTURE_COMPLETE, EVENT_OVERLAY_MODE,
 };
 use renart_lib::permissions::{allowed_with, ensure_screen_recording};
@@ -186,4 +186,29 @@ fn test_global_shortcut_does_not_touch_the_main_window_while_a_capture_is_starti
     let busy = src.find("is_busy").expect("atalho deve checar BeginGuard::is_busy");
     let show = src.find(".show()").expect("atalho mostra a janela principal");
     assert!(busy < show, "a checagem de captura em andamento vem antes de mostrar a janela");
+}
+
+// ---- Cursor de mira e modo mutável ----
+
+#[test]
+fn test_session_mode_can_change_when_the_user_switches_between_area_and_full_screen() {
+    let mut s = sample_session();
+    assert_eq!(s.mode(), "region");
+    s.set_mode("fullscreen".to_string());
+    assert_eq!(s.mode(), "fullscreen");
+}
+
+#[test]
+fn test_crosshair_cursor_only_in_region_mode() {
+    assert_eq!(cursor_for_mode("region"), OverlayCursor::Crosshair);
+    assert_eq!(cursor_for_mode("fullscreen"), OverlayCursor::Default);
+    assert_eq!(cursor_for_mode("qualquer"), OverlayCursor::Default);
+}
+
+#[test]
+fn test_cursor_tracker_forces_the_system_cursor_on_the_main_thread() {
+    let src = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/src/capture_session.rs")).unwrap();
+    assert!(src.contains("run_on_main_thread"), "NSCursor só pode ser alterado na thread principal");
+    assert!(src.contains("apply_overlay_cursor"), "o rastreador reaplica o cursor a cada tick");
+    assert!(src.contains("set_mode"), "set_overlay_mode atualiza o modo da sessão para o rastreador");
 }

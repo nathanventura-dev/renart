@@ -16,10 +16,13 @@ describe('ScreenPicker', () => {
     });
   });
 
-  it('shows the camera when the Rust cursor tracker says this monitor is active, without any mouse event', () => {
+  it('shows the camera only when the Rust cursor tracker says this monitor is active', () => {
     const src = read('src/components/ScreenPicker.tsx');
-    expect(src).toMatch(/active\??: boolean/);
-    expect(src).toMatch(/resolvePickerState\(hovered \|\| active\)/);
+    expect(src).toMatch(/active: boolean/);
+    expect(src).toMatch(/resolvePickerState\(active\)/);
+    // janela sem foco não recebe mouseleave: o hover local deixava a câmera presa no monitor anterior
+    expect(src).not.toContain('hovered');
+    expect(src).not.toContain('onMouseEnter');
   });
 
   it('uses the Camera icon and cancels on Escape', () => {
