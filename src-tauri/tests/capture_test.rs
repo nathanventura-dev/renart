@@ -45,3 +45,62 @@ fn test_crop_bounds_negative_coordinates() {
     assert_eq!(bounds.width, 150); // 200 - 50 = 150
     assert_eq!(bounds.height, 170); // 200 - 30 = 170
 }
+
+// ---- Captura multi-monitor: conversão de seleção lógica em pixels físicos ----
+use renart_lib::capture::{overlay_geometry, selection_to_physical, MonitorInfo, RectBounds, Selection};
+
+fn region(x: f64, y: f64, width: f64, height: f64) -> Selection {
+    Selection::Region { x, y, width, height }
+}
+
+#[test]
+fn test_selection_fullscreen_covers_whole_frame() {
+    let r = selection_to_physical(&Selection::Fullscreen, 1440, 900, 2880, 1800).unwrap();
+    assert_eq!(r, RectBounds { x: 0, y: 0, width: 2880, height: 1800 });
+}
+
+#[test]
+fn test_selection_region_scales_by_real_ratio_2x() {
+    let r = selection_to_physical(&region(100.0, 50.0, 300.0, 200.0), 1440, 900, 2880, 1800).unwrap();
+    assert_eq!(r, RectBounds { x: 200, y: 100, width: 600, height: 400 });
+}
+
+#[test]
+fn test_selection_region_scales_1x() {
+    let r = selection_to_physical(&region(100.0, 50.0, 300.0, 200.0), 1920, 1080, 1920, 1080).unwrap();
+    assert_eq!(r, RectBounds { x: 100, y: 50, width: 300, height: 200 });
+}
+
+#[test]
+fn test_selection_uses_per_axis_ratio_when_frame_is_off_by_one_pixel() {
+    let r = selection_to_physical(&region(0.0, 0.0, 1440.0, 900.0), 1440, 900, 2879, 1800).unwrap();
+    assert!(r.x + r.width <= 2879, "não pode ultrapassar o quadro: {:?}", r);
+    assert!(r.width >= 2878);
+}
+
+#[test]
+fn test_selection_region_clamped_when_partly_outside() {
+    let r = selection_to_physical(&region(900.0, 700.0, 300.0, 300.0), 1000, 800, 1000, 800).unwrap();
+    assert_eq!(r, RectBounds { x: 900, y: 700, width: 100, height: 100 });
+}
+
+#[test]
+fn test_selection_region_rejects_zero_size_and_fully_outside() {
+    assert!(selection_to_physical(&region(10.0, 10.0, 0.0, 50.0), 1000, 800, 1000, 800).is_err());
+    assert!(selection_to_physical(&region(1200.0, 10.0, 50.0, 50.0), 1000, 800, 1000, 800).is_err());
+}
+
+#[test]
+fn test_overlay_geometry_keeps_negative_origin() {
+    let m = MonitorInfo {
+        id: 7,
+        name: "Externo".into(),
+        x: -1920,
+        y: -200,
+        width: 1920,
+        height: 1080,
+        scale_factor: 1.0,
+        is_primary: false,
+    };
+    assert_eq!(overlay_geometry(&m), (-1920.0, -200.0, 1920.0, 1080.0));
+}
