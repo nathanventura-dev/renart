@@ -38,6 +38,7 @@ describe('README.md Structure', () => {
     expect(content).toContain('Tema Claro e Escuro');
     expect(content).toContain('Light / Dark Mode');
     expect(content).toContain('Alternância de tema');
+    expect(content).toContain('Captura multi-monitor');
 
     // Link para documentação técnica em docs/
     expect(content).toContain('docs/README.md');

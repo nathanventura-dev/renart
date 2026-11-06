@@ -87,3 +87,12 @@ export async function focusThisWindow(deps: ServiceDeps = {}): Promise<void> {
     /* sem permissão ou janela já fechada: ignora */
   }
 }
+
+/** Mensagem amigável para um erro de `beginCapture`. */
+export function describeCaptureError(err: unknown): string {
+  const text = err instanceof Error ? err.message : typeof err === 'string' ? err : '';
+  if (text.includes(DENIED_ERROR)) {
+    return 'Permissão de Gravação de Tela negada. Libere em Ajustes do Sistema → Privacidade e Segurança → Gravação de Tela e reabra o RenArt.';
+  }
+  return 'Não foi possível iniciar a captura.';
+}

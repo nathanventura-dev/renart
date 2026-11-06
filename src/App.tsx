@@ -5,6 +5,8 @@ import { Toolbar } from './components/Toolbar';
 import { useTheme } from './hooks/useTheme';
 import { Mascot } from './components/Mascot';
 import { listenForCaptureShortcut } from './services/shortcutService';
+import { beginCapture, describeCaptureError, isTauri, onCaptureComplete } from './services/captureService';
+import { captureTitle } from './utils/captureTitle';
 import { GallerySidebar } from './components/GallerySidebar';
 import { CanvasEditor } from './components/CanvasEditor';
 import { CaptureOverlay } from './components/CaptureOverlay';
@@ -29,6 +31,7 @@ const galleryStore = createGalleryStore(10);
 export const App: React.FC = () => {
   const { palette } = useTheme();
   const [isCapturing, setIsCapturing] = useState(false);
+  const [captureNotice, setCaptureNotice] = useState<string | null>(null);
   const [captureMode, setCaptureMode] = useState<CaptureMode>('region');
   const [preCapturedScreen, setPreCapturedScreen] = useState<string | null>(null);
   const [zoomLevel, setZoomLevel] = useState<number>(1.0);
@@ -331,6 +334,17 @@ export const App: React.FC = () => {
   const handleStartCapture = async (mode: CaptureMode = 'region') => {
     setCaptureMode(mode);
 
+    // No app desktop a captura é nativa e multi-monitor: o Rust abre uma janela de seleção por tela.
+    if (isTauri() && (mode === 'region' || mode === 'fullscreen')) {
+      try {
+        await beginCapture(mode);
+      } catch (err) {
+        console.warn('Falha ao iniciar a captura nativa:', err);
+        setCaptureNotice(describeCaptureError(err));
+      }
+      return;
+    }
+
     if (mode === 'window') {
       // Dispara o seletor nativo de janelas do sistema operacional
       const windowFrame = await captureDesktopFrame('window');
@@ -391,6 +405,27 @@ export const App: React.FC = () => {
     listenForCaptureShortcut(() => {
       if (isCapturingRef.current) return;
       void handleStartCaptureRef.current('region');
+    }).then((unlisten) => {
+      if (cancelled) unlisten();
+      else stop = unlisten;
+    });
+    return () => {
+      cancelled = true;
+      stop?.();
+    };
+  }, []);
+
+  // Resultado da captura nativa multi-monitor: entra na galeria como as demais capturas.
+  useEffect(() => {
+    let stop: (() => void) | undefined;
+    let cancelled = false;
+    onCaptureComplete(({ dataUrl, fullscreen }) => {
+      const count = galleryStore.getState().captures.length;
+      const id = `cap-${Date.now()}`;
+      galleryStore.addCapture({ id, title: captureTitle(fullscreen, count), dataUrl, createdAt: Date.now() });
+      editorStore.switchCapture(id, dataUrl);
+      editorStore.setImageBase64(dataUrl);
+      setZoomLevel(1.0);
     }).then((unlisten) => {
       if (cancelled) unlisten();
       else stop = unlisten;
@@ -708,6 +743,40 @@ export const App: React.FC = () => {
           </div>
         )}
       </div>
+
+      {captureNotice && (
+        <div
+          role="alert"
+          style={{
+            position: 'fixed',
+            left: '50%',
+            bottom: '24px',
+            transform: 'translateX(-50%)',
+            maxWidth: '560px',
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: '12px',
+            padding: '12px 16px',
+            borderRadius: '10px',
+            backgroundColor: palette.popup,
+            color: palette.textPrimary,
+            border: `1px solid ${palette.borderStrong}`,
+            boxShadow: `0 8px 32px ${palette.shadow}`,
+            fontSize: '13px',
+            zIndex: 20000,
+          }}
+        >
+          <span style={{ flex: 1 }}>{captureNotice}</span>
+          <button
+            type="button"
+            aria-label="Fechar aviso"
+            onClick={() => setCaptureNotice(null)}
+            style={{ border: 'none', background: 'transparent', color: palette.textSecondary, cursor: 'pointer', fontSize: '16px' }}
+          >
+            ×
+          </button>
+        </div>
+      )}
 
       {/* Overlay de Seleção de Captura sobre o quadro real capturado */}
       {isCapturing && (

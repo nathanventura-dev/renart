@@ -22,6 +22,8 @@ O **Rust** resolve isso com:
 - **`capture.rs`**: O motor de captura de tela e cópia imediata para a área de transferência.
 - **`instance.rs`**: O controlador que garante que no máximo 2 instâncias do aplicativo fiquem abertas ao mesmo tempo.
 - **`shortcuts.rs`**: O registrador de atalhos globais de teclado (ex: `Ctrl+Shift+S`).
+- **`capture_session.rs`**: A sessão de captura multi-monitor: guarda o quadro congelado de cada monitor e expõe os comandos `begin_capture`, `get_overlay_frame`, `finish_capture`, `cancel_capture` e `set_overlay_mode`.
+- **`permissions.rs`**: Consulta a permissão de Gravação de Tela do macOS (`screen_recording_allowed`) e converte a negativa no erro `screen-recording-denied`.
 
 ---
 
@@ -107,3 +109,17 @@ pub fn tauri_capture_screen(...) -> Result<String, String>
   const dataUrl = await invoke('tauri_capture_screen', { mode: 'region', x: 50, y: 50, w: 800, h: 600 });
   ```
 - O Rust processa a captura em milissegundos, copia para o clipboard e devolve uma string no formato `"data:image/png;base64,..."` que o componente do React carrega diretamente no Canvas para anotações.
+
+
+---
+
+## 4. Captura Multi-Monitor (`capture_session.rs`)
+
+Em vez de capturar só o monitor principal, o RenArt congela **todos** os monitores de uma vez e abre uma janela sem borda em cada tela para a seleção:
+
+1. `begin_capture(mode)` valida o modo (`region` ou `fullscreen`), confere a permissão, esconde a janela principal (para ela não aparecer no quadro), captura cada monitor (`capture_monitor`) e guarda os quadros numa `CaptureSession`. Depois abre uma janela `capture-overlay-<id>` por monitor, na posição e no tamanho exatos da tela (`overlay_geometry`, que preserva coordenadas negativas de monitores à esquerda ou acima do principal).
+2. Cada overlay pede o seu quadro com `get_overlay_frame(id)` e mostra a seleção (região) ou a câmera (tela inteira).
+3. `finish_capture(id, selection)` converte a seleção em pixels físicos com `selection_to_physical`, usando a razão real `quadro / tamanho lógico` de cada eixo (por isso monitores Retina 2× e externos 1× convivem), recorta, copia para o clipboard, fecha os overlays, mostra a janela principal e emite o evento `capture-complete`.
+4. `cancel_capture()` desfaz tudo e emite `capture-cancelled`. Uma nova captura aberta com outra em andamento substitui a anterior.
+
+Os nomes dos eventos (`capture-complete`, `capture-cancelled`, `overlay-mode-changed`) e o código de erro `screen-recording-denied` existem iguais no Rust e em `src/services/captureService.ts`, e um teste garante que continuam iguais.

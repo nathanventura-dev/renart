@@ -52,6 +52,18 @@ Ao clicar em **"Nova Captura"** ou utilizar o atalho global configurado, uma cam
 
 ---
 
+### 2.1. Captura com Vários Monitores (App Desktop)
+
+No app desktop, ao iniciar uma captura de **Área** ou **Tela Inteira** o RenArt esconde a própria janela, congela todos os monitores e mostra uma camada de seleção em cada tela:
+
+- **Área:** arraste no monitor que quiser. A seleção fica restrita àquele monitor.
+- **Tela Inteira:** cada monitor aparece escurecido; ao passar o mouse sobre um deles surge uma **câmera** com "Clique para capturar esta tela". O clique captura aquele monitor.
+- **Esc** cancela e devolve a janela do RenArt. O botão **Janela** aparece desativado ("Em breve").
+
+No macOS é preciso liberar o RenArt (ou o terminal, durante o desenvolvimento) em *Ajustes do Sistema → Privacidade e Segurança → Gravação de Tela*. Sem a permissão o app mostra um aviso explicando o caminho. No navegador continua valendo o fluxo anterior, dentro da própria janela.
+
+---
+
 ## 3. Cópia Automática Imediata para o Clipboard
 
 Assim que o mouse é solto ao finalizar a seleção:
