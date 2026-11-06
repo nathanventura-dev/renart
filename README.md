@@ -90,7 +90,7 @@ Para mudar essa dinâmica, decidi adotar a IA não apenas como uma ferramenta de
 - **Barra Flutuante de Captura (Estilo Snipping Tool):** Seleção retangular por Área, Janela individual ou Tela Inteira com atalho `Esc` para cancelamento.
 - **Cópia Instantânea para o Clipboard:** Ao soltar o cursor após uma seleção, os pixels são enviados diretamente para a área de transferência do SO (`Ctrl+V` imediato).
 - **Recorte de Imagem (Crop):** Quadro de recorte com menu flutuante translúcido para confirmação (`Enter`) ou cancelamento (`Esc`).
-- **Alternância de tema (Sistema / Claro / Escuro):** Botão na barra superior que segue o tema do sistema operacional por padrão e permite forçar o modo claro ou escuro. A escolha fica salva entre sessões e o escuro usa os tons da Ferramenta de Captura do Windows 11 com o laranja da raposa. A imagem exportada nunca depende do tema.
+- **Alternância de tema (Sistema / Claro / Escuro):** Botão na barra superior que segue o tema do sistema operacional por padrão e permite forçar o modo claro ou escuro. A escolha fica salva entre sessões e o escuro usa os tons da Ferramenta de Captura do Windows 11 com destaque azul-luar (a raposa sob a lua). A imagem exportada nunca depende do tema.
 - **Exportação Multiformato 1:1:** Exportação direta para `.png`, `.jpeg` e `.pdf` mantendo a resolução nativa da captura.
 - **Galeria Recente (FIFO):** Histórico das últimas 10 capturas na sessão com retenção em memória.
 
