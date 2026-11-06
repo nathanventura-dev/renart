@@ -335,7 +335,7 @@ export const App: React.FC = () => {
     setCaptureMode(mode);
 
     // No app desktop a captura é nativa e multi-monitor: o Rust abre uma janela de seleção por tela.
-    if (isTauri() && (mode === 'region' || mode === 'fullscreen')) {
+    if (isTauri() && (mode === 'region' || mode === 'fullscreen' || mode === 'window')) {
       try {
         await beginCapture(mode);
       } catch (err) {

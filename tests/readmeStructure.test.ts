@@ -40,6 +40,8 @@ describe('README.md Structure', () => {
     expect(content).toContain('Alternância de tema');
     expect(content).toContain('Captura multi-monitor');
     expect(content).toContain('validada apenas no macOS');
+    expect(content).toContain('Captura de janela');
+    expect(content).not.toContain('chega no próximo ciclo');
 
     // Link para documentação técnica em docs/
     expect(content).toContain('docs/README.md');

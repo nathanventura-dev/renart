@@ -36,6 +36,11 @@ describe('App multi-monitor wiring', () => {
     expect(app).toContain('captureTitle(kind');
   });
 
+  it('sends the window mode to the native capture too (and keeps the in-app path for the browser)', () => {
+    const app = read('src/App.tsx');
+    expect(app).toMatch(/isTauri\(\) && \(mode === 'region' \|\| mode === 'fullscreen' \|\| mode === 'window'\)/);
+  });
+
   it('keeps the in-app overlay as the browser fallback', () => {
     const app = read('src/App.tsx');
     expect(app).toContain('setIsCapturing(true)');

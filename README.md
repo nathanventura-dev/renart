@@ -88,7 +88,8 @@ Para mudar essa dinâmica, decidi adotar a IA não apenas como uma ferramenta de
 
 ### Outros Recursos do Editor:
 - **Barra Flutuante de Captura (Estilo Snipping Tool):** Seleção retangular por Área, Janela individual ou Tela Inteira com atalho `Esc` para cancelamento.
-- **Captura multi-monitor (app desktop):** ao capturar, o RenArt congela todos os monitores e abre uma seleção em cada tela. Em **Área** você escolhe o monitor ao começar a arrastar; em **Tela Inteira** uma câmera indica qual tela será capturada ao passar o mouse. A captura de **Janela** chega no próximo ciclo. No macOS é preciso liberar a Gravação de Tela. Esta captura foi validada apenas no macOS; Windows e Linux ainda não foram testados (monitores com escala diferente de 100% podem posicionar a seleção de forma errada).
+- **Captura multi-monitor (app desktop):** ao capturar, o RenArt congela todos os monitores e abre uma seleção em cada tela. Em **Área** você escolhe o monitor ao começar a arrastar; em **Tela Inteira** uma câmera indica qual tela será capturada ao passar o mouse. Em **Janela** a janela sob o mouse é destacada e o clique captura a janela inteira e limpa, mesmo que outra esteja por cima. No macOS é preciso liberar a Gravação de Tela. Esta captura foi validada apenas no macOS; Windows e Linux ainda não foram testados (monitores com escala diferente de 100% podem posicionar a seleção de forma errada).
+- **Captura de janela:** o destaque acompanha o mouse entre os monitores, e uma janela que ocupa duas telas é destacada nas duas.
 - **Cópia Instantânea para o Clipboard:** Ao soltar o cursor após uma seleção, os pixels são enviados diretamente para a área de transferência do SO (`Ctrl+V` imediato).
 - **Recorte de Imagem (Crop):** Quadro de recorte com menu flutuante translúcido para confirmação (`Enter`) ou cancelamento (`Esc`).
 - **Alternância de tema (Sistema / Claro / Escuro):** Botão na barra superior que segue o tema do sistema operacional por padrão e permite forçar o modo claro ou escuro. A escolha fica salva entre sessões e o escuro usa os tons da Ferramenta de Captura do Windows 11 com destaque ciano glacial (a raposa na noite polar). A imagem exportada nunca depende do tema.
@@ -154,7 +155,7 @@ vulcap ocr --clipboard --json
 | Fase | Escopo | Status |
 | :--- | :--- | :---: |
 | **Fase 1: Web Core & Canvas Engine** | Editor vetorial Konva, Lupa com coroa, Smart Text OCR, Redação 3 níveis, Alt+Click, 318 testes automatizados | ✅ Concluído |
-| **Fase 2: Desktop Tauri v2 & Temas** | Atalhos globais de captura do SO ✅, bandeja do sistema (Tray), captura multi-monitor de região e tela inteira ✅ (captura de janela em breve) e suporte a Tema Claro e Escuro (Light / Dark Mode) ✅ | 🔄 Em andamento |
+| **Fase 2: Desktop Tauri v2 & Temas** | Atalhos globais de captura do SO ✅, bandeja do sistema (Tray), captura multi-monitor de região, tela inteira e janela ✅ e suporte a Tema Claro e Escuro (Light / Dark Mode) ✅ | 🔄 Em andamento |
 | **Fase 3: Ecossistema `vulcap` CLI** | Binário CLI independente em Rust com subcomandos para captura headless, OCR e redação em pipelines de CI/CD | 🚀 Planejado |
 
 ---
