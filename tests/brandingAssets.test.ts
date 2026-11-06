@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
+import { decodeRgba } from './helpers/png';
 
 describe('Branding Assets', () => {
   it('has both dark and light mascot images in docs/assets/', () => {
@@ -27,5 +28,18 @@ describe('Tauri bundle icons', () => {
     for (const icon of icons) {
       expect(fs.existsSync(path.resolve(__dirname, '../src-tauri', icon)), icon).toBe(true);
     }
+  });
+});
+
+describe('macOS icon grid', () => {
+  const alphaAt = (img: ReturnType<typeof decodeRgba>, x: number, y: number) => img.px[(y * img.width + x) * 4 + 3];
+
+  it('icon.png keeps the artwork inside ~80% of the canvas with a transparent margin', () => {
+    const img = decodeRgba(path.resolve(__dirname, '../src-tauri/icons/icon.png'));
+    const m = (n: number) => Math.round((img.width * n) / 1024);
+    expect(alphaAt(img, m(40), m(512))).toBe(0); // margem esquerda
+    expect(alphaAt(img, m(512), m(40))).toBe(0); // margem superior
+    expect(alphaAt(img, m(150), m(512))).toBe(255); // dentro da arte
+    expect(alphaAt(img, m(512), m(512))).toBe(255);
   });
 });
