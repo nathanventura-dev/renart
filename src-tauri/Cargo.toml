@@ -26,4 +26,9 @@ image = { version = "0.25", default-features = false, features = ["png", "jpeg"]
 base64 = "0.22"
 interprocess = "2.2"
 
+# xcap 0.2.2 não compila no macOS com core-foundation 0.10.1 (E0282 em ToVoid::to_void).
+# Mantém a 0.10.0 até migrar o xcap para uma versão nova.
+[target.'cfg(target_os = "macos")'.dependencies]
+core-foundation = "=0.10.0"
+
 [dev-dependencies]
