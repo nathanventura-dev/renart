@@ -52,9 +52,9 @@ describe('RenArt Theme Colors', () => {
     expect(LIGHT_PALETTE.onPrimary).toBe('#ffffff');
   });
 
-  it('dark palette uses the moonlight blue accent with dark text on it', () => {
-    expect(DARK_PALETTE.primary).toBe('#7cb7e0');
-    expect(DARK_PALETTE.primaryHover).toBe('#9fd0ee');
+  it('dark palette uses the amber accent with dark text on it', () => {
+    expect(DARK_PALETTE.primary).toBe('#e8b04a');
+    expect(DARK_PALETTE.primaryHover).toBe('#f2c46c');
     expect(DARK_PALETTE.onPrimary).toBe('#1a1a1a');
   });
 
