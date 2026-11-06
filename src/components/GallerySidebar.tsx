@@ -1,4 +1,3 @@
-import { RENART_THEME } from '../theme/colors';
 import { useTheme } from '../hooks/useTheme';
 import React from 'react';
 import { GalleryItem } from '../state/galleryStore';
@@ -75,8 +74,8 @@ export const GallerySidebar: React.FC<GallerySidebarProps> = ({
                 onClick={() => onSelect(item.id)}
                 style={{
                   position: 'relative',
-                  border: isActive ? `2px solid ${RENART_THEME.primary}` : `1px solid ${palette.border}`,
-                  backgroundColor: isActive ? RENART_THEME.galleryActiveBg : palette.thumbBg,
+                  border: isActive ? `2px solid ${palette.primary}` : `1px solid ${palette.border}`,
+                  backgroundColor: isActive ? palette.galleryActiveBg : palette.thumbBg,
                   borderRadius: '6px',
                   padding: '6px',
                   cursor: 'pointer',
@@ -131,7 +130,7 @@ export const GallerySidebar: React.FC<GallerySidebarProps> = ({
 
                 {/* Detalhes do Item */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '6px' }}>
-                  <span style={{ fontSize: '11px', fontWeight: isActive ? 600 : 500, color: isActive ? RENART_THEME.primary : palette.textPrimary }}>
+                  <span style={{ fontSize: '11px', fontWeight: isActive ? 600 : 500, color: isActive ? palette.primary : palette.textPrimary }}>
                     {item.title}
                   </span>
                   <span style={{ fontSize: '10px', color: palette.textMuted, display: 'flex', alignItems: 'center', gap: '2px' }}>

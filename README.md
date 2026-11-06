@@ -16,7 +16,7 @@
 <p align="center">
   <a href="https://react.dev/"><img src="https://img.shields.io/badge/React-19-61dafb?logo=react&logoColor=black" alt="React 19"></a>
   <a href="https://www.typescriptlang.org/"><img src="https://img.shields.io/badge/TypeScript-5.7-blue?logo=typescript" alt="TypeScript"></a>
-  <a href="https://vitest.dev/"><img src="https://img.shields.io/badge/Vitest-306%20Passed-brightgreen?logo=vitest" alt="Vitest 306 Tests"></a>
+  <a href="https://vitest.dev/"><img src="https://img.shields.io/badge/Vitest-311%20Passed-brightgreen?logo=vitest" alt="Vitest 311 Tests"></a>
   <a href="https://tauri.app/"><img src="https://img.shields.io/badge/Tauri-v2-orange?logo=tauri" alt="Tauri v2"></a>
   <a href="https://www.rust-lang.org/"><img src="https://img.shields.io/badge/Rust-Core%20(vulcap)-dea584?logo=rust" alt="Rust Core"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License MIT"></a>
@@ -49,7 +49,7 @@ Para mudar essa dinâmica, decidi adotar a IA não apenas como uma ferramenta de
    Em vez de pedir para a IA simplesmente "escrever código", o fluxo de trabalho exige a criação de uma **especificação clara e detalhada** (`docs/superpowers/specs`) e um **plano de execução em etapas** (`docs/superpowers/plans`) antes que qualquer linha de código seja criada. Isso com certeza exercitou diretamente minhas habilidades de arquitetura, levantamento de requisitos e visão de produto.
 
 2. **Test-Driven Development (TDD) com Rigor Técnico:**  
-   Com a metodologia do Superpowers, nenhuma funcionalidade ou correção é implementada sem que antes seja criado um **teste que falha (RED)**, seguido pela **implementação mínima necessária (GREEN)** e posterior refatoração. O resultado são **306 testes automatizados** que garantem que nenhuma alteração quebre recursos anteriores.
+   Com a metodologia do Superpowers, nenhuma funcionalidade ou correção é implementada sem que antes seja criado um **teste que falha (RED)**, seguido pela **implementação mínima necessária (GREEN)** e posterior refatoração. O resultado são **311 testes automatizados** que garantem que nenhuma alteração quebre recursos anteriores.
 
 3. **Subagentes e Separação de Responsabilidades:**  
    Através do **Antigravity CLI**, o desenvolvimento foi dividido entre agentes especializados (pesquisa, planejamento, implementação e verificação). Isso permitiu explorar na prática conceitos corporativos modernos como isolamento de contexto, revisão de código por agentes e integração contínua.
@@ -152,7 +152,7 @@ vulcap ocr --clipboard --json
 
 | Fase | Escopo | Status |
 | :--- | :--- | :---: |
-| **Fase 1: Web Core & Canvas Engine** | Editor vetorial Konva, Lupa com coroa, Smart Text OCR, Redação 3 níveis, Alt+Click, 306 testes automatizados | ✅ Concluído |
+| **Fase 1: Web Core & Canvas Engine** | Editor vetorial Konva, Lupa com coroa, Smart Text OCR, Redação 3 níveis, Alt+Click, 311 testes automatizados | ✅ Concluído |
 | **Fase 2: Desktop Tauri v2 & Temas** | Atalhos globais de captura do SO, bandeja do sistema (Tray), janelas multi-monitores sem bordas e suporte a Tema Claro e Escuro (Light / Dark Mode) ✅ | 🔄 Em andamento |
 | **Fase 3: Ecossistema `vulcap` CLI** | Binário CLI independente em Rust com subcomandos para captura headless, OCR e redação em pipelines de CI/CD | 🚀 Planejado |
 
@@ -204,7 +204,7 @@ npm run tauri dev
 ```bash
 npm test
 ```
-*Garantia de 100% de integridade com 306 testes unitários e de integração.*
+*Garantia de 100% de integridade com 311 testes unitários e de integração.*
 
 ### 5. Compilar para Produção (Web & Desktop)
 ```bash

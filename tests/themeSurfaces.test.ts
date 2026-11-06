@@ -60,4 +60,16 @@ describe('theme surfaces', () => {
     expect(html).toMatch(/button,\s*select,\s*input,\s*textarea\s*\{[^}]*color:\s*inherit/);
     expect(html).toContain('color-scheme');
   });
+
+  it('Toolbar and GallerySidebar take the orange from the palette, not from RENART_THEME', () => {
+    for (const f of ['src/components/Toolbar.tsx', 'src/components/GallerySidebar.tsx']) {
+      const content = fs.readFileSync(path.resolve(__dirname, '..', f), 'utf-8');
+      expect(content).not.toContain('RENART_THEME');
+    }
+  });
+
+  it('text over the orange in Toolbar uses palette.onPrimary instead of literal white', () => {
+    const content = fs.readFileSync(path.resolve(__dirname, '../src/components/Toolbar.tsx'), 'utf-8');
+    expect(content).not.toMatch(/\? '#ffffff' : palette\.icon/);
+  });
 });

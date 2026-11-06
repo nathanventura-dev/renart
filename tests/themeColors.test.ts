@@ -44,4 +44,32 @@ describe('RenArt Theme Colors', () => {
     expect(DARK_PALETTE.controlActive).not.toBe(DARK_PALETTE.control);
     expect(DARK_PALETTE.controlActive).not.toBe(DARK_PALETTE.hover);
   });
+
+  it('light palette keeps the original fox orange with white text on it', () => {
+    expect(LIGHT_PALETTE.primary).toBe(RENART_THEME.primary);
+    expect(LIGHT_PALETTE.primaryHover).toBe(RENART_THEME.primaryHover);
+    expect(LIGHT_PALETTE.primaryTint).toBe(RENART_THEME.primaryTint);
+    expect(LIGHT_PALETTE.onPrimary).toBe('#ffffff');
+  });
+
+  it('dark palette uses a lighter orange with dark text on it', () => {
+    expect(DARK_PALETTE.primary).toBe('#e8763f');
+    expect(DARK_PALETTE.primaryHover).toBe('#ef8754');
+    expect(DARK_PALETTE.onPrimary).toBe('#1a1a1a');
+  });
+
+  it('dark orange keeps readable contrast (>=3:1 on chrome, >=4.5:1 for text on it)', () => {
+    const lum = (hex: string) => {
+      const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255).map((c) =>
+        c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4)
+      );
+      return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    };
+    const ratio = (a: string, b: string) => {
+      const [hi, lo] = [lum(a), lum(b)].sort((x, y) => y - x);
+      return (hi + 0.05) / (lo + 0.05);
+    };
+    expect(ratio(DARK_PALETTE.primary, DARK_PALETTE.chrome)).toBeGreaterThanOrEqual(3);
+    expect(ratio(DARK_PALETTE.onPrimary, DARK_PALETTE.primary)).toBeGreaterThanOrEqual(4.5);
+  });
 });

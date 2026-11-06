@@ -21,6 +21,13 @@ export interface ThemePalette {
   workspace: string;
   shadow: string;
   thumbBg: string;
+  primary: string;
+  primaryHover: string;
+  primaryTint: string;
+  primaryBorder: string;
+  galleryActiveBg: string;
+  /** Cor do texto/ícone sobre fundo `primary`. */
+  onPrimary: string;
 }
 
 export const LIGHT_PALETTE: ThemePalette = {
@@ -38,6 +45,12 @@ export const LIGHT_PALETTE: ThemePalette = {
   workspace: '#e5e5e7',
   shadow: 'rgba(0,0,0,0.12)',
   thumbBg: '#f9f9fa',
+  primary: RENART_THEME.primary,
+  primaryHover: RENART_THEME.primaryHover,
+  primaryTint: RENART_THEME.primaryTint,
+  primaryBorder: RENART_THEME.primaryBorder,
+  galleryActiveBg: RENART_THEME.galleryActiveBg,
+  onPrimary: '#ffffff',
 };
 
 /** Tons medidos da Ferramenta de Captura (Windows 11) no modo escuro. */
@@ -56,4 +69,10 @@ export const DARK_PALETTE: ThemePalette = {
   workspace: '#121211',
   shadow: 'rgba(0,0,0,0.5)',
   thumbBg: '#20282d',
+  primary: '#e8763f',
+  primaryHover: '#ef8754',
+  primaryTint: 'rgba(232, 118, 63, 0.16)',
+  primaryBorder: 'rgba(232, 118, 63, 0.4)',
+  galleryActiveBg: 'rgba(232, 118, 63, 0.12)',
+  onPrimary: '#1a1a1a',
 };
