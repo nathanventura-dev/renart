@@ -1,7 +1,7 @@
 use image::{Rgba, RgbaImage};
-use renart_lib::capture::{local_point, MonitorInfo, Selection};
+use renart_lib::capture::{local_point, MonitorInfo, Selection, WindowInfo};
 use renart_lib::capture_session::{
-    build_complete_payload, build_overlay_url, cursor_for_mode, frame_bytes_with, should_force_crosshair, OverlayCursor, UiRect, overlay_label, replace_session, validate_mode, BeginGuard, take_session, CaptureSession, SessionState, DENIED_ERROR,
+    build_complete_payload, build_hover_payload, build_overlay_url, capture_kind, EVENT_HOVER_WINDOW, cursor_for_mode, frame_bytes_with, should_force_crosshair, OverlayCursor, UiRect, overlay_label, replace_session, validate_mode, BeginGuard, take_session, CaptureSession, SessionState, DENIED_ERROR,
     EVENT_ACTIVE_MONITOR, EVENT_CAPTURE_CANCELLED, EVENT_CAPTURE_COMPLETE, EVENT_OVERLAY_MODE,
 };
 use renart_lib::permissions::{allowed_with, ensure_screen_recording};
@@ -28,8 +28,13 @@ fn sample_session() -> CaptureSession {
     CaptureSession::new(
         "region".to_string(),
         vec![monitor(1, 100, 100, 1.0), monitor(2, 200, 200, 2.0)],
+        vec![sample_window(50, 10, 10, 30, 20)],
         frames,
     )
+}
+
+fn sample_window(id: u32, x: i32, y: i32, w: u32, h: u32) -> WindowInfo {
+    WindowInfo { id, app_name: "Safari".into(), title: format!("Aba {id}"), x, y, width: w, height: h }
 }
 
 #[test]
@@ -103,10 +108,11 @@ fn test_build_overlay_url_has_id_and_mode() {
 }
 
 #[test]
-fn test_validate_mode_accepts_only_region_and_fullscreen() {
+fn test_validate_mode_accepts_only_the_supported_modes() {
     assert!(validate_mode("region").is_ok());
     assert!(validate_mode("fullscreen").is_ok());
-    assert!(validate_mode("window").is_err());
+    assert!(validate_mode("window").is_ok(), "o modo janela entrou no ciclo 2");
+    assert!(validate_mode("freeform").is_err());
     assert!(validate_mode("").is_err());
 }
 
@@ -268,7 +274,7 @@ fn test_complete_payload_encodes_once_and_copies_the_raw_image() {
     let copied_size = Cell::new((0, 0));
     let payload = build_complete_payload(
         &img,
-        true,
+        "fullscreen",
         |i| {
             copied_size.set(i.dimensions());
             Ok(())
@@ -288,7 +294,7 @@ fn test_complete_payload_encodes_once_and_copies_the_raw_image() {
 #[test]
 fn test_clipboard_failure_does_not_block_the_capture_result() {
     let img = RgbaImage::from_pixel(2, 2, Rgba([9, 9, 9, 255]));
-    let payload = build_complete_payload(&img, false, |_| Err("sem clipboard".into()), |i| {
+    let payload = build_complete_payload(&img, "region", |_| Err("sem clipboard".into()), |i| {
         renart_lib::capture::image_to_png_bytes(i)
     })
     .unwrap();
@@ -298,5 +304,86 @@ fn test_clipboard_failure_does_not_block_the_capture_result() {
 #[test]
 fn test_encode_failure_is_reported() {
     let img = RgbaImage::from_pixel(2, 2, Rgba([9, 9, 9, 255]));
-    assert!(build_complete_payload(&img, false, |_| Ok(()), |_| Err("falha".into())).is_err());
+    assert!(build_complete_payload(&img, "region", |_| Ok(()), |_| Err("falha".into())).is_err());
+}
+
+// ---- Captura de janela ----
+
+#[test]
+fn test_session_exposes_windows_by_id() {
+    let s = sample_session();
+    assert_eq!(s.windows().len(), 1);
+    assert_eq!(s.window(50).unwrap().app_name, "Safari");
+    let err = s.window(99).unwrap_err();
+    assert!(err.contains("99"), "{err}");
+}
+
+#[test]
+fn test_validate_mode_accepts_window() {
+    assert!(validate_mode("window").is_ok());
+}
+
+#[test]
+fn test_build_hover_payload_has_one_rect_per_touched_monitor() {
+    let monitors = vec![
+        MonitorInfo { id: 1, name: "A".into(), x: 0, y: 0, width: 1000, height: 800, scale_factor: 1.0, is_primary: true },
+        MonitorInfo { id: 2, name: "B".into(), x: 1000, y: 0, width: 1000, height: 800, scale_factor: 1.0, is_primary: false },
+    ];
+    let w = sample_window(7, 900, 100, 300, 200);
+    let p = build_hover_payload(Some(&w), &monitors);
+    assert_eq!(p.id, Some(7));
+    assert_eq!(p.app_name, "Safari");
+    assert_eq!(p.title, "Aba 7");
+    assert_eq!(p.rects.iter().map(|r| r.monitor_id).collect::<Vec<_>>(), vec![1, 2]);
+    assert_eq!((p.rects[1].x, p.rects[1].width), (0.0, 200.0));
+
+    let none = build_hover_payload(None, &monitors);
+    assert_eq!(none.id, None);
+    assert!(none.rects.is_empty());
+}
+
+#[test]
+fn test_capture_kind_names_match_the_frontend() {
+    assert_eq!(capture_kind(&Selection::Fullscreen), "fullscreen");
+    assert_eq!(capture_kind(&Selection::Region { x: 0.0, y: 0.0, width: 1.0, height: 1.0 }), "region");
+    assert_eq!(capture_kind(&Selection::Window { id: 1 }), "window");
+}
+
+#[test]
+fn test_complete_payload_carries_the_kind() {
+    let img = RgbaImage::from_pixel(2, 2, Rgba([1, 1, 1, 255]));
+    let enc = |i: &RgbaImage| renart_lib::capture::image_to_png_bytes(i);
+    let window = build_complete_payload(&img, "window", |_| Ok(()), enc).unwrap();
+    assert_eq!(window.kind, "window");
+    assert!(!window.fullscreen);
+    let full = build_complete_payload(&img, "fullscreen", |_| Ok(()), enc).unwrap();
+    assert!(full.fullscreen);
+}
+
+#[test]
+fn test_capture_selection_window_uses_the_clean_capture_and_falls_back() {
+    let s = sample_session();
+    let clean = RgbaImage::from_pixel(5, 5, Rgba([0, 255, 0, 255]));
+    let ok = s.capture_selection(1, &Selection::Window { id: 50 }, |_| Ok(clean.clone())).unwrap();
+    assert_eq!(ok.dimensions(), (5, 5));
+
+    let fallback = s.capture_selection(1, &Selection::Window { id: 50 }, |_| Err("sumiu".into())).unwrap();
+    assert_eq!(fallback.dimensions(), (30, 20), "recorte do quadro congelado");
+    assert_eq!(*fallback.get_pixel(0, 0), Rgba([255, 0, 0, 255]));
+
+    assert!(s.capture_selection(1, &Selection::Window { id: 99 }, |_| Ok(clean.clone())).is_err());
+    assert!(s.capture_selection(1, &Selection::Fullscreen, |_| unreachable!()).is_ok(), "os outros modos seguem iguais");
+}
+
+#[test]
+fn test_hover_window_event_name_matches_the_frontend() {
+    assert_eq!(EVENT_HOVER_WINDOW, "overlay-hover-window");
+}
+
+#[test]
+fn test_tracker_emits_hover_window_events_in_window_mode() {
+    let src = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/src/capture_session.rs")).unwrap();
+    for needle in ["EVENT_HOVER_WINDOW", "window_at", "list_windows", "capture_selection"] {
+        assert!(src.contains(needle), "capture_session.rs deve usar {needle}");
+    }
 }

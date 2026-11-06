@@ -1,6 +1,7 @@
 use crate::capture::{
-    capture_monitor, copy_image_to_clipboard, cursor_position, frame_to_bmp, image_to_png_bytes, left_button_down,
-    list_monitors, local_point, monitor_at, overlay_geometry, selection_to_physical, MonitorInfo, Selection,
+    capture_monitor, capture_window, copy_image_to_clipboard, cursor_position, frame_to_bmp, image_to_png_bytes,
+    left_button_down, list_monitors, list_windows, local_point, local_rects_for, monitor_at, overlay_geometry,
+    resolve_window_capture, selection_to_physical, window_at, MonitorInfo, Selection, WindowInfo,
 };
 use crate::permissions::{ensure_screen_recording, screen_recording_allowed};
 use base64::engine::general_purpose::STANDARD as BASE64;
@@ -17,6 +18,7 @@ pub const EVENT_CAPTURE_COMPLETE: &str = "capture-complete";
 pub const EVENT_CAPTURE_CANCELLED: &str = "capture-cancelled";
 pub const EVENT_OVERLAY_MODE: &str = "overlay-mode-changed";
 pub const EVENT_ACTIVE_MONITOR: &str = "overlay-active-monitor";
+pub const EVENT_HOVER_WINDOW: &str = "overlay-hover-window";
 
 /// Código de erro devolvido quando a permissão de Gravação de Tela está negada.
 pub const DENIED_ERROR: &str = "screen-recording-denied";
@@ -52,16 +54,23 @@ pub struct CaptureSession {
     generation: u64,
     mode: String,
     monitors: Vec<MonitorInfo>,
+    windows: Vec<WindowInfo>,
     frames: HashMap<u32, RgbaImage>,
     ui_rects: HashMap<u32, UiRect>,
 }
 
 impl CaptureSession {
-    pub fn new(mode: String, monitors: Vec<MonitorInfo>, frames: HashMap<u32, RgbaImage>) -> Self {
+    pub fn new(
+        mode: String,
+        monitors: Vec<MonitorInfo>,
+        windows: Vec<WindowInfo>,
+        frames: HashMap<u32, RgbaImage>,
+    ) -> Self {
         Self {
             generation: NEXT_GENERATION.fetch_add(1, Ordering::SeqCst),
             mode,
             monitors,
+            windows,
             frames,
             ui_rects: HashMap::new(),
         }
@@ -92,6 +101,32 @@ impl CaptureSession {
 
     pub fn monitors(&self) -> &[MonitorInfo] {
         &self.monitors
+    }
+
+    pub fn windows(&self) -> &[WindowInfo] {
+        &self.windows
+    }
+
+    pub fn window(&self, id: u32) -> Result<&WindowInfo, String> {
+        self.windows
+            .iter()
+            .find(|w| w.id == id)
+            .ok_or_else(|| format!("Janela {id} não encontrada na sessão de captura"))
+    }
+
+    /// Resolve a seleção feita no monitor `id`. Janela: captura limpa (com fallback para o recorte do quadro).
+    pub fn capture_selection(
+        &self,
+        id: u32,
+        selection: &Selection,
+        capture_window: impl FnOnce(u32) -> Result<RgbaImage, String>,
+    ) -> Result<RgbaImage, String> {
+        match selection {
+            Selection::Window { id: window_id } => {
+                resolve_window_capture(self.frame(id)?, self.monitor(id)?, self.window(*window_id)?, capture_window)
+            }
+            _ => self.crop(id, selection),
+        }
     }
 
     pub fn monitor(&self, id: u32) -> Result<&MonitorInfo, String> {
@@ -152,6 +187,51 @@ impl BeginGuard {
 impl Drop for BeginPermit<'_> {
     fn drop(&mut self) {
         self.0.store(false, Ordering::SeqCst);
+    }
+}
+
+/// Nome do tipo de captura enviado ao frontend.
+pub fn capture_kind(selection: &Selection) -> &'static str {
+    match selection {
+        Selection::Fullscreen => "fullscreen",
+        Selection::Region { .. } => "region",
+        Selection::Window { .. } => "window",
+    }
+}
+
+/// Retângulo (local ao monitor) do destaque de uma janela.
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HoverRect {
+    pub monitor_id: u32,
+    pub x: f64,
+    pub y: f64,
+    pub width: f64,
+    pub height: f64,
+}
+
+/// Janela sob o cursor, enviada a todos os overlays (sem janela: `id` nulo e nenhum retângulo).
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HoverWindowPayload {
+    pub id: Option<u32>,
+    pub app_name: String,
+    pub title: String,
+    pub rects: Vec<HoverRect>,
+}
+
+pub fn build_hover_payload(window: Option<&WindowInfo>, monitors: &[MonitorInfo]) -> HoverWindowPayload {
+    match window {
+        Some(w) => HoverWindowPayload {
+            id: Some(w.id),
+            app_name: w.app_name.clone(),
+            title: w.title.clone(),
+            rects: local_rects_for(w, monitors)
+                .into_iter()
+                .map(|(monitor_id, r)| HoverRect { monitor_id, x: r.x, y: r.y, width: r.width, height: r.height })
+                .collect(),
+        },
+        None => HoverWindowPayload { id: None, app_name: String::new(), title: String::new(), rects: Vec::new() },
     }
 }
 
@@ -219,7 +299,7 @@ pub fn build_overlay_url(id: u32, mode: &str) -> String {
 /// Aceita apenas os modos suportados neste ciclo (captura de janela é o ciclo 2).
 pub fn validate_mode(mode: &str) -> Result<(), String> {
     match mode {
-        "region" | "fullscreen" => Ok(()),
+        "region" | "fullscreen" | "window" => Ok(()),
         other => Err(format!("Modo de captura desconhecido: {other}")),
     }
 }
@@ -229,13 +309,14 @@ pub fn validate_mode(mode: &str) -> Result<(), String> {
 pub struct CaptureCompletePayload {
     pub data_url: String,
     pub fullscreen: bool,
+    pub kind: String,
 }
 
 /// Monta o resultado enviado ao editor: copia a imagem crua para o clipboard (uma falha ali não impede
 /// o resultado) e codifica o PNG **uma única vez**, só para o editor.
 pub fn build_complete_payload(
     img: &RgbaImage,
-    fullscreen: bool,
+    kind: &str,
     copy: impl FnOnce(&RgbaImage) -> Result<(), String>,
     encode: impl FnOnce(&RgbaImage) -> Result<Vec<u8>, String>,
 ) -> Result<CaptureCompletePayload, String> {
@@ -243,7 +324,8 @@ pub fn build_complete_payload(
     let png = encode(img)?;
     Ok(CaptureCompletePayload {
         data_url: format!("data:image/png;base64,{}", BASE64.encode(png)),
-        fullscreen,
+        fullscreen: kind == "fullscreen",
+        kind: kind.to_string(),
     })
 }
 
@@ -280,12 +362,19 @@ fn spawn_show_fallback(app: AppHandle, generation: u64, monitors: Vec<MonitorInf
 /// Acompanha o cursor (~60Hz): descobre o monitor sob ele, avisa os overlays e passa o foco para o
 /// overlay daquele monitor, porque o webview de uma janela sem foco não recebe eventos de mouse.
 /// Com o botão pressionado o foco não muda, para não interromper um arrasto.
-fn spawn_cursor_tracker(app: AppHandle, generation: u64, monitors: Vec<MonitorInfo>) {
+fn spawn_cursor_tracker(
+    app: AppHandle,
+    generation: u64,
+    monitors: Vec<MonitorInfo>,
+    windows: Vec<WindowInfo>,
+) {
     std::thread::spawn(move || {
         let mut desired: Option<u32> = None;
         let mut focused: Option<u32> = None;
         let mut tick: u32 = 0;
         let mut forcing = false;
+        let mut last_hover: Option<u32> = None;
+        let mut hover_sent = false;
         loop {
             std::thread::sleep(std::time::Duration::from_millis(16));
             tick = tick.wrapping_add(1);
@@ -325,6 +414,23 @@ fn spawn_cursor_tracker(app: AppHandle, generation: u64, monitors: Vec<MonitorIn
                 apply_overlay_cursor(&app, OverlayCursor::Default);
             }
             forcing = force;
+
+            // Modo Janela: descobre a janela no topo sob o cursor e avisa os overlays quando muda
+            // (e a cada ~320ms, pois um overlay recém-aberto pode ainda não estar ouvindo).
+            if mode == "window" {
+                let hover = window_at(&windows, x, y);
+                if hover != last_hover || !hover_sent || tick % 20 == 0 {
+                    let window = hover.and_then(|id| windows.iter().find(|w| w.id == id));
+                    let _ = app.emit(EVENT_HOVER_WINDOW, build_hover_payload(window, &monitors));
+                    last_hover = hover;
+                    hover_sent = true;
+                }
+            } else if hover_sent {
+                // Saiu do modo Janela: apaga o destaque.
+                let _ = app.emit(EVENT_HOVER_WINDOW, build_hover_payload(None, &monitors));
+                last_hover = None;
+                hover_sent = false;
+            }
             if let Some(id) = monitor_at(&monitors, x, y) {
                 // Reenvia a cada ~320ms: um overlay que acabou de abrir ainda pode não estar ouvindo.
                 if desired != Some(id) || tick % 20 == 0 {
@@ -400,13 +506,15 @@ pub async fn begin_capture(
         for m in &monitors {
             frames.insert(m.id, capture_monitor(m.id)?);
         }
-        Ok::<_, String>((monitors, frames))
+        // Falha ao listar janelas não impede os outros modos: segue com a lista vazia.
+        let windows = list_windows().unwrap_or_default();
+        Ok::<_, String>((monitors, windows, frames))
     })
     .await
     .map_err(|e| e.to_string())
     .and_then(|r| r);
 
-    let (monitors, frames) = match captured {
+    let (monitors, windows, frames) = match captured {
         Ok(v) => v,
         Err(e) => {
             restore_main(&app);
@@ -414,7 +522,7 @@ pub async fn begin_capture(
         }
     };
 
-    replace_session(&state, CaptureSession::new(mode.clone(), monitors.clone(), frames));
+    replace_session(&state, CaptureSession::new(mode.clone(), monitors.clone(), windows.clone(), frames));
 
     for m in &monitors {
         let (x, y, w, h) = overlay_geometry(m);
@@ -459,7 +567,7 @@ pub async fn begin_capture(
     let generation = state.lock().unwrap().as_ref().map(|s| s.generation());
     if let Some(generation) = generation {
         spawn_show_fallback(app.clone(), generation, monitors.clone());
-        spawn_cursor_tracker(app.clone(), generation, monitors);
+        spawn_cursor_tracker(app.clone(), generation, monitors, windows);
     }
     Ok(())
 }
@@ -496,7 +604,7 @@ pub async fn finish_capture(
     let session = take_session(&state).ok_or_else(|| "Nenhuma captura em andamento".to_string())?;
     let monitors = session.monitors().to_vec();
 
-    let cropped = session.crop(id, &selection);
+    let cropped = session.capture_selection(id, &selection, capture_window);
 
     close_overlays(&app, &monitors);
     restore_main(&app);
@@ -505,7 +613,7 @@ pub async fn finish_capture(
         Ok(img) => {
             let payload = build_complete_payload(
                 &img,
-                matches!(selection, Selection::Fullscreen),
+                capture_kind(&selection),
                 copy_image_to_clipboard,
                 image_to_png_bytes,
             )?;
