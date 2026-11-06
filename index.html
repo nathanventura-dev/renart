@@ -18,6 +18,12 @@
         background-color: #f5f5f7;
         color: #1d1d1f;
       }
+      :root {
+        color-scheme: light dark;
+      }
+      button, select, input, textarea {
+        color: inherit;
+      }
       @media (prefers-color-scheme: dark) {
         html:not([data-theme='light']), html:not([data-theme='light']) body, html:not([data-theme='light']) #root {
           background-color: #121211;

@@ -120,4 +120,19 @@ describe('themeStore', () => {
     store.setPreference('system');
     expect(store.getState()).toBe(a);
   });
+
+  it('applies data-theme and color-scheme to the root element and keeps them in sync', () => {
+    const attrs: Record<string, string> = {};
+    const root = { setAttribute: (n: string, v: string) => void (attrs[n] = v), style: { colorScheme: '' } };
+    const media = fakeMedia(false);
+    const store = createThemeStore({ matchMedia: media.matchMedia, storage: fakeStorage(), root });
+    expect(attrs['data-theme']).toBe('light');
+    expect(root.style.colorScheme).toBe('light');
+    store.setPreference('dark');
+    expect(attrs['data-theme']).toBe('dark');
+    expect(root.style.colorScheme).toBe('dark');
+    store.setPreference('system');
+    media.setDark(true);
+    expect(attrs['data-theme']).toBe('dark');
+  });
 });

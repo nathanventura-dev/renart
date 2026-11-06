@@ -54,4 +54,10 @@ describe('theme surfaces', () => {
     const content = fs.readFileSync(path.resolve(__dirname, '../src/services/exportService.ts'), 'utf-8');
     expect(content.toLowerCase()).not.toContain('theme');
   });
+
+  it('index.html makes buttons and selects inherit the themed text color', () => {
+    const html = fs.readFileSync(path.resolve(__dirname, '../index.html'), 'utf-8');
+    expect(html).toMatch(/button,\s*select,\s*input,\s*textarea\s*\{[^}]*color:\s*inherit/);
+    expect(html).toContain('color-scheme');
+  });
 });

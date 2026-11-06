@@ -14,9 +14,16 @@ export interface StorageLike {
   setItem(key: string, value: string): void;
 }
 
+export interface RootLike {
+  setAttribute(name: string, value: string): void;
+  style: { colorScheme: string };
+}
+
 export interface ThemeEnv {
   matchMedia?: (query: string) => MediaQueryListLike;
   storage?: StorageLike;
+  /** Elemento raiz (<html>) que recebe data-theme e color-scheme. */
+  root?: RootLike;
 }
 
 export interface ThemeState {
@@ -41,6 +48,7 @@ function defaultEnv(): ThemeEnv {
   return {
     matchMedia: typeof window.matchMedia === 'function' ? (q) => window.matchMedia(q) : undefined,
     storage,
+    root: document.documentElement,
   };
 }
 
@@ -63,10 +71,17 @@ export function createThemeStore(env: ThemeEnv = defaultEnv()) {
   const initial: ThemePreference = isPreference(stored) ? stored : 'system';
   let state: ThemeState = { preference: initial, resolved: resolve(initial) };
 
+  const applyToRoot = () => {
+    env.root?.setAttribute('data-theme', state.resolved);
+    if (env.root) env.root.style.colorScheme = state.resolved;
+  };
+  applyToRoot();
+
   const update = (preference: ThemePreference) => {
     const resolved = resolve(preference);
     if (state.preference === preference && state.resolved === resolved) return;
     state = { preference, resolved };
+    applyToRoot();
     notify();
   };
 
