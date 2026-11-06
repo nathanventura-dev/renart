@@ -32,14 +32,14 @@ describe('Tauri bundle icons', () => {
 });
 
 describe('macOS icon grid', () => {
-  it('icon.png artwork fills about 86% of the canvas (880 of 1024px) with a transparent margin', () => {
+  it('icon.png artwork fills the standard 80.5% of the canvas (824 of 1024px, as measured on Calculator, Notes and Preview)', () => {
     const img = decodeRgba(path.resolve(__dirname, '../src-tauri/icons/icon.png'));
     const row = Math.floor(img.height / 2);
     const alphaAt = (x: number) => img.px[(row * img.width + x) * 4 + 3];
     const firstOpaque = Array.from({ length: img.width }, (_, x) => x).find((x) => alphaAt(x) === 255) as number;
     const margin = (firstOpaque / img.width) * 1024;
-    expect(margin).toBeGreaterThanOrEqual(68);
-    expect(margin).toBeLessThanOrEqual(76);
+    expect(margin).toBeGreaterThanOrEqual(97);
+    expect(margin).toBeLessThanOrEqual(103);
     expect(alphaAt(0)).toBe(0);
   });
 });
