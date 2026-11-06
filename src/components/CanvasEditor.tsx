@@ -95,6 +95,7 @@ import {
   getOpenChevronArrowPoints,
   getCropVisualGuides,
 } from '../utils/zoomAndCrop';
+import { useTheme } from '../hooks/useTheme';
 import { shouldDeselectOnEmptyClick, isSimpleClick, calculateStampedShapeGeometry } from '../utils/canvasPointerActions';
 
 interface CanvasEditorProps {
@@ -317,6 +318,7 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
   onRemoveAnnotation,
   stageRef,
 }) => {
+  const { palette } = useTheme();
   const [bgImage, setBgImage] = useState<HTMLImageElement | null>(null);
   const blurredBgCanvases = useMemo(() => {
     if (!bgImage) return { 1: null, 2: null };
@@ -2380,7 +2382,7 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
       style={{
         flex: 1,
         overflow: 'auto',
-        backgroundColor: '#e5e5e7',
+        backgroundColor: palette.workspace,
         position: 'relative',
         width: '100%',
         height: '100%',
@@ -2405,7 +2407,7 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
             minWidth: `${visualWidth}px`,
             minHeight: `${visualHeight}px`,
             position: 'relative',
-            boxShadow: '0 4px 24px rgba(0,0,0,0.15)',
+            boxShadow: `0 4px 24px ${palette.shadow}`,
             borderRadius: '4px',
             overflow: 'hidden',
             cursor: currentCursor,

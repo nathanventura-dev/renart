@@ -18,7 +18,27 @@
         background-color: #f5f5f7;
         color: #1d1d1f;
       }
+      @media (prefers-color-scheme: dark) {
+        html:not([data-theme='light']), html:not([data-theme='light']) body, html:not([data-theme='light']) #root {
+          background-color: #121211;
+          color: #ffffff;
+        }
+      }
+      html[data-theme='dark'], html[data-theme='dark'] body, html[data-theme='dark'] #root {
+        background-color: #121211;
+        color: #ffffff;
+      }
+      html[data-theme='light'], html[data-theme='light'] body, html[data-theme='light'] #root {
+        background-color: #f5f5f7;
+        color: #1d1d1f;
+      }
     </style>
+    <script>
+      try {
+        var pref = localStorage.getItem('renart-theme-preference');
+        if (pref === 'light' || pref === 'dark') document.documentElement.setAttribute('data-theme', pref);
+      } catch (e) {}
+    </script>
   </head>
   <body>
     <div id="root"></div>

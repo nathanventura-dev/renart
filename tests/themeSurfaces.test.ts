@@ -28,4 +28,30 @@ describe('theme surfaces', () => {
     expect(content).toContain('data-testid="theme-toggle"');
     expect(content).toContain('cyclePreference');
   });
+
+  it('GallerySidebar.tsx has no literal surface colors', () => {
+    expect(findLiteralSurfaceColors('src/components/GallerySidebar.tsx')).toEqual([]);
+  });
+
+  it('App.tsx has no literal surface colors', () => {
+    expect(findLiteralSurfaceColors('src/App.tsx')).toEqual([]);
+  });
+
+  it('index.html defines dark startup colors', () => {
+    const html = fs.readFileSync(path.resolve(__dirname, '../index.html'), 'utf-8');
+    expect(html).toContain('prefers-color-scheme: dark');
+    expect(html).toContain("html[data-theme='dark']");
+    expect(html).toContain('#121211');
+  });
+
+  it('CanvasEditor workspace background comes from the palette', () => {
+    const content = fs.readFileSync(path.resolve(__dirname, '../src/components/CanvasEditor.tsx'), 'utf-8');
+    expect(content).toContain('backgroundColor: palette.workspace');
+    expect(content).not.toContain("backgroundColor: '#e5e5e7'");
+  });
+
+  it('exportService does not depend on the theme', () => {
+    const content = fs.readFileSync(path.resolve(__dirname, '../src/services/exportService.ts'), 'utf-8');
+    expect(content.toLowerCase()).not.toContain('theme');
+  });
 });

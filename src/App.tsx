@@ -2,6 +2,7 @@ import { RENART_THEME } from './theme/colors';
 import React, { useState, useRef, useSyncExternalStore, useEffect, useCallback } from 'react';
 import Konva from 'konva';
 import { Toolbar } from './components/Toolbar';
+import { useTheme } from './hooks/useTheme';
 import { GallerySidebar } from './components/GallerySidebar';
 import { CanvasEditor } from './components/CanvasEditor';
 import { CaptureOverlay } from './components/CaptureOverlay';
@@ -24,6 +25,7 @@ const editorStore = createEditorStore();
 const galleryStore = createGalleryStore(10);
 
 export const App: React.FC = () => {
+  const { palette } = useTheme();
   const [isCapturing, setIsCapturing] = useState(false);
   const [captureMode, setCaptureMode] = useState<CaptureMode>('region');
   const [preCapturedScreen, setPreCapturedScreen] = useState<string | null>(null);
@@ -66,8 +68,8 @@ export const App: React.FC = () => {
       const ctx = canvas.getContext('2d');
       if (ctx) {
         const grad = ctx.createLinearGradient(0, 0, 900, 550);
-        grad.addColorStop(0, '#f0f4f8');
-        grad.addColorStop(1, '#d9e2ec');
+        grad.addColorStop(0, '#f0f4f8'); // theme-exempt
+        grad.addColorStop(1, '#d9e2ec'); // theme-exempt
         ctx.fillStyle = grad;
         ctx.fillRect(0, 0, 900, 550);
 
@@ -75,7 +77,7 @@ export const App: React.FC = () => {
         ctx.font = 'bold 26px system-ui';
         ctx.fillText('RenArt — Captura de precisão e anotação fluida', 40, 70);
 
-        ctx.fillStyle = '#627d98';
+        ctx.fillStyle = '#627d98'; // theme-exempt
         ctx.font = '15px system-ui';
         ctx.fillText('📸 Clique em "Nova Captura" para capturar e recortar uma área real da sua tela.', 40, 110);
         ctx.fillText('📋 Pressione Ctrl+V em qualquer lugar para colar imagens na galeria.', 40, 140);
@@ -535,7 +537,16 @@ export const App: React.FC = () => {
   const showTextControls = shouldShowTextControls(editorState.activeTool, selectedAnnotations);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', width: '100vw' }}>
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100vh',
+        width: '100vw',
+        backgroundColor: palette.workspace,
+        color: palette.textPrimary,
+      }}
+    >
       {/* Barra de Ferramentas Superior */}
       <Toolbar
         activeTool={editorState.activeTool}
@@ -663,7 +674,7 @@ export const App: React.FC = () => {
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              color: '#86868b',
+              color: palette.textMuted,
             }}
           >
             Selecione ou realize uma nova captura para iniciar a edição.

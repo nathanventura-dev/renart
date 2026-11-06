@@ -1,4 +1,5 @@
 import { RENART_THEME } from '../theme/colors';
+import { useTheme } from '../hooks/useTheme';
 import React from 'react';
 import { GalleryItem } from '../state/galleryStore';
 import { X, Clock } from 'lucide-react';
@@ -18,12 +19,13 @@ export const GallerySidebar: React.FC<GallerySidebarProps> = ({
   onSelect,
   onClose,
 }) => {
+  const { palette } = useTheme();
   return (
     <div
       style={{
         width: '220px',
-        backgroundColor: '#ffffff',
-        borderRight: '1px solid #e5e5e7',
+        backgroundColor: palette.chrome,
+        borderRight: `1px solid ${palette.border}`,
         display: 'flex',
         flexDirection: 'column',
         userSelect: 'none',
@@ -33,20 +35,20 @@ export const GallerySidebar: React.FC<GallerySidebarProps> = ({
       <div
         style={{
           padding: '10px 14px',
-          borderBottom: '1px solid #e5e5e7',
+          borderBottom: `1px solid ${palette.border}`,
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
         }}
       >
-        <span style={{ fontSize: '12px', fontWeight: 700, color: '#86868b', textTransform: 'uppercase' }}>
+        <span style={{ fontSize: '12px', fontWeight: 700, color: palette.textMuted, textTransform: 'uppercase' }}>
           Galeria
         </span>
         <span
           style={{
             fontSize: '11px',
-            backgroundColor: captures.length >= maxCaptures ? '#ff9f0a' : '#f5f5f7',
-            color: captures.length >= maxCaptures ? '#ffffff' : '#86868b',
+            backgroundColor: captures.length >= maxCaptures ? '#ff9f0a' : palette.control,
+            color: captures.length >= maxCaptures ? '#ffffff' : palette.textMuted, // theme-exempt
             padding: '2px 8px',
             borderRadius: '10px',
             fontWeight: 600,
@@ -59,7 +61,7 @@ export const GallerySidebar: React.FC<GallerySidebarProps> = ({
       {/* Lista de Miniaturas */}
       <div style={{ flex: 1, overflowY: 'auto', padding: '8px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
         {captures.length === 0 ? (
-          <div style={{ textAlign: 'center', color: '#aeaeb2', fontSize: '12px', marginTop: '40px' }}>
+          <div style={{ textAlign: 'center', color: palette.textMuted, fontSize: '12px', marginTop: '40px' }}>
             Nenhuma captura ainda. Clique em "Nova Captura".
           </div>
         ) : (
@@ -73,8 +75,8 @@ export const GallerySidebar: React.FC<GallerySidebarProps> = ({
                 onClick={() => onSelect(item.id)}
                 style={{
                   position: 'relative',
-                  border: isActive ? `2px solid ${RENART_THEME.primary}` : '1px solid #e5e5e7',
-                  backgroundColor: isActive ? RENART_THEME.galleryActiveBg : '#f9f9fa',
+                  border: isActive ? `2px solid ${RENART_THEME.primary}` : `1px solid ${palette.border}`,
+                  backgroundColor: isActive ? RENART_THEME.galleryActiveBg : palette.thumbBg,
                   borderRadius: '6px',
                   padding: '6px',
                   cursor: 'pointer',
@@ -94,7 +96,7 @@ export const GallerySidebar: React.FC<GallerySidebarProps> = ({
                     right: '4px',
                     border: 'none',
                     backgroundColor: 'rgba(0, 0, 0, 0.5)',
-                    color: '#ffffff',
+                    color: '#ffffff', // theme-exempt
                     width: '18px',
                     height: '18px',
                     borderRadius: '50%',
@@ -112,7 +114,7 @@ export const GallerySidebar: React.FC<GallerySidebarProps> = ({
                 <div
                   style={{
                     height: '75px',
-                    backgroundColor: '#e5e5e7',
+                    backgroundColor: palette.border,
                     borderRadius: '4px',
                     overflow: 'hidden',
                     display: 'flex',
@@ -129,10 +131,10 @@ export const GallerySidebar: React.FC<GallerySidebarProps> = ({
 
                 {/* Detalhes do Item */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '6px' }}>
-                  <span style={{ fontSize: '11px', fontWeight: isActive ? 600 : 500, color: isActive ? RENART_THEME.primary : '#1d1d1f' }}>
+                  <span style={{ fontSize: '11px', fontWeight: isActive ? 600 : 500, color: isActive ? RENART_THEME.primary : palette.textPrimary }}>
                     {item.title}
                   </span>
-                  <span style={{ fontSize: '10px', color: '#86868b', display: 'flex', alignItems: 'center', gap: '2px' }}>
+                  <span style={{ fontSize: '10px', color: palette.textMuted, display: 'flex', alignItems: 'center', gap: '2px' }}>
                     <Clock size={10} /> {dateStr}
                   </span>
                 </div>
@@ -143,7 +145,7 @@ export const GallerySidebar: React.FC<GallerySidebarProps> = ({
       </div>
 
       {/* Rodapé Informativo da Política FIFO */}
-      <div style={{ padding: '8px 12px', borderTop: '1px solid #e5e5e7', fontSize: '10px', color: '#86868b', textAlign: 'center' }}>
+      <div style={{ padding: '8px 12px', borderTop: `1px solid ${palette.border}`, fontSize: '10px', color: palette.textMuted, textAlign: 'center' }}>
         Limite de 10 capturas. As mais antigas saem automaticamente (FIFO).
       </div>
     </div>
