@@ -167,6 +167,11 @@ pub fn monitor_at(monitors: &[MonitorInfo], x: f64, y: f64) -> Option<u32> {
         .map(|m| m.id)
 }
 
+/// Converte um ponto global em coordenadas locais ao monitor (origem no canto superior esquerdo dele).
+pub fn local_point(m: &MonitorInfo, x: f64, y: f64) -> (f64, f64) {
+    (x - m.x as f64, y - m.y as f64)
+}
+
 /// Posição global do cursor em coordenadas lógicas (a mesma origem de `MonitorInfo`). Só no macOS.
 #[cfg(target_os = "macos")]
 pub fn cursor_position() -> Option<(f64, f64)> {

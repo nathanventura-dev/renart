@@ -171,6 +171,7 @@ export const CaptureOverlay: React.FC<CaptureOverlayProps> = ({
 
       {/* Barra Flutuante de Captura (Estilo Windows Snipping Tool) */}
       <div
+        data-capture-ui
         onMouseDown={(e) => e.stopPropagation()}
         onClick={(e) => e.stopPropagation()}
         style={{
@@ -190,6 +191,7 @@ export const CaptureOverlay: React.FC<CaptureOverlayProps> = ({
           zIndex: 10002,
           pointerEvents: 'auto',
           userSelect: 'none',
+          cursor: 'default',
         }}
       >
         {/* Modo Área Retangular */}

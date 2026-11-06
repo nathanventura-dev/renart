@@ -1,7 +1,7 @@
 use image::{Rgba, RgbaImage};
-use renart_lib::capture::{MonitorInfo, Selection};
+use renart_lib::capture::{local_point, MonitorInfo, Selection};
 use renart_lib::capture_session::{
-    build_overlay_url, cursor_for_mode, frame_bytes_with, OverlayCursor, overlay_label, replace_session, validate_mode, BeginGuard, take_session, CaptureSession, SessionState, DENIED_ERROR,
+    build_overlay_url, cursor_for_mode, frame_bytes_with, should_force_crosshair, OverlayCursor, UiRect, overlay_label, replace_session, validate_mode, BeginGuard, take_session, CaptureSession, SessionState, DENIED_ERROR,
     EVENT_ACTIVE_MONITOR, EVENT_CAPTURE_CANCELLED, EVENT_CAPTURE_COMPLETE, EVENT_OVERLAY_MODE,
 };
 use renart_lib::permissions::{allowed_with, ensure_screen_recording};
@@ -211,4 +211,49 @@ fn test_cursor_tracker_forces_the_system_cursor_on_the_main_thread() {
     assert!(src.contains("run_on_main_thread"), "NSCursor só pode ser alterado na thread principal");
     assert!(src.contains("apply_overlay_cursor"), "o rastreador reaplica o cursor a cada tick");
     assert!(src.contains("set_mode"), "set_overlay_mode atualiza o modo da sessão para o rastreador");
+}
+
+// ---- Cursor sobre a barra de opções ----
+
+#[test]
+fn test_ui_rect_contains_points_inside_and_respects_the_margin() {
+    let bar = UiRect { x: 400.0, y: 20.0, width: 300.0, height: 40.0 };
+    assert!(bar.contains(500.0, 30.0, 0.0));
+    assert!(bar.contains(400.0, 20.0, 0.0), "a borda de início pertence à barra");
+    assert!(!bar.contains(700.0, 30.0, 0.0), "a borda de fim não pertence");
+    assert!(!bar.contains(395.0, 30.0, 0.0));
+    assert!(bar.contains(395.0, 30.0, 6.0), "a margem evita o pisca-pisca na borda da barra");
+    assert!(!bar.contains(500.0, 200.0, 6.0));
+}
+
+#[test]
+fn test_crosshair_is_not_forced_over_the_options_bar() {
+    assert!(should_force_crosshair("region", false));
+    assert!(!should_force_crosshair("region", true), "sobre a barra a página decide o cursor");
+    assert!(!should_force_crosshair("fullscreen", false));
+}
+
+#[test]
+fn test_local_point_is_relative_to_the_monitor_origin_even_when_negative() {
+    let m = MonitorInfo { id: 3, name: "E".into(), x: -1920, y: -200, width: 1920, height: 1080, scale_factor: 1.0, is_primary: false };
+    assert_eq!(local_point(&m, -1900.0, -180.0), (20.0, 20.0));
+    assert_eq!(monitor(1, 100, 100, 1.0).x, 0);
+    assert_eq!(local_point(&monitor(1, 100, 100, 1.0), 40.0, 50.0), (40.0, 50.0));
+}
+
+#[test]
+fn test_session_stores_the_options_bar_rect_per_monitor() {
+    let mut s = sample_session();
+    assert!(s.ui_rect(1).is_none());
+    s.set_ui_rect(1, UiRect { x: 1.0, y: 2.0, width: 3.0, height: 4.0 }).unwrap();
+    assert_eq!(s.ui_rect(1), Some(UiRect { x: 1.0, y: 2.0, width: 3.0, height: 4.0 }));
+    assert!(s.ui_rect(2).is_none());
+    assert!(s.set_ui_rect(99, UiRect { x: 0.0, y: 0.0, width: 1.0, height: 1.0 }).is_err());
+}
+
+#[test]
+fn test_cursor_tracker_leaves_the_cursor_to_the_page_over_the_bar() {
+    let src = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/src/capture_session.rs")).unwrap();
+    assert!(src.contains("should_force_crosshair"), "o rastreador só força a mira fora da barra");
+    assert!(src.contains("set_overlay_ui_rect"), "comando que recebe o retângulo da barra");
 }

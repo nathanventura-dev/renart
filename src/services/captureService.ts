@@ -78,6 +78,17 @@ export const cancelCapture = (deps: ServiceDeps = {}) => call<void>('cancel_capt
 export const setOverlayMode = (mode: OverlayMode, deps: ServiceDeps = {}) =>
   call<void>('set_overlay_mode', { mode }, deps);
 
+export interface UiRect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+/** Informa ao Rust onde fica a barra de opções do overlay (o Rust não força a mira por cima dela). */
+export const setOverlayUiRect = (id: number, rect: UiRect, deps: ServiceDeps = {}) =>
+  call<void>('set_overlay_ui_rect', { id, rect }, deps);
+
 export const onCaptureComplete = (cb: (r: CaptureResult) => void, deps: ServiceDeps = {}) =>
   subscribe<CaptureResult>(EVENT_CAPTURE_COMPLETE, cb, deps);
 

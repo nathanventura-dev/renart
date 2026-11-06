@@ -13,6 +13,7 @@ import {
   onOverlayModeChanged,
   overlayReady,
   setOverlayMode,
+  setOverlayUiRect,
 } from '../services/captureService';
 
 /** Converte o resultado do overlay na seleção enviada ao Rust; `null` quando não há equivalente (traço livre). */
@@ -74,6 +75,24 @@ export const OverlayApp: React.FC<OverlayParams> = ({ monitorId, mode: initialMo
   useEffect(() => {
     if (frame) void overlayReady(monitorId).catch(() => {});
   }, [frame, monitorId]);
+
+  // Informa ao Rust onde está a barra de opções: sobre ela a página mostra o cursor normal, e o Rust
+  // não força a mira (forçar a mira ali fazia o cursor piscar entre seta e cruz).
+  useEffect(() => {
+    if (!frame || mode !== 'region') return;
+    const report = () => {
+      const el = document.querySelector('[data-capture-ui]');
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      void setOverlayUiRect(monitorId, { x: r.left, y: r.top, width: r.width, height: r.height }).catch(() => {});
+    };
+    const raf = requestAnimationFrame(report);
+    window.addEventListener('resize', report);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener('resize', report);
+    };
+  }, [frame, mode, monitorId]);
 
   // O Rust acompanha o cursor e diz qual monitor está ativo (janelas sem foco não recebem eventos de mouse).
   useEffect(() => {

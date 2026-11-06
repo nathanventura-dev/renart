@@ -16,6 +16,7 @@ import {
   onCaptureComplete,
   onOverlayModeChanged,
   setOverlayMode,
+  setOverlayUiRect,
 } from '../src/services/captureService';
 
 function fakeEnv() {
@@ -65,6 +66,13 @@ describe('captureService (Tauri)', () => {
     expect(env.invoke).toHaveBeenCalledWith('overlay_ready', { id: 4 });
     expect(env.invoke).toHaveBeenCalledWith('cancel_capture', undefined);
     expect(env.invoke).toHaveBeenCalledWith('set_overlay_mode', { mode: 'fullscreen' });
+  });
+
+  it('setOverlayUiRect sends the options bar rectangle to Rust', async () => {
+    const env = fakeEnv();
+    const rect = { x: 10, y: 20, width: 300, height: 40 };
+    await setOverlayUiRect(2, rect, { ...env, isTauri: true });
+    expect(env.invoke).toHaveBeenCalledWith('set_overlay_ui_rect', { id: 2, rect });
   });
 
   it('onActiveMonitorChanged forwards the id of the monitor under the cursor', async () => {

@@ -53,6 +53,23 @@ describe('OverlayApp', () => {
   });
 });
 
+describe('options bar cursor', () => {
+  it('the options bar resets the inherited crosshair to the normal cursor', () => {
+    const src = read('src/components/CaptureOverlay.tsx');
+    const start = src.indexOf('data-capture-ui');
+    const barStyle = src.slice(start, src.indexOf('}}', start));
+    expect(barStyle).toContain("cursor: 'default'");
+  });
+
+  it('marks the options bar so OverlayApp can report its rectangle to Rust', () => {
+    expect(read('src/components/CaptureOverlay.tsx')).toContain('data-capture-ui');
+    const app = read('src/components/OverlayApp.tsx');
+    expect(app).toContain('setOverlayUiRect');
+    expect(app).toContain('getBoundingClientRect');
+    expect(app).toContain('[data-capture-ui]');
+  });
+});
+
 describe('OverlayApp frame loading', () => {
   it('decodes the frame before telling Rust to show the window (no black flash)', () => {
     const src = read('src/components/OverlayApp.tsx');

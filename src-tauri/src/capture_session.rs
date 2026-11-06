@@ -1,12 +1,12 @@
 use crate::capture::{
     capture_monitor, copy_to_clipboard, cursor_position, frame_to_bmp, image_to_png_bytes, left_button_down,
-    list_monitors, monitor_at, overlay_geometry, selection_to_physical, MonitorInfo, Selection,
+    list_monitors, local_point, monitor_at, overlay_geometry, selection_to_physical, MonitorInfo, Selection,
 };
 use crate::permissions::{ensure_screen_recording, screen_recording_allowed};
 use base64::engine::general_purpose::STANDARD as BASE64;
 use base64::Engine;
 use image::RgbaImage;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Mutex;
@@ -27,6 +27,25 @@ pub fn overlay_label(id: u32) -> String {
 }
 
 /// Quadros congelados de todos os monitores durante uma captura.
+/// Retângulo da barra de opções do overlay, em pixels lógicos relativos ao monitor.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct UiRect {
+    pub x: f64,
+    pub y: f64,
+    pub width: f64,
+    pub height: f64,
+}
+
+impl UiRect {
+    /// `true` se o ponto está dentro do retângulo ampliado por `margin` (início inclusivo, fim exclusivo).
+    pub fn contains(&self, px: f64, py: f64, margin: f64) -> bool {
+        px >= self.x - margin
+            && px < self.x + self.width + margin
+            && py >= self.y - margin
+            && py < self.y + self.height + margin
+    }
+}
+
 static NEXT_GENERATION: AtomicU64 = AtomicU64::new(1);
 
 pub struct CaptureSession {
@@ -34,16 +53,33 @@ pub struct CaptureSession {
     mode: String,
     monitors: Vec<MonitorInfo>,
     frames: HashMap<u32, RgbaImage>,
+    ui_rects: HashMap<u32, UiRect>,
 }
 
 impl CaptureSession {
     pub fn new(mode: String, monitors: Vec<MonitorInfo>, frames: HashMap<u32, RgbaImage>) -> Self {
-        Self { generation: NEXT_GENERATION.fetch_add(1, Ordering::SeqCst), mode, monitors, frames }
+        Self {
+            generation: NEXT_GENERATION.fetch_add(1, Ordering::SeqCst),
+            mode,
+            monitors,
+            frames,
+            ui_rects: HashMap::new(),
+        }
     }
 
     /// Identifica a sessão: o rastreador do cursor e o temporizador de segurança só agem sobre a sua.
     pub fn generation(&self) -> u64 {
         self.generation
+    }
+
+    pub fn ui_rect(&self, id: u32) -> Option<UiRect> {
+        self.ui_rects.get(&id).copied()
+    }
+
+    pub fn set_ui_rect(&mut self, id: u32, rect: UiRect) -> Result<(), String> {
+        self.monitor(id)?;
+        self.ui_rects.insert(id, rect);
+        Ok(())
     }
 
     pub fn set_mode(&mut self, mode: String) {
@@ -151,6 +187,12 @@ pub fn cursor_for_mode(mode: &str) -> OverlayCursor {
     }
 }
 
+/// A mira só é forçada fora da barra de opções; sobre ela a página mostra o cursor normal
+/// (forçar também ali brigava com a página e fazia o cursor piscar entre seta e cruz).
+pub fn should_force_crosshair(mode: &str, over_ui: bool) -> bool {
+    cursor_for_mode(mode) == OverlayCursor::Crosshair && !over_ui
+}
+
 /// Define o cursor do sistema. O webview de uma janela sem foco não recebe movimento do mouse e, com
 /// isso, não aplica o `cursor: crosshair` da página; por isso o Rust reaplica a cada tick.
 /// `NSCursor` só pode ser alterado na thread principal.
@@ -227,23 +269,46 @@ fn spawn_cursor_tracker(app: AppHandle, generation: u64, monitors: Vec<MonitorIn
         let mut desired: Option<u32> = None;
         let mut focused: Option<u32> = None;
         let mut tick: u32 = 0;
+        let mut forcing = false;
         loop {
             std::thread::sleep(std::time::Duration::from_millis(16));
             tick = tick.wrapping_add(1);
-            let mode = {
+            let pos = cursor_position();
+            let under_cursor = pos.and_then(|(x, y)| monitor_at(&monitors, x, y));
+            let snapshot = {
                 let state = app.state::<SessionState>();
                 let guard = state.lock().unwrap();
                 guard
                     .as_ref()
                     .filter(|s| s.generation() == generation)
-                    .map(|s| s.mode().to_string())
+                    .map(|s| (s.mode().to_string(), under_cursor.and_then(|id| s.ui_rect(id))))
             };
-            let Some(mode) = mode else {
-                apply_overlay_cursor(&app, OverlayCursor::Default);
+            let Some((mode, ui_rect)) = snapshot else {
+                if forcing {
+                    apply_overlay_cursor(&app, OverlayCursor::Default);
+                }
                 break;
             };
-            let Some((x, y)) = cursor_position() else { break };
-            apply_overlay_cursor(&app, cursor_for_mode(&mode));
+            let Some((x, y)) = pos else { break };
+            let over_ui = match (under_cursor, ui_rect) {
+                (Some(id), Some(rect)) => monitors
+                    .iter()
+                    .find(|m| m.id == id)
+                    .map(|m| {
+                        let (lx, ly) = local_point(m, x, y);
+                        rect.contains(lx, ly, 4.0)
+                    })
+                    .unwrap_or(false),
+                _ => false,
+            };
+            let force = should_force_crosshair(&mode, over_ui);
+            if force {
+                apply_overlay_cursor(&app, cursor_for_mode(&mode));
+            } else if forcing {
+                // Saiu da mira forçada (entrou na barra ou trocou de modo): devolve o cursor à página.
+                apply_overlay_cursor(&app, OverlayCursor::Default);
+            }
+            forcing = force;
             if let Some(id) = monitor_at(&monitors, x, y) {
                 // Reenvia a cada ~320ms: um overlay que acabou de abrir ainda pode não estar ouvindo.
                 if desired != Some(id) || tick % 20 == 0 {
@@ -448,6 +513,20 @@ pub async fn finish_capture(
 pub async fn cancel_capture(app: AppHandle, state: State<'_, SessionState>) -> Result<(), String> {
     end_session(&app, &state);
     app.emit(EVENT_CAPTURE_CANCELLED, ()).map_err(|e| e.to_string())
+}
+
+/// O overlay informa onde fica a barra de opções, para o Rust não forçar a mira por cima dela.
+#[tauri::command]
+pub async fn set_overlay_ui_rect(
+    state: State<'_, SessionState>,
+    id: u32,
+    rect: UiRect,
+) -> Result<(), String> {
+    let mut guard = state.lock().unwrap();
+    let session = guard
+        .as_mut()
+        .ok_or_else(|| "Nenhuma captura em andamento".to_string())?;
+    session.set_ui_rect(id, rect)
 }
 
 /// Troca o modo (região ↔ tela inteira) em todos os overlays abertos.

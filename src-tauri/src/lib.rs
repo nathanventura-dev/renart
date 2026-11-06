@@ -19,6 +19,7 @@ pub fn run() {
             capture_session::finish_capture,
             capture_session::cancel_capture,
             capture_session::set_overlay_mode,
+            capture_session::set_overlay_ui_rect,
             ocr::detect_text_in_region
         ])
         .setup(|app| {
