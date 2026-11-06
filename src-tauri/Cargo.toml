@@ -30,5 +30,6 @@ interprocess = "2.2"
 # Mantém a 0.10.0 até migrar o xcap para uma versão nova.
 [target.'cfg(target_os = "macos")'.dependencies]
 core-foundation = "=0.10.0"
+core-graphics = "0.24"
 
 [dev-dependencies]

@@ -1,4 +1,6 @@
 pub mod capture;
+pub mod capture_session;
+pub mod permissions;
 pub mod instance;
 pub mod ocr;
 pub mod shortcuts;
