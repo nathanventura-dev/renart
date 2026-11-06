@@ -1,4 +1,5 @@
 import { RENART_THEME } from '../theme/colors';
+import { useTheme } from '../hooks/useTheme';
 import React, { useRef, useState, useEffect } from 'react';
 import {
   ToolType,
@@ -43,6 +44,8 @@ import {
   X,
   ZoomIn,
   ZoomOut,
+  Sun,
+  Moon,
   Undo2,
   Redo2,
   Copy,
@@ -273,7 +276,7 @@ export const TOOLBAR_COLORS = [
   '#0071e3',
   '#5856d6',
   '#000000',
-  '#ffffff',
+  '#ffffff', // theme-exempt
 ];
 export const COLORS = TOOLBAR_COLORS;
 
@@ -330,6 +333,7 @@ export const HorizontalFloatingMenu: React.FC<HorizontalFloatingMenuProps> = ({
   align = 'center',
   children,
 }) => {
+  const { palette } = useTheme();
   if (!isOpen) return null;
 
   const getTransform = () => {
@@ -353,8 +357,8 @@ export const HorizontalFloatingMenu: React.FC<HorizontalFloatingMenuProps> = ({
         left: getLeft(),
         transform: getTransform(),
         zIndex: 200,
-        backgroundColor: '#ffffff',
-        border: '1px solid #e5e5e7',
+        backgroundColor: palette.chrome,
+        border: `1px solid ${palette.border}`,
         borderRadius: '8px',
         boxShadow: '0 4px 14px rgba(0, 0, 0, 0.12)',
         padding: '3px 6px',
@@ -424,6 +428,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   selectedAnnotations = [],
   initialOpenMenu = null,
 }) => {
+  const { palette, preference, cyclePreference } = useTheme();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const exportMenuRef = useRef<HTMLDivElement>(null);
   const paletteContainerRef = useRef<HTMLDivElement>(null);
@@ -521,7 +526,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
     width: INNER_CONTROL_HEIGHT,
     height: INNER_CONTROL_HEIGHT,
     boxSizing: 'border-box',
-    backgroundColor: isActive ? '#ffffff' : 'transparent',
+    backgroundColor: isActive ? palette.controlActive : 'transparent',
     boxShadow: isActive ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
     border: 'none',
     borderRadius: '6px',
@@ -536,8 +541,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
         alignItems: 'center',
         justifyContent: 'space-between',
         padding: '8px 16px',
-        backgroundColor: '#ffffff',
-        borderBottom: '1px solid #e5e5e7',
+        backgroundColor: palette.chrome,
+        borderBottom: `1px solid ${palette.border}`,
         userSelect: 'none',
         gap: '12px',
         position: 'relative',
@@ -574,9 +579,9 @@ export const Toolbar: React.FC<ToolbarProps> = ({
               width: openMenu === 'capture' ? layoutMetrics.captureButtonHeight : 'auto',
               height: layoutMetrics.captureButtonHeight,
               boxSizing: 'border-box',
-              backgroundColor: openMenu === 'capture' ? RENART_THEME.primaryTint : 'rgba(0, 0, 0, 0.04)',
-              color: openMenu === 'capture' ? RENART_THEME.primary : '#1e293b',
-              border: openMenu === 'capture' ? `1px solid ${RENART_THEME.primaryBorder}` : '1px solid rgba(0, 0, 0, 0.08)',
+              backgroundColor: openMenu === 'capture' ? RENART_THEME.primaryTint : palette.control,
+              color: openMenu === 'capture' ? RENART_THEME.primary : palette.textPrimary,
+              border: openMenu === 'capture' ? `1px solid ${RENART_THEME.primaryBorder}` : `1px solid ${palette.border}`,
               borderRadius: '8px',
               padding: openMenu === 'capture' ? 0 : '0 12px',
               fontWeight: 600,
@@ -602,13 +607,13 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 flexDirection: 'row',
                 alignItems: 'center',
                 gap: '4px',
-                backgroundColor: '#f8fafc',
+                backgroundColor: palette.popup,
                 padding: '2px 4px',
                 height: layoutMetrics.captureButtonHeight,
                 boxSizing: 'border-box',
                 borderRadius: '8px',
                 boxShadow: '0 4px 16px rgba(0, 0, 0, 0.12)',
-                border: '1px solid #e2e8f0',
+                border: `1px solid ${palette.border}`,
                 zIndex: 10001,
                 whiteSpace: 'nowrap',
               }}
@@ -630,20 +635,20 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                   borderRadius: '5px',
                   border: 'none',
                   backgroundColor: 'transparent',
-                  color: '#475569',
+                  color: palette.textSecondary,
                   fontSize: '12px',
                   fontWeight: 600,
                   cursor: 'pointer',
                   transition: 'all 0.15s ease',
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = '#ffffff';
+                  e.currentTarget.style.backgroundColor = palette.controlActive;
                   e.currentTarget.style.color = RENART_THEME.primary;
                   e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.08)';
                 }}
                 onMouseLeave={(e) => {
                   e.currentTarget.style.backgroundColor = 'transparent';
-                  e.currentTarget.style.color = '#475569';
+                  e.currentTarget.style.color = palette.textSecondary;
                   e.currentTarget.style.boxShadow = 'none';
                 }}
               >
@@ -667,20 +672,20 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                   borderRadius: '5px',
                   border: 'none',
                   backgroundColor: 'transparent',
-                  color: '#475569',
+                  color: palette.textSecondary,
                   fontSize: '12px',
                   fontWeight: 600,
                   cursor: 'pointer',
                   transition: 'all 0.15s ease',
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = '#ffffff';
+                  e.currentTarget.style.backgroundColor = palette.controlActive;
                   e.currentTarget.style.color = RENART_THEME.primary;
                   e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.08)';
                 }}
                 onMouseLeave={(e) => {
                   e.currentTarget.style.backgroundColor = 'transparent';
-                  e.currentTarget.style.color = '#475569';
+                  e.currentTarget.style.color = palette.textSecondary;
                   e.currentTarget.style.boxShadow = 'none';
                 }}
               >
@@ -704,20 +709,20 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                   borderRadius: '5px',
                   border: 'none',
                   backgroundColor: 'transparent',
-                  color: '#475569',
+                  color: palette.textSecondary,
                   fontSize: '12px',
                   fontWeight: 600,
                   cursor: 'pointer',
                   transition: 'all 0.15s ease',
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = '#ffffff';
+                  e.currentTarget.style.backgroundColor = palette.controlActive;
                   e.currentTarget.style.color = RENART_THEME.primary;
                   e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.08)';
                 }}
                 onMouseLeave={(e) => {
                   e.currentTarget.style.backgroundColor = 'transparent';
-                  e.currentTarget.style.color = '#475569';
+                  e.currentTarget.style.color = palette.textSecondary;
                   e.currentTarget.style.boxShadow = 'none';
                 }}
               >
@@ -738,10 +743,10 @@ export const Toolbar: React.FC<ToolbarProps> = ({
           height: layoutMetrics.centerToolbarHeight,
           boxSizing: 'border-box',
           gap: '4px',
-          backgroundColor: '#f5f5f7',
+          backgroundColor: palette.hover,
           padding: '0 6px',
           borderRadius: '8px',
-          border: '1px solid #e5e5e7',
+          border: `1px solid ${palette.border}`,
         }}
       >
         <button
@@ -819,7 +824,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                     borderRadius: '4px',
                     cursor: 'pointer',
                     backgroundColor: isSelected ? RENART_THEME.primary : 'transparent',
-                    color: isSelected ? '#ffffff' : '#334155',
+                    color: isSelected ? '#ffffff' : palette.icon, // theme-exempt
                     transition: 'all 0.15s ease',
                   }}
                 >
@@ -837,11 +842,11 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                   padding: '0 8px',
                   fontSize: '11px',
                   fontWeight: 600,
-                  border: '1px solid #cbd5e1',
+                  border: `1px solid ${palette.borderStrong}`,
                   borderRadius: '4px',
                   cursor: 'pointer',
-                  backgroundColor: '#f8fafc',
-                  color: '#334155',
+                  backgroundColor: palette.popup,
+                  color: palette.icon,
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: '4px',
@@ -887,8 +892,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 fontFamily,
                 padding: '0 6px',
                 borderRadius: '6px',
-                border: '1px solid #d1d1d6',
-                backgroundColor: '#ffffff',
+                border: `1px solid ${palette.borderStrong}`,
+                backgroundColor: palette.chrome,
                 cursor: 'pointer',
               }}
             >
@@ -908,8 +913,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 fontSize: '12px',
                 padding: '0 6px',
                 borderRadius: '6px',
-                border: '1px solid #d1d1d6',
-                backgroundColor: '#ffffff',
+                border: `1px solid ${palette.borderStrong}`,
+                backgroundColor: palette.chrome,
                 cursor: 'pointer',
               }}
             >
@@ -920,7 +925,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
               ))}
             </select>
             {/* Divisor vertical */}
-            <div style={{ width: '1px', height: '16px', backgroundColor: '#e2e8f0', margin: '0 4px' }} />
+            <div style={{ width: '1px', height: '16px', backgroundColor: palette.border, margin: '0 4px' }} />
 
             {/* Estilos */}
             <button
@@ -938,7 +943,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 borderRadius: '4px',
                 cursor: 'pointer',
                 backgroundColor: isBold ? RENART_THEME.primary : 'transparent',
-                color: isBold ? '#ffffff' : '#334155',
+                color: isBold ? '#ffffff' : palette.icon, // theme-exempt
               }}
             >
               <Bold size={14} />
@@ -958,7 +963,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 borderRadius: '4px',
                 cursor: 'pointer',
                 backgroundColor: isItalic ? RENART_THEME.primary : 'transparent',
-                color: isItalic ? '#ffffff' : '#334155',
+                color: isItalic ? '#ffffff' : palette.icon, // theme-exempt
               }}
             >
               <Italic size={14} />
@@ -978,7 +983,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 borderRadius: '4px',
                 cursor: 'pointer',
                 backgroundColor: isUnderline ? RENART_THEME.primary : 'transparent',
-                color: isUnderline ? '#ffffff' : '#334155',
+                color: isUnderline ? '#ffffff' : palette.icon, // theme-exempt
               }}
             >
               <Underline size={14} />
@@ -998,14 +1003,14 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 borderRadius: '4px',
                 cursor: 'pointer',
                 backgroundColor: isStrikethrough ? RENART_THEME.primary : 'transparent',
-                color: isStrikethrough ? '#ffffff' : '#334155',
+                color: isStrikethrough ? '#ffffff' : palette.icon, // theme-exempt
               }}
             >
               <Strikethrough size={14} />
             </button>
 
             {/* Divisor vertical */}
-            <div style={{ width: '1px', height: '16px', backgroundColor: '#e2e8f0', margin: '0 4px' }} />
+            <div style={{ width: '1px', height: '16px', backgroundColor: palette.border, margin: '0 4px' }} />
 
             {/* Alinhamento */}
             <button
@@ -1023,7 +1028,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 borderRadius: '4px',
                 cursor: 'pointer',
                 backgroundColor: textAlign === 'left' ? RENART_THEME.primary : 'transparent',
-                color: textAlign === 'left' ? '#ffffff' : '#334155',
+                color: textAlign === 'left' ? '#ffffff' : palette.icon, // theme-exempt
               }}
             >
               <AlignLeft size={14} />
@@ -1043,7 +1048,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 borderRadius: '4px',
                 cursor: 'pointer',
                 backgroundColor: textAlign === 'center' ? RENART_THEME.primary : 'transparent',
-                color: textAlign === 'center' ? '#ffffff' : '#334155',
+                color: textAlign === 'center' ? '#ffffff' : palette.icon, // theme-exempt
               }}
             >
               <AlignCenter size={14} />
@@ -1063,14 +1068,14 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 borderRadius: '4px',
                 cursor: 'pointer',
                 backgroundColor: textAlign === 'right' ? RENART_THEME.primary : 'transparent',
-                color: textAlign === 'right' ? '#ffffff' : '#334155',
+                color: textAlign === 'right' ? '#ffffff' : palette.icon, // theme-exempt
               }}
             >
               <AlignRight size={14} />
             </button>
 
             {/* Divisor vertical */}
-            <div style={{ width: '1px', height: '16px', backgroundColor: '#e2e8f0', margin: '0 4px' }} />
+            <div style={{ width: '1px', height: '16px', backgroundColor: palette.border, margin: '0 4px' }} />
 
             {/* Fundo / Destaque */}
             <button
@@ -1088,7 +1093,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 borderRadius: '4px',
                 cursor: 'pointer',
                 backgroundColor: hasBackground ? RENART_THEME.primary : 'transparent',
-                color: hasBackground ? '#ffffff' : '#334155',
+                color: hasBackground ? '#ffffff' : palette.icon, // theme-exempt
               }}
             >
               <Highlighter size={14} />
@@ -1110,7 +1115,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 borderRadius: '4px',
                 cursor: 'pointer',
                 backgroundColor: autoWrap ? RENART_THEME.primary : 'transparent',
-                color: autoWrap ? '#ffffff' : '#334155',
+                color: autoWrap ? '#ffffff' : palette.icon, // theme-exempt
               }}
             >
               <WrapText size={14} />
@@ -1171,7 +1176,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 borderRadius: '4px',
                 cursor: 'pointer',
                 backgroundColor: effectiveRedactionLevel === 1 ? RENART_THEME.primary : 'transparent',
-                color: effectiveRedactionLevel === 1 ? '#ffffff' : '#334155',
+                color: effectiveRedactionLevel === 1 ? '#ffffff' : palette.icon, // theme-exempt
               }}
             >
               <Smile size={15} />
@@ -1192,7 +1197,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 borderRadius: '4px',
                 cursor: 'pointer',
                 backgroundColor: effectiveRedactionLevel === 2 ? RENART_THEME.primary : 'transparent',
-                color: effectiveRedactionLevel === 2 ? '#ffffff' : '#334155',
+                color: effectiveRedactionLevel === 2 ? '#ffffff' : palette.icon, // theme-exempt
               }}
             >
               <Type size={15} style={{ opacity: effectiveRedactionLevel === 2 ? 0.9 : 0.4 }} />
@@ -1213,14 +1218,14 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 borderRadius: '4px',
                 cursor: 'pointer',
                 backgroundColor: effectiveRedactionLevel === 3 ? RENART_THEME.primary : 'transparent',
-                color: effectiveRedactionLevel === 3 ? '#ffffff' : '#334155',
+                color: effectiveRedactionLevel === 3 ? '#ffffff' : palette.icon, // theme-exempt
               }}
             >
               <Square size={14} fill="currentColor" />
             </button>
 
             {/* Divisor vertical suave */}
-            <div style={{ width: '1px', height: '16px', backgroundColor: '#e2e8f0', margin: '0 4px' }} />
+            <div style={{ width: '1px', height: '16px', backgroundColor: palette.border, margin: '0 4px' }} />
 
             {/* Seletor de Modo: Retângulo vs Pincel */}
             <button
@@ -1236,7 +1241,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 borderRadius: '4px',
                 cursor: 'pointer',
                 backgroundColor: effectiveRedactionMode === 'rect' ? RENART_THEME.primary : 'transparent',
-                color: effectiveRedactionMode === 'rect' ? '#ffffff' : '#334155',
+                color: effectiveRedactionMode === 'rect' ? '#ffffff' : palette.icon, // theme-exempt
               }}
             >
               Retângulo
@@ -1254,7 +1259,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 borderRadius: '4px',
                 cursor: 'pointer',
                 backgroundColor: effectiveRedactionMode === 'brush' ? RENART_THEME.primary : 'transparent',
-                color: effectiveRedactionMode === 'brush' ? '#ffffff' : '#334155',
+                color: effectiveRedactionMode === 'brush' ? '#ffffff' : palette.icon, // theme-exempt
               }}
             >
               Pincel
@@ -1297,7 +1302,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 borderRadius: '4px',
                 cursor: 'pointer',
                 backgroundColor: effectiveMagnifierMode === 'without-focus' ? RENART_THEME.primary : 'transparent',
-                color: effectiveMagnifierMode === 'without-focus' ? '#ffffff' : '#334155',
+                color: effectiveMagnifierMode === 'without-focus' ? '#ffffff' : palette.icon, // theme-exempt
               }}
             >
               Sem foco
@@ -1315,7 +1320,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 borderRadius: '4px',
                 cursor: 'pointer',
                 backgroundColor: effectiveMagnifierMode === 'with-focus' ? RENART_THEME.primary : 'transparent',
-                color: effectiveMagnifierMode === 'with-focus' ? '#ffffff' : '#334155',
+                color: effectiveMagnifierMode === 'with-focus' ? '#ffffff' : palette.icon, // theme-exempt
               }}
             >
               Com foco
@@ -1435,7 +1440,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
           </HorizontalFloatingMenu>
         </div>
 
-        <div style={{ width: '1px', height: '20px', backgroundColor: '#d1d1d6', margin: '0 4px' }} />
+        <div style={{ width: '1px', height: '20px', backgroundColor: palette.borderStrong, margin: '0 4px' }} />
 
         {/* Paleta de Cores: Botão com ícone que abre lista suspensa horizontal */}
         <div
@@ -1462,7 +1467,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 height: '6px',
                 borderRadius: '50%',
                 backgroundColor: strokeColor,
-                border: '1px solid #ffffff',
+                border: '1px solid #ffffff', // theme-exempt
                 boxShadow: '0 0 1px rgba(0,0,0,0.5)',
               }}
             />
@@ -1508,8 +1513,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
             fontSize: '12px',
             padding: '0 6px',
             borderRadius: '6px',
-            border: '1px solid #d1d1d6',
-            backgroundColor: '#ffffff',
+            border: `1px solid ${palette.borderStrong}`,
+            backgroundColor: palette.chrome,
             cursor: 'pointer',
           }}
         >
@@ -1520,7 +1525,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
           ))}
         </select>
 
-        <div style={{ width: '1px', height: '20px', backgroundColor: '#d1d1d6', margin: '0 4px' }} />
+        <div style={{ width: '1px', height: '20px', backgroundColor: palette.borderStrong, margin: '0 4px' }} />
 
         {/* Desfazer e Refazer junto às ferramentas */}
         <button
@@ -1569,7 +1574,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
           <Redo2 size={16} />
         </button>
 
-        <div style={{ width: '1px', height: '20px', backgroundColor: '#d1d1d6', margin: '0 4px' }} />
+        <div style={{ width: '1px', height: '20px', backgroundColor: palette.borderStrong, margin: '0 4px' }} />
 
         {/* Controles de Zoom In e Zoom Out */}
         <button
@@ -1588,7 +1593,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
             backgroundColor: 'transparent',
             cursor: 'pointer',
             padding: 0,
-            color: '#334155',
+            color: palette.icon,
           }}
         >
           <ZoomOut size={16} />
@@ -1604,14 +1609,14 @@ export const Toolbar: React.FC<ToolbarProps> = ({
             justifyContent: 'center',
             height: INNER_CONTROL_HEIGHT,
             boxSizing: 'border-box',
-            border: '1px solid #d1d1d6',
+            border: `1px solid ${palette.borderStrong}`,
             borderRadius: '6px',
-            backgroundColor: '#ffffff',
+            backgroundColor: palette.chrome,
             cursor: 'pointer',
             padding: '0 6px',
             fontSize: '11px',
             fontWeight: 600,
-            color: '#334155',
+            color: palette.icon,
           }}
         >
           {formatZoomPercentage(zoomLevel)}
@@ -1633,7 +1638,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
             backgroundColor: 'transparent',
             cursor: 'pointer',
             padding: 0,
-            color: '#334155',
+            color: palette.icon,
           }}
         >
           <ZoomIn size={16} />
@@ -1650,6 +1655,30 @@ export const Toolbar: React.FC<ToolbarProps> = ({
           gap: '8px',
         }}
       >
+        {/* Alternância de tema: Sistema → Claro → Escuro */}
+        <button
+          type="button"
+          data-testid="theme-toggle"
+          aria-label="Alternar tema"
+          title={`Tema: ${preference === 'system' ? 'Sistema' : preference === 'light' ? 'Claro' : 'Escuro'}`}
+          onClick={cyclePreference}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: layoutMetrics.rightActionIconHeight,
+            height: layoutMetrics.rightActionIconHeight,
+            boxSizing: 'border-box',
+            border: `1px solid ${palette.border}`,
+            backgroundColor: palette.popup,
+            color: palette.textPrimary,
+            borderRadius: '8px',
+            cursor: 'pointer',
+          }}
+        >
+          {preference === 'system' ? <Monitor size={17} /> : preference === 'light' ? <Sun size={17} /> : <Moon size={17} />}
+        </button>
+
         {/* Ícone de Copiar + Hover "Copiar" / Feedback "Copiado" */}
         <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
           <button
@@ -1665,9 +1694,9 @@ export const Toolbar: React.FC<ToolbarProps> = ({
               width: layoutMetrics.rightActionIconHeight,
               height: layoutMetrics.rightActionIconHeight,
               boxSizing: 'border-box',
-              border: '1px solid #e2e8f0',
-              backgroundColor: hoveredAction === 'copy' ? '#f1f5f9' : '#f8fafc',
-              color: '#1e293b',
+              border: `1px solid ${palette.border}`,
+              backgroundColor: hoveredAction === 'copy' ? palette.hover : palette.popup,
+              color: palette.textPrimary,
               borderRadius: '8px',
               cursor: 'pointer',
               transition: 'background-color 0.15s ease',
@@ -1682,8 +1711,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 position: 'absolute',
                 top: '42px',
                 right: 0,
-                backgroundColor: feedback.copyBadge === 'Copiado' ? '#16a34a' : '#1e293b',
-                color: '#ffffff',
+                backgroundColor: feedback.copyBadge === 'Copiado' ? '#16a34a' : '#1e293b', // theme-exempt
+                color: '#ffffff', // theme-exempt
                 fontSize: '11px',
                 fontWeight: 600,
                 padding: '4px 8px',
@@ -1715,8 +1744,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 display: 'flex',
                 alignItems: 'center',
                 gap: '4px',
-                backgroundColor: '#f8fafc',
-                border: '1px solid #e2e8f0',
+                backgroundColor: palette.popup,
+                border: `1px solid ${palette.border}`,
                 borderRadius: '8px',
                 padding: '2px 4px',
                 height: layoutMetrics.rightActionIconHeight,
@@ -1739,7 +1768,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                     height: '28px',
                     fontSize: '12px',
                     fontWeight: 600,
-                    color: '#475569',
+                    color: palette.textSecondary,
                     backgroundColor: 'transparent',
                     border: 'none',
                     borderRadius: '5px',
@@ -1747,13 +1776,13 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                     transition: 'all 0.15s ease',
                   }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = '#ffffff';
+                    e.currentTarget.style.backgroundColor = palette.controlActive;
                     e.currentTarget.style.color = RENART_THEME.primary;
                     e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.08)';
                   }}
                   onMouseLeave={(e) => {
                     e.currentTarget.style.backgroundColor = 'transparent';
-                    e.currentTarget.style.color = '#475569';
+                    e.currentTarget.style.color = palette.textSecondary;
                     e.currentTarget.style.boxShadow = 'none';
                   }}
                 >
@@ -1781,14 +1810,14 @@ export const Toolbar: React.FC<ToolbarProps> = ({
               border:
                 openMenu === 'export'
                   ? `1px solid ${RENART_THEME.primaryBorder}`
-                  : '1px solid #e2e8f0',
+                  : `1px solid ${palette.border}`,
               backgroundColor:
                 openMenu === 'export'
                   ? RENART_THEME.primaryTint
                   : hoveredAction === 'export'
-                    ? '#f1f5f9'
-                    : '#f8fafc',
-              color: openMenu === 'export' ? RENART_THEME.primary : '#1e293b',
+                    ? palette.hover
+                    : palette.popup,
+              color: openMenu === 'export' ? RENART_THEME.primary : palette.textPrimary,
               borderRadius: '8px',
               cursor: 'pointer',
               transition: 'background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease',
@@ -1803,8 +1832,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 position: 'absolute',
                 top: '42px',
                 right: 0,
-                backgroundColor: '#1e293b',
-                color: '#ffffff',
+                backgroundColor: '#1e293b', // theme-exempt
+                color: '#ffffff', // theme-exempt
                 fontSize: '11px',
                 fontWeight: 600,
                 padding: '4px 8px',
