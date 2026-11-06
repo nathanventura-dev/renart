@@ -187,7 +187,8 @@ fn test_selection_rejects_non_finite_numbers() {
 
 // ---- Captura de janela: filtro, topo sob o cursor, recorte por monitor e captura limpa ----
 use renart_lib::capture::{
-    is_capturable_window, local_rects_for, resolve_window_capture, window_at, RectF, WindowInfo,
+    filter_normal_layer, is_capturable_window, local_rects_for, resolve_window_capture, window_at, RectF,
+    WindowInfo,
 };
 
 fn win(id: u32, x: i32, y: i32, w: u32, h: u32) -> WindowInfo {
@@ -268,4 +269,35 @@ fn test_window_selection_serializes_with_kind_and_has_no_physical_rect() {
     let json = serde_json::to_string(&Selection::Window { id: 7 }).unwrap();
     assert!(json.contains("\"kind\":\"window\"") && json.contains("\"id\":7"), "{json}");
     assert!(selection_to_physical(&Selection::Window { id: 7 }, 1000, 800, 1000, 800).is_err());
+}
+
+// ---- Filtro por camada: só janelas normais (layer 0) entram na lista ----
+
+#[test]
+fn test_filter_normal_layer_keeps_only_windows_from_the_normal_layer() {
+    let windows = vec![win(1, 0, 0, 500, 400), win(2, 0, 0, 500, 400), win(3, 0, 0, 500, 400)];
+    let normal: std::collections::HashSet<u32> = [1, 3].into_iter().collect();
+    let kept = filter_normal_layer(windows, Some(&normal));
+    assert_eq!(kept.iter().map(|w| w.id).collect::<Vec<_>>(), vec![1, 3], "mantém a ordem frente -> trás");
+}
+
+#[test]
+fn test_filter_normal_layer_keeps_everything_when_the_layer_lookup_failed() {
+    let windows = vec![win(1, 0, 0, 500, 400), win(2, 0, 0, 500, 400)];
+    assert_eq!(filter_normal_layer(windows, None).len(), 2, "sem a consulta de camadas não pode sumir janela");
+}
+
+#[test]
+fn test_filter_normal_layer_with_no_normal_windows_returns_nothing() {
+    let windows = vec![win(1, 0, 0, 500, 400)];
+    let none: std::collections::HashSet<u32> = std::collections::HashSet::new();
+    assert!(filter_normal_layer(windows, Some(&none)).is_empty());
+}
+
+#[test]
+fn test_list_windows_filters_by_layer_instead_of_relying_on_english_app_names() {
+    let src = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/src/capture.rs")).unwrap();
+    assert!(src.contains("normal_window_ids"), "list_windows consulta as camadas do sistema");
+    assert!(src.contains("kCGWindowLayer"), "lê a camada (kCGWindowLayer) de cada janela");
+    assert!(src.contains("filter_normal_layer("), "e aplica o filtro à lista do xcap");
 }

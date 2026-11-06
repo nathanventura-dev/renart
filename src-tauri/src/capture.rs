@@ -308,11 +308,61 @@ pub fn resolve_window_capture(
     Ok(image::imageops::crop_imm(frame, bounds.x, bounds.y, bounds.width, bounds.height).to_image())
 }
 
+/// Mantém só as janelas cujo id está no conjunto de janelas "normais" (camada 0 do sistema), na mesma ordem.
+/// Sem o conjunto (a consulta de camadas falhou) a lista passa inteira, para nenhuma janela sumir.
+pub fn filter_normal_layer(
+    windows: Vec<WindowInfo>,
+    normal: Option<&std::collections::HashSet<u32>>,
+) -> Vec<WindowInfo> {
+    match normal {
+        Some(ids) => windows.into_iter().filter(|w| ids.contains(&w.id)).collect(),
+        None => windows,
+    }
+}
+
+/// Ids das janelas da camada normal (layer 0). Barra de menus, Dock, Central de Controle, banners de
+/// notificação e painéis flutuantes ficam em outras camadas, e o nome do app (localizado) não é confiável.
+#[cfg(target_os = "macos")]
+fn normal_window_ids() -> Option<std::collections::HashSet<u32>> {
+    use core_foundation::base::{CFType, TCFType};
+    use core_foundation::dictionary::{CFDictionary, CFDictionaryRef};
+    use core_foundation::number::CFNumber;
+    use core_foundation::string::CFString;
+    use core_graphics::window::{
+        copy_window_info, kCGNullWindowID, kCGWindowLayer, kCGWindowListExcludeDesktopElements,
+        kCGWindowListOptionOnScreenOnly, kCGWindowNumber,
+    };
+
+    let array = copy_window_info(
+        kCGWindowListOptionOnScreenOnly | kCGWindowListExcludeDesktopElements,
+        kCGNullWindowID,
+    )?;
+    let layer_key = unsafe { CFString::wrap_under_get_rule(kCGWindowLayer) };
+    let number_key = unsafe { CFString::wrap_under_get_rule(kCGWindowNumber) };
+
+    let mut ids = std::collections::HashSet::new();
+    for item in array.iter() {
+        let dict: CFDictionary<CFString, CFType> =
+            unsafe { CFDictionary::wrap_under_get_rule(*item as CFDictionaryRef) };
+        let layer = dict.find(&layer_key).and_then(|v| v.downcast::<CFNumber>()).and_then(|n| n.to_i32());
+        let number = dict.find(&number_key).and_then(|v| v.downcast::<CFNumber>()).and_then(|n| n.to_i32());
+        if let (Some(0), Some(id)) = (layer, number) {
+            ids.insert(id as u32);
+        }
+    }
+    Some(ids)
+}
+
+#[cfg(not(target_os = "macos"))]
+fn normal_window_ids() -> Option<std::collections::HashSet<u32>> {
+    None
+}
+
 /// Lista as janelas visíveis dos outros apps, da frente para trás.
 pub fn list_windows() -> Result<Vec<WindowInfo>, String> {
     let own_pid = std::process::id();
     let windows = xcap::Window::all().map_err(|e| format!("Erro ao listar janelas: {}", e))?;
-    Ok(windows
+    let listed: Vec<WindowInfo> = windows
         .iter()
         .filter(|w| {
             is_capturable_window(w.app_name(), w.width(), w.height(), w.is_minimized(), w.pid(), own_pid)
@@ -326,7 +376,8 @@ pub fn list_windows() -> Result<Vec<WindowInfo>, String> {
             width: w.width(),
             height: w.height(),
         })
-        .collect())
+        .collect();
+    Ok(filter_normal_layer(listed, normal_window_ids().as_ref()))
 }
 
 /// Captura apenas a janela `id` (a imagem dela mesma, mesmo que outra esteja por cima).
