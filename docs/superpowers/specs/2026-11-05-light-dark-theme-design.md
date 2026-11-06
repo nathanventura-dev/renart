@@ -8,7 +8,7 @@ Adicionar suporte a **Tema Claro e Escuro** na interface do RenArt, integrado à
 - **Abordagem:** tokens de cor em JS + store de tema + hook `useTheme()`. Serve DOM e Konva com o mesmo mecanismo e é testável em Vitest sem navegador.
 - **Referência visual do escuro:** Ferramenta de Captura (Snipping Tool) do Windows 11, com cores amostradas de dois prints reais (chrome azul-petróleo, matiz ~203°). O laranja da raposa (~18°) brigava com esse fundo, e clarear/dessaturar o laranja ou trocar por grafite neutro foi descartado. Decisão final: **destaque azul-luar** (`#7cb7e0`, hover `#9fd0ee`, texto `#1a1a1a` sobre ele), a raposa sob a lua. O laranja permanece no tema claro.
 - **Fundo da área de edição (escuro):** `#121211`.
-- **Destaque:** laranja da raposa no tema claro e azul-luar no escuro.
+- **Destaque:** laranja da raposa no tema claro e ciano glacial no escuro.
 
 ## 3. Arquitetura
 
