@@ -3,6 +3,7 @@ import React, { useState, useRef, useSyncExternalStore, useEffect, useCallback }
 import Konva from 'konva';
 import { Toolbar } from './components/Toolbar';
 import { useTheme } from './hooks/useTheme';
+import { Mascot } from './components/Mascot';
 import { GallerySidebar } from './components/GallerySidebar';
 import { CanvasEditor } from './components/CanvasEditor';
 import { CaptureOverlay } from './components/CaptureOverlay';
@@ -674,9 +675,12 @@ export const App: React.FC = () => {
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
+              flexDirection: 'column',
+              gap: '16px',
               color: palette.textMuted,
             }}
           >
+            <Mascot size={96} />
             Selecione ou realize uma nova captura para iniciar a edição.
           </div>
         )}

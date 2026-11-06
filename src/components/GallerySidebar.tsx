@@ -1,4 +1,5 @@
 import { useTheme } from '../hooks/useTheme';
+import { Mascot } from './Mascot';
 import React from 'react';
 import { GalleryItem } from '../state/galleryStore';
 import { X, Clock } from 'lucide-react';
@@ -40,8 +41,11 @@ export const GallerySidebar: React.FC<GallerySidebarProps> = ({
           alignItems: 'center',
         }}
       >
-        <span style={{ fontSize: '12px', fontWeight: 700, color: palette.textMuted, textTransform: 'uppercase' }}>
-          Galeria
+        <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <Mascot size={22} />
+          <span style={{ fontSize: '12px', fontWeight: 700, color: palette.textMuted, textTransform: 'uppercase' }}>
+            Galeria
+          </span>
         </span>
         <span
           style={{
