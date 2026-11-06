@@ -1,5 +1,5 @@
 use crate::capture::{
-    capture_monitor, copy_to_clipboard, cursor_position, frame_to_bmp, image_to_png_bytes, left_button_down,
+    capture_monitor, copy_image_to_clipboard, cursor_position, frame_to_bmp, image_to_png_bytes, left_button_down,
     list_monitors, local_point, monitor_at, overlay_geometry, selection_to_physical, MonitorInfo, Selection,
 };
 use crate::permissions::{ensure_screen_recording, screen_recording_allowed};
@@ -226,9 +226,25 @@ pub fn validate_mode(mode: &str) -> Result<(), String> {
 
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
-struct CaptureCompletePayload {
-    data_url: String,
+pub struct CaptureCompletePayload {
+    pub data_url: String,
+    pub fullscreen: bool,
+}
+
+/// Monta o resultado enviado ao editor: copia a imagem crua para o clipboard (uma falha ali não impede
+/// o resultado) e codifica o PNG **uma única vez**, só para o editor.
+pub fn build_complete_payload(
+    img: &RgbaImage,
     fullscreen: bool,
+    copy: impl FnOnce(&RgbaImage) -> Result<(), String>,
+    encode: impl FnOnce(&RgbaImage) -> Result<Vec<u8>, String>,
+) -> Result<CaptureCompletePayload, String> {
+    let _ = copy(img);
+    let png = encode(img)?;
+    Ok(CaptureCompletePayload {
+        data_url: format!("data:image/png;base64,{}", BASE64.encode(png)),
+        fullscreen,
+    })
 }
 
 #[derive(Clone, Serialize)]
@@ -351,11 +367,6 @@ fn end_session(app: &AppHandle, state: &SessionState) {
         close_overlays(app, session.monitors());
     }
     restore_main(app);
-}
-
-fn to_data_url(image: &RgbaImage) -> Result<String, String> {
-    let png = image_to_png_bytes(image)?;
-    Ok(format!("data:image/png;base64,{}", BASE64.encode(png)))
 }
 
 /// Congela todos os monitores e abre uma janela de seleção por monitor.
@@ -485,20 +496,19 @@ pub async fn finish_capture(
     let session = take_session(&state).ok_or_else(|| "Nenhuma captura em andamento".to_string())?;
     let monitors = session.monitors().to_vec();
 
-    let result = session
-        .crop(id, &selection)
-        .and_then(|img| image_to_png_bytes(&img).map(|png| (img, png)));
+    let cropped = session.crop(id, &selection);
 
     close_overlays(&app, &monitors);
     restore_main(&app);
 
-    match result {
-        Ok((img, png)) => {
-            let _ = copy_to_clipboard(&png);
-            let payload = CaptureCompletePayload {
-                data_url: to_data_url(&img)?,
-                fullscreen: matches!(selection, Selection::Fullscreen),
-            };
+    match cropped {
+        Ok(img) => {
+            let payload = build_complete_payload(
+                &img,
+                matches!(selection, Selection::Fullscreen),
+                copy_image_to_clipboard,
+                image_to_png_bytes,
+            )?;
             app.emit(EVENT_CAPTURE_COMPLETE, payload).map_err(|e| e.to_string())
         }
         Err(e) => {

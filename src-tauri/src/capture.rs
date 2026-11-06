@@ -28,7 +28,7 @@ pub fn validate_bounds(
 
     // Trata coordenadas iniciais negativas (arraste parcial fora da tela)
     let (adj_x, adj_w) = if x < 0 {
-        let neg = (-x) as u32;
+        let neg = x.unsigned_abs();
         if neg >= width {
             return Err("Região totalmente fora da tela à esquerda".to_string());
         }
@@ -38,7 +38,7 @@ pub fn validate_bounds(
     };
 
     let (adj_y, adj_h) = if y < 0 {
-        let neg = (-y) as u32;
+        let neg = y.unsigned_abs();
         if neg >= height {
             return Err("Região totalmente fora da tela no topo".to_string());
         }
@@ -102,6 +102,9 @@ pub fn selection_to_physical(
         Selection::Region { x, y, width, height } => {
             if logical_w == 0 || logical_h == 0 {
                 return Err("Monitor com dimensão lógica zero".to_string());
+            }
+            if ![*x, *y, *width, *height].iter().all(|v| v.is_finite()) {
+                return Err("Seleção com valores inválidos".to_string());
             }
             if *width <= 0.0 || *height <= 0.0 {
                 return Err("Largura ou altura zero não são permitidas".to_string());
@@ -232,16 +235,11 @@ pub fn capture_monitor(id: u32) -> Result<image::RgbaImage, String> {
         .map_err(|e| format!("Erro ao capturar o monitor {}: {}", id, e))
 }
 
-/// Copia os bytes da imagem PNG para a área de transferência do SO de forma imediata.
-pub fn copy_to_clipboard(png_bytes: &[u8]) -> Result<(), String> {
-    let img = image::load_from_memory(png_bytes)
-        .map_err(|e| format!("Falha ao decodificar imagem para clipboard: {}", e))?
-        .to_rgba8();
-
-    let (w, h) = img.dimensions();
+/// Copia uma imagem RGBA diretamente para a área de transferência (sem passar por PNG).
+pub fn copy_image_to_clipboard(img: &image::RgbaImage) -> Result<(), String> {
     let img_data = arboard::ImageData {
-        width: w as usize,
-        height: h as usize,
+        width: img.width() as usize,
+        height: img.height() as usize,
         bytes: std::borrow::Cow::Borrowed(img.as_raw()),
     };
 
@@ -252,6 +250,14 @@ pub fn copy_to_clipboard(png_bytes: &[u8]) -> Result<(), String> {
         .map_err(|e| format!("Falha ao gravar imagem na área de transferência: {}", e))?;
 
     Ok(())
+}
+
+/// Copia os bytes da imagem PNG para a área de transferência do SO de forma imediata.
+pub fn copy_to_clipboard(png_bytes: &[u8]) -> Result<(), String> {
+    let img = image::load_from_memory(png_bytes)
+        .map_err(|e| format!("Falha ao decodificar imagem para clipboard: {}", e))?
+        .to_rgba8();
+    copy_image_to_clipboard(&img)
 }
 
 /// Converte um RgbaImage em vetor de bytes PNG em memória

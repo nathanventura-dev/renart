@@ -160,3 +160,27 @@ fn test_monitor_at_finds_the_monitor_under_the_cursor() {
     assert_eq!(monitor_at(&monitors, 5000.0, 5000.0), None);
     assert_eq!(monitor_at(&monitors, 0.0, -300.0), None);
 }
+
+// ---- Valores extremos vindos do IPC não podem derrubar o app ----
+
+#[test]
+fn test_validate_bounds_does_not_overflow_on_extreme_negative_coordinates() {
+    assert!(renart_lib::capture::validate_bounds(i32::MIN, 0, 100, 100, 1920, 1080).is_err());
+    assert!(renart_lib::capture::validate_bounds(0, i32::MIN, 100, 100, 1920, 1080).is_err());
+    assert!(renart_lib::capture::validate_bounds(i32::MIN, i32::MIN, u32::MAX, u32::MAX, 1920, 1080).is_ok(),
+        "uma região enorme que começa muito antes da tela ainda cobre a tela inteira");
+}
+
+#[test]
+fn test_selection_with_absurd_values_is_an_error_or_clamped_never_a_panic() {
+    assert!(selection_to_physical(&region(-1e30, -1e30, 50.0, 50.0), 1000, 800, 1000, 800).is_err());
+    assert!(selection_to_physical(&region(1e30, 0.0, 50.0, 50.0), 1000, 800, 1000, 800).is_err());
+    let huge = selection_to_physical(&region(0.0, 0.0, 1e30, 1e30), 1000, 800, 1000, 800).unwrap();
+    assert_eq!(huge, RectBounds { x: 0, y: 0, width: 1000, height: 800 });
+}
+
+#[test]
+fn test_selection_rejects_non_finite_numbers() {
+    assert!(selection_to_physical(&region(f64::NAN, 0.0, 10.0, 10.0), 1000, 800, 1000, 800).is_err());
+    assert!(selection_to_physical(&region(0.0, 0.0, f64::INFINITY, 10.0), 1000, 800, 1000, 800).is_err());
+}

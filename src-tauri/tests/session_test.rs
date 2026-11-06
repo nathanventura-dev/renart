@@ -1,7 +1,7 @@
 use image::{Rgba, RgbaImage};
 use renart_lib::capture::{local_point, MonitorInfo, Selection};
 use renart_lib::capture_session::{
-    build_overlay_url, cursor_for_mode, frame_bytes_with, should_force_crosshair, OverlayCursor, UiRect, overlay_label, replace_session, validate_mode, BeginGuard, take_session, CaptureSession, SessionState, DENIED_ERROR,
+    build_complete_payload, build_overlay_url, cursor_for_mode, frame_bytes_with, should_force_crosshair, OverlayCursor, UiRect, overlay_label, replace_session, validate_mode, BeginGuard, take_session, CaptureSession, SessionState, DENIED_ERROR,
     EVENT_ACTIVE_MONITOR, EVENT_CAPTURE_CANCELLED, EVENT_CAPTURE_COMPLETE, EVENT_OVERLAY_MODE,
 };
 use renart_lib::permissions::{allowed_with, ensure_screen_recording};
@@ -256,4 +256,47 @@ fn test_cursor_tracker_leaves_the_cursor_to_the_page_over_the_bar() {
     let src = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/src/capture_session.rs")).unwrap();
     assert!(src.contains("should_force_crosshair"), "o rastreador só força a mira fora da barra");
     assert!(src.contains("set_overlay_ui_rect"), "comando que recebe o retângulo da barra");
+}
+
+// ---- Resultado da captura: PNG codificado uma única vez, clipboard direto da imagem ----
+
+#[test]
+fn test_complete_payload_encodes_once_and_copies_the_raw_image() {
+    use std::cell::Cell;
+    let img = RgbaImage::from_pixel(8, 4, Rgba([1, 2, 3, 255]));
+    let encodes = Cell::new(0);
+    let copied_size = Cell::new((0, 0));
+    let payload = build_complete_payload(
+        &img,
+        true,
+        |i| {
+            copied_size.set(i.dimensions());
+            Ok(())
+        },
+        |i| {
+            encodes.set(encodes.get() + 1);
+            renart_lib::capture::image_to_png_bytes(i)
+        },
+    )
+    .unwrap();
+    assert_eq!(encodes.get(), 1, "o PNG deve ser codificado uma única vez");
+    assert_eq!(copied_size.get(), (8, 4), "o clipboard recebe a imagem crua, sem passar por PNG");
+    assert!(payload.fullscreen);
+    assert!(payload.data_url.starts_with("data:image/png;base64,"));
+}
+
+#[test]
+fn test_clipboard_failure_does_not_block_the_capture_result() {
+    let img = RgbaImage::from_pixel(2, 2, Rgba([9, 9, 9, 255]));
+    let payload = build_complete_payload(&img, false, |_| Err("sem clipboard".into()), |i| {
+        renart_lib::capture::image_to_png_bytes(i)
+    })
+    .unwrap();
+    assert!(!payload.fullscreen);
+}
+
+#[test]
+fn test_encode_failure_is_reported() {
+    let img = RgbaImage::from_pixel(2, 2, Rgba([9, 9, 9, 255]));
+    assert!(build_complete_payload(&img, false, |_| Ok(()), |_| Err("falha".into())).is_err());
 }
