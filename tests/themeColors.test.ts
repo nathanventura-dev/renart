@@ -53,8 +53,8 @@ describe('RenArt Theme Colors', () => {
   });
 
   it('dark palette uses a lighter orange with dark text on it', () => {
-    expect(DARK_PALETTE.primary).toBe('#f08a5a');
-    expect(DARK_PALETTE.primaryHover).toBe('#f59a6e');
+    expect(DARK_PALETTE.primary).toBe('#d79373');
+    expect(DARK_PALETTE.primaryHover).toBe('#dca287');
     expect(DARK_PALETTE.onPrimary).toBe('#1a1a1a');
   });
 
