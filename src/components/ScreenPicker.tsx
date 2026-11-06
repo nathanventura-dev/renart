@@ -9,15 +9,17 @@ export function resolvePickerState(hovered: boolean): { dimmed: boolean; showCam
 
 interface ScreenPickerProps {
   frameDataUrl: string;
+  /** `true` quando o Rust informa que o cursor está neste monitor (não depende de eventos de mouse). */
+  active?: boolean;
   onPick: () => void;
   onCancel: () => void;
   onSwitchMode: (mode: 'region') => void;
 }
 
 /** Seletor de "tela inteira": escurece o monitor e mostra uma câmera quando o mouse está sobre ele. */
-export const ScreenPicker: React.FC<ScreenPickerProps> = ({ frameDataUrl, onPick, onCancel, onSwitchMode }) => {
+export const ScreenPicker: React.FC<ScreenPickerProps> = ({ frameDataUrl, active = false, onPick, onCancel, onSwitchMode }) => {
   const [hovered, setHovered] = useState(false);
-  const state = resolvePickerState(hovered);
+  const state = resolvePickerState(hovered || active);
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {

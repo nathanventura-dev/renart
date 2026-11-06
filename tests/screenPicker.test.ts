@@ -16,6 +16,12 @@ describe('ScreenPicker', () => {
     });
   });
 
+  it('shows the camera when the Rust cursor tracker says this monitor is active, without any mouse event', () => {
+    const src = read('src/components/ScreenPicker.tsx');
+    expect(src).toMatch(/active\??: boolean/);
+    expect(src).toMatch(/resolvePickerState\(hovered \|\| active\)/);
+  });
+
   it('uses the Camera icon and cancels on Escape', () => {
     const src = read('src/components/ScreenPicker.tsx');
     expect(src).toMatch(/import \{[^}]*\bCamera\b[^}]*\} from 'lucide-react'/);
@@ -38,9 +44,18 @@ describe('OverlayApp', () => {
 
   it('finishes, cancels and switches modes through the capture service', () => {
     const src = read('src/components/OverlayApp.tsx');
-    for (const fn of ['finishCapture', 'cancelCapture', 'setOverlayMode', 'getOverlayFrame', 'onOverlayModeChanged']) {
+    for (const fn of ['finishCapture', 'cancelCapture', 'setOverlayMode', 'getOverlayFrame', 'onOverlayModeChanged', 'overlayReady', 'onActiveMonitorChanged']) {
       expect(src).toContain(fn);
     }
+  });
+});
+
+describe('OverlayApp frame loading', () => {
+  it('decodes the frame before telling Rust to show the window (no black flash)', () => {
+    const src = read('src/components/OverlayApp.tsx');
+    expect(src).toContain('.decode()');
+    expect(src.indexOf('.decode()')).toBeLessThan(src.indexOf('overlayReady('));
+    expect(src).toContain('revokeObjectURL');
   });
 });
 

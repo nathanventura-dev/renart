@@ -9,7 +9,9 @@ import {
   finishCapture,
   focusThisWindow,
   getOverlayFrame,
+  onActiveMonitorChanged,
   onOverlayModeChanged,
+  overlayReady,
   setOverlayMode,
 } from '../services/captureService';
 
@@ -28,6 +30,7 @@ export function toCaptureSelection(
 export const OverlayApp: React.FC<OverlayParams> = ({ monitorId, mode: initialMode }) => {
   const [mode, setMode] = useState<OverlayMode>(initialMode);
   const [frame, setFrame] = useState<string | null>(null);
+  const [activeMonitorId, setActiveMonitorId] = useState<number | null>(null);
 
   const cancel = useCallback(() => {
     void cancelCapture().catch(() => {});
@@ -45,9 +48,43 @@ export const OverlayApp: React.FC<OverlayParams> = ({ monitorId, mode: initialMo
     [monitorId, cancel]
   );
 
+  // Carrega o quadro (BMP cru), decodifica e só então mostra a janela: sem tela preta enquanto carrega.
   useEffect(() => {
-    getOverlayFrame(monitorId).then(setFrame).catch(cancel);
+    let objectUrl: string | undefined;
+    let disposed = false;
+    getOverlayFrame(monitorId)
+      .then(async (url) => {
+        objectUrl = url;
+        const img = new Image();
+        img.src = url;
+        try {
+          await img.decode();
+        } catch {
+          /* segue mesmo assim: o Rust também mostra os overlays após um tempo de segurança */
+        }
+        if (!disposed) setFrame(url);
+      })
+      .catch(cancel);
+    return () => {
+      disposed = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
   }, [monitorId, cancel]);
+
+  useEffect(() => {
+    if (frame) void overlayReady(monitorId).catch(() => {});
+  }, [frame, monitorId]);
+
+  // O Rust acompanha o cursor e diz qual monitor está ativo (janelas sem foco não recebem eventos de mouse).
+  useEffect(() => {
+    let stop: (() => void) | undefined;
+    let cancelled = false;
+    onActiveMonitorChanged(setActiveMonitorId).then((unlisten) => (cancelled ? unlisten() : (stop = unlisten)));
+    return () => {
+      cancelled = true;
+      stop?.();
+    };
+  }, []);
 
   useEffect(() => {
     let stop: (() => void) | undefined;
@@ -76,6 +113,7 @@ export const OverlayApp: React.FC<OverlayParams> = ({ monitorId, mode: initialMo
     return (
       <ScreenPicker
         frameDataUrl={frame}
+        active={activeMonitorId === monitorId}
         onPick={() => void finish({ kind: 'fullscreen' })}
         onCancel={cancel}
         onSwitchMode={() => void setOverlayMode('region').catch(() => {})}

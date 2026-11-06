@@ -4,6 +4,7 @@ import type { OverlayMode } from '../utils/overlayParams';
 export const EVENT_CAPTURE_COMPLETE = 'capture-complete';
 export const EVENT_CAPTURE_CANCELLED = 'capture-cancelled';
 export const EVENT_OVERLAY_MODE = 'overlay-mode-changed';
+export const EVENT_ACTIVE_MONITOR = 'overlay-active-monitor';
 export const DENIED_ERROR = 'screen-recording-denied';
 
 export type CaptureSelection =
@@ -19,6 +20,7 @@ export interface ServiceDeps {
   invoke?: (cmd: string, args?: Record<string, unknown>) => Promise<unknown>;
   listen?: <T>(event: string, handler: (payload: T) => void) => Promise<() => void>;
   isTauri?: boolean;
+  createObjectUrl?: (blob: Blob) => string;
 }
 
 export function isTauri(): boolean {
@@ -57,8 +59,16 @@ async function subscribe<T>(
 export const beginCapture = (mode: OverlayMode, deps: ServiceDeps = {}) =>
   call<void>('begin_capture', { mode }, deps);
 
-export const getOverlayFrame = (id: number, deps: ServiceDeps = {}) =>
-  call<string>('get_overlay_frame', { id }, deps);
+/** Pede o quadro do monitor como BMP cru (bytes binários) e devolve uma URL de objeto para exibi-lo. */
+export async function getOverlayFrame(id: number, deps: ServiceDeps = {}): Promise<string> {
+  const data = await call<ArrayBuffer | Uint8Array | number[]>('get_overlay_frame', { id }, deps);
+  const part = Array.isArray(data) ? new Uint8Array(data) : data;
+  const blob = new Blob([part as BlobPart], { type: 'image/bmp' });
+  return (deps.createObjectUrl ?? ((b: Blob) => URL.createObjectURL(b)))(blob);
+}
+
+/** Avisa o Rust que o quadro já foi decodificado: só então a janela do overlay aparece. */
+export const overlayReady = (id: number, deps: ServiceDeps = {}) => call<void>('overlay_ready', { id }, deps);
 
 export const finishCapture = (id: number, selection: CaptureSelection, deps: ServiceDeps = {}) =>
   call<void>('finish_capture', { id, selection }, deps);
@@ -73,6 +83,9 @@ export const onCaptureComplete = (cb: (r: CaptureResult) => void, deps: ServiceD
 
 export const onCaptureCancelled = (cb: () => void, deps: ServiceDeps = {}) =>
   subscribe<unknown>(EVENT_CAPTURE_CANCELLED, () => cb(), deps);
+
+export const onActiveMonitorChanged = (cb: (id: number) => void, deps: ServiceDeps = {}) =>
+  subscribe<{ id: number }>(EVENT_ACTIVE_MONITOR, (payload) => cb(payload.id), deps);
 
 export const onOverlayModeChanged = (cb: (mode: OverlayMode) => void, deps: ServiceDeps = {}) =>
   subscribe<OverlayMode>(EVENT_OVERLAY_MODE, cb, deps);

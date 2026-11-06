@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
 import {
+  EVENT_ACTIVE_MONITOR,
   EVENT_CAPTURE_CANCELLED,
   EVENT_CAPTURE_COMPLETE,
   EVENT_OVERLAY_MODE,
@@ -9,7 +10,9 @@ import {
   cancelCapture,
   finishCapture,
   getOverlayFrame,
+  onActiveMonitorChanged,
   onCaptureCancelled,
+  overlayReady,
   onCaptureComplete,
   onOverlayModeChanged,
   setOverlayMode,
@@ -41,14 +44,35 @@ describe('captureService (Tauri)', () => {
     expect(env.invoke).toHaveBeenCalledWith('finish_capture', { id: 3, selection });
   });
 
-  it('getOverlayFrame, cancelCapture and setOverlayMode call the matching commands', async () => {
+  it('getOverlayFrame returns an object URL for the raw BMP bytes, with no base64 involved', async () => {
     const env = fakeEnv();
-    await getOverlayFrame(4, { ...env, isTauri: true });
+    const bytes = new Uint8Array([66, 77, 1, 2, 3]).buffer;
+    env.invoke.mockResolvedValueOnce(bytes);
+    const createObjectUrl = vi.fn((_blob: Blob) => 'blob:frame-4');
+    const url = await getOverlayFrame(4, { ...env, isTauri: true, createObjectUrl });
+    expect(env.invoke).toHaveBeenCalledWith('get_overlay_frame', { id: 4 });
+    expect(url).toBe('blob:frame-4');
+    const blob = createObjectUrl.mock.calls[0][0];
+    expect(blob.type).toBe('image/bmp');
+    expect(blob.size).toBe(5);
+  });
+
+  it('overlayReady, cancelCapture and setOverlayMode call the matching commands', async () => {
+    const env = fakeEnv();
+    await overlayReady(4, { ...env, isTauri: true });
     await cancelCapture({ ...env, isTauri: true });
     await setOverlayMode('fullscreen', { ...env, isTauri: true });
-    expect(env.invoke).toHaveBeenCalledWith('get_overlay_frame', { id: 4 });
+    expect(env.invoke).toHaveBeenCalledWith('overlay_ready', { id: 4 });
     expect(env.invoke).toHaveBeenCalledWith('cancel_capture', undefined);
     expect(env.invoke).toHaveBeenCalledWith('set_overlay_mode', { mode: 'fullscreen' });
+  });
+
+  it('onActiveMonitorChanged forwards the id of the monitor under the cursor', async () => {
+    const env = fakeEnv();
+    const cb = vi.fn();
+    await onActiveMonitorChanged(cb, { ...env, isTauri: true });
+    env.handlers[EVENT_ACTIVE_MONITOR]({ id: 7 });
+    expect(cb).toHaveBeenCalledWith(7);
   });
 
   it('onCaptureComplete subscribes to capture-complete and forwards the payload', async () => {
@@ -90,5 +114,6 @@ describe('contract with the Rust side', () => {
     expect(lit('EVENT_CAPTURE_COMPLETE')).toBe(EVENT_CAPTURE_COMPLETE);
     expect(lit('EVENT_CAPTURE_CANCELLED')).toBe(EVENT_CAPTURE_CANCELLED);
     expect(lit('EVENT_OVERLAY_MODE')).toBe(EVENT_OVERLAY_MODE);
+    expect(lit('EVENT_ACTIVE_MONITOR')).toBe(EVENT_ACTIVE_MONITOR);
   });
 });

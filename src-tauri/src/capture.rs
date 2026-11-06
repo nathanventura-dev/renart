@@ -126,6 +126,77 @@ pub fn overlay_geometry(m: &MonitorInfo) -> (f64, f64, f64, f64) {
     (m.x as f64, m.y as f64, m.width as f64, m.height as f64)
 }
 
+/// Converte o quadro em BMP 24 bits, de cima para baixo, sem compressão.
+/// Evita codificar PNG/JPEG (segundos em telas grandes): o overlay só precisa exibir o quadro.
+pub fn frame_to_bmp(img: &image::RgbaImage) -> Vec<u8> {
+    let (w, h) = (img.width() as usize, img.height() as usize);
+    let stride = (w * 3 + 3) & !3;
+    let pixel_bytes = stride * h;
+    let mut out = vec![0u8; 54 + pixel_bytes];
+
+    out[0..2].copy_from_slice(b"BM");
+    out[2..6].copy_from_slice(&((54 + pixel_bytes) as u32).to_le_bytes());
+    out[10..14].copy_from_slice(&54u32.to_le_bytes());
+    out[14..18].copy_from_slice(&40u32.to_le_bytes());
+    out[18..22].copy_from_slice(&(w as i32).to_le_bytes());
+    out[22..26].copy_from_slice(&(-(h as i32)).to_le_bytes());
+    out[26..28].copy_from_slice(&1u16.to_le_bytes());
+    out[28..30].copy_from_slice(&24u16.to_le_bytes());
+    out[34..38].copy_from_slice(&(pixel_bytes as u32).to_le_bytes());
+    out[38..42].copy_from_slice(&2835i32.to_le_bytes());
+    out[42..46].copy_from_slice(&2835i32.to_le_bytes());
+
+    for (y, row) in img.as_raw().chunks_exact(w * 4).enumerate() {
+        let dst = &mut out[54 + y * stride..54 + y * stride + w * 3];
+        for (px, d) in row.chunks_exact(4).zip(dst.chunks_exact_mut(3)) {
+            d[0] = px[2];
+            d[1] = px[1];
+            d[2] = px[0];
+        }
+    }
+    out
+}
+
+/// Id do monitor que contém o ponto `(x, y)` (coordenadas globais lógicas); bordas são `[início, fim)`.
+pub fn monitor_at(monitors: &[MonitorInfo], x: f64, y: f64) -> Option<u32> {
+    monitors
+        .iter()
+        .find(|m| {
+            x >= m.x as f64 && x < m.x as f64 + m.width as f64 && y >= m.y as f64 && y < m.y as f64 + m.height as f64
+        })
+        .map(|m| m.id)
+}
+
+/// Posição global do cursor em coordenadas lógicas (a mesma origem de `MonitorInfo`). Só no macOS.
+#[cfg(target_os = "macos")]
+pub fn cursor_position() -> Option<(f64, f64)> {
+    use core_graphics::event::CGEvent;
+    use core_graphics::event_source::{CGEventSource, CGEventSourceStateID};
+    let source = CGEventSource::new(CGEventSourceStateID::HIDSystemState).ok()?;
+    let point = CGEvent::new(source).ok()?.location();
+    Some((point.x, point.y))
+}
+
+#[cfg(not(target_os = "macos"))]
+pub fn cursor_position() -> Option<(f64, f64)> {
+    None
+}
+
+/// `true` enquanto o botão esquerdo do mouse está pressionado.
+#[cfg(target_os = "macos")]
+pub fn left_button_down() -> bool {
+    extern "C" {
+        fn CGEventSourceButtonState(state_id: i32, button: u32) -> bool;
+    }
+    // 0 = kCGEventSourceStateCombinedSessionState, 0 = kCGMouseButtonLeft
+    unsafe { CGEventSourceButtonState(0, 0) }
+}
+
+#[cfg(not(target_os = "macos"))]
+pub fn left_button_down() -> bool {
+    false
+}
+
 /// Lista todos os monitores conectados.
 pub fn list_monitors() -> Result<Vec<MonitorInfo>, String> {
     let monitors = xcap::Monitor::all().map_err(|e| format!("Erro ao listar monitores: {}", e))?;

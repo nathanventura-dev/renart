@@ -33,3 +33,10 @@ core-foundation = "=0.10.0"
 core-graphics = "0.24"
 
 [dev-dependencies]
+
+# Dependências otimizadas mesmo em dev: a codificação PNG (image/png/flate2) fica ~10-30x mais rápida.
+[profile.dev]
+opt-level = 1
+
+[profile.dev.package."*"]
+opt-level = 3

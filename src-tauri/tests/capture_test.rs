@@ -47,7 +47,7 @@ fn test_crop_bounds_negative_coordinates() {
 }
 
 // ---- Captura multi-monitor: conversão de seleção lógica em pixels físicos ----
-use renart_lib::capture::{overlay_geometry, selection_to_physical, MonitorInfo, RectBounds, Selection};
+use renart_lib::capture::{frame_to_bmp, monitor_at, overlay_geometry, selection_to_physical, MonitorInfo, RectBounds, Selection};
 
 fn region(x: f64, y: f64, width: f64, height: f64) -> Selection {
     Selection::Region { x, y, width, height }
@@ -103,4 +103,60 @@ fn test_overlay_geometry_keeps_negative_origin() {
         is_primary: false,
     };
     assert_eq!(overlay_geometry(&m), (-1920.0, -200.0, 1920.0, 1080.0));
+}
+
+// ---- Quadro cru (BMP) e monitor sob o cursor ----
+
+fn mon(id: u32, x: i32, y: i32, w: u32, h: u32) -> MonitorInfo {
+    MonitorInfo { id, name: format!("M{id}"), x, y, width: w, height: h, scale_factor: 1.0, is_primary: id == 1 }
+}
+
+#[test]
+fn test_bmp_header_and_pixel_order() {
+    let mut img = image::RgbaImage::new(2, 2);
+    img.put_pixel(0, 0, image::Rgba([255, 0, 0, 255])); // vermelho
+    img.put_pixel(1, 0, image::Rgba([0, 255, 0, 255])); // verde
+    img.put_pixel(0, 1, image::Rgba([0, 0, 255, 255])); // azul
+    img.put_pixel(1, 1, image::Rgba([10, 20, 30, 255]));
+    let bmp = frame_to_bmp(&img);
+
+    assert_eq!(&bmp[0..2], b"BM");
+    assert_eq!(u32::from_le_bytes(bmp[2..6].try_into().unwrap()) as usize, bmp.len());
+    assert_eq!(u32::from_le_bytes(bmp[10..14].try_into().unwrap()), 54, "offset dos pixels");
+    assert_eq!(i32::from_le_bytes(bmp[18..22].try_into().unwrap()), 2, "largura");
+    assert_eq!(i32::from_le_bytes(bmp[22..26].try_into().unwrap()), -2, "altura negativa = de cima para baixo");
+    assert_eq!(u16::from_le_bytes(bmp[28..30].try_into().unwrap()), 24, "bits por pixel");
+    // linha com 2 pixels = 6 bytes + 2 de preenchimento = 8
+    assert_eq!(bmp.len(), 54 + 8 * 2);
+    assert_eq!(&bmp[54..57], &[0, 0, 255], "vermelho vira BGR");
+    assert_eq!(&bmp[57..60], &[0, 255, 0], "verde");
+    assert_eq!(&bmp[62..65], &[255, 0, 0], "azul na segunda linha");
+    assert_eq!(&bmp[60..62], &[0, 0], "preenchimento zerado");
+}
+
+#[test]
+fn test_bmp_row_padding_for_one_pixel_wide_image() {
+    let img = image::RgbaImage::from_pixel(1, 3, image::Rgba([1, 2, 3, 255]));
+    assert_eq!(frame_to_bmp(&img).len(), 54 + 4 * 3, "1 pixel = 3 bytes + 1 de preenchimento por linha");
+}
+
+#[test]
+fn test_bmp_of_a_4k_frame_is_built_quickly() {
+    let img = image::RgbaImage::from_pixel(4096, 2304, image::Rgba([40, 90, 200, 255]));
+    let t = std::time::Instant::now();
+    let bmp = frame_to_bmp(&img);
+    assert!(t.elapsed() < std::time::Duration::from_millis(1500), "montar o BMP levou {:?}", t.elapsed());
+    assert_eq!(bmp.len(), 54 + 4096 * 3 * 2304);
+}
+
+#[test]
+fn test_monitor_at_finds_the_monitor_under_the_cursor() {
+    let monitors = vec![mon(1, 0, 0, 1280, 800), mon(2, 1280, 0, 2048, 1152), mon(3, -1920, -200, 1920, 1080)];
+    assert_eq!(monitor_at(&monitors, 100.0, 100.0), Some(1));
+    assert_eq!(monitor_at(&monitors, 1279.9, 799.9), Some(1));
+    assert_eq!(monitor_at(&monitors, 1280.0, 0.0), Some(2), "a borda direita pertence ao monitor seguinte");
+    assert_eq!(monitor_at(&monitors, -1.0, 10.0), Some(3), "monitor à esquerda, coordenadas negativas");
+    assert_eq!(monitor_at(&monitors, -1920.0, -200.0), Some(3));
+    assert_eq!(monitor_at(&monitors, 5000.0, 5000.0), None);
+    assert_eq!(monitor_at(&monitors, 0.0, -300.0), None);
 }

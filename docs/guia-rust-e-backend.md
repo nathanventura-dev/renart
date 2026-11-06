@@ -123,3 +123,10 @@ Em vez de capturar só o monitor principal, o RenArt congela **todos** os monito
 4. `cancel_capture()` desfaz tudo e emite `capture-cancelled`. Uma nova captura aberta com outra em andamento substitui a anterior.
 
 Os nomes dos eventos (`capture-complete`, `capture-cancelled`, `overlay-mode-changed`) e o código de erro `screen-recording-denied` existem iguais no Rust e em `src/services/captureService.ts`, e um teste garante que continuam iguais.
+
+### 4.1. Desempenho e troca de monitor (correções após o primeiro teste manual)
+
+- **Quadro sem codificação:** codificar PNG/JPEG de um monitor 4K levava de 1s a 5s em modo dev. Por isso `get_overlay_frame` devolve o quadro como **BMP cru** (`frame_to_bmp`, 24 bits, de cima para baixo) em uma resposta binária, sem base64. As dependências são compiladas otimizadas também no perfil de dev (`[profile.dev.package."*"] opt-level = 3`).
+- **Overlays escondidos até ficarem prontos:** as janelas nascem com `visible(false)`; o overlay decodifica o quadro e chama `overlay_ready(id)`. Um temporizador de segurança de 3s mostra todos mesmo assim, para o app nunca ficar invisível.
+- **O Rust acompanha o cursor:** o webview de uma janela sem foco não recebe eventos de mouse no macOS, então o cursor "não passava" de um monitor para o outro e a câmera só aparecia depois de clicar. Uma thread lê a posição global do cursor (~60Hz, `cursor_position`), descobre o monitor sob ele (`monitor_at`), emite `overlay-active-monitor` e passa o foco ao overlay daquele monitor. Com o botão do mouse pressionado o foco não muda, para não interromper um arrasto. Só no macOS.
+

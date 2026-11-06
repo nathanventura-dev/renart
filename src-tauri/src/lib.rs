@@ -15,6 +15,7 @@ pub fn run() {
             capture::tauri_capture_screen,
             capture_session::begin_capture,
             capture_session::get_overlay_frame,
+            capture_session::overlay_ready,
             capture_session::finish_capture,
             capture_session::cancel_capture,
             capture_session::set_overlay_mode,

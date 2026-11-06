@@ -1,6 +1,6 @@
 use crate::capture::{
-    capture_monitor, copy_to_clipboard, image_to_png_bytes, list_monitors, overlay_geometry,
-    selection_to_physical, MonitorInfo, Selection,
+    capture_monitor, copy_to_clipboard, cursor_position, frame_to_bmp, image_to_png_bytes, left_button_down,
+    list_monitors, monitor_at, overlay_geometry, selection_to_physical, MonitorInfo, Selection,
 };
 use crate::permissions::{ensure_screen_recording, screen_recording_allowed};
 use base64::engine::general_purpose::STANDARD as BASE64;
@@ -8,7 +8,7 @@ use base64::Engine;
 use image::RgbaImage;
 use serde::Serialize;
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Mutex;
 use tauri::{AppHandle, Emitter, Manager, State, WebviewUrl, WebviewWindowBuilder, WindowEvent};
 
@@ -16,6 +16,7 @@ use tauri::{AppHandle, Emitter, Manager, State, WebviewUrl, WebviewWindowBuilder
 pub const EVENT_CAPTURE_COMPLETE: &str = "capture-complete";
 pub const EVENT_CAPTURE_CANCELLED: &str = "capture-cancelled";
 pub const EVENT_OVERLAY_MODE: &str = "overlay-mode-changed";
+pub const EVENT_ACTIVE_MONITOR: &str = "overlay-active-monitor";
 
 /// Código de erro devolvido quando a permissão de Gravação de Tela está negada.
 pub const DENIED_ERROR: &str = "screen-recording-denied";
@@ -26,7 +27,10 @@ pub fn overlay_label(id: u32) -> String {
 }
 
 /// Quadros congelados de todos os monitores durante uma captura.
+static NEXT_GENERATION: AtomicU64 = AtomicU64::new(1);
+
 pub struct CaptureSession {
+    generation: u64,
     mode: String,
     monitors: Vec<MonitorInfo>,
     frames: HashMap<u32, RgbaImage>,
@@ -34,7 +38,12 @@ pub struct CaptureSession {
 
 impl CaptureSession {
     pub fn new(mode: String, monitors: Vec<MonitorInfo>, frames: HashMap<u32, RgbaImage>) -> Self {
-        Self { mode, monitors, frames }
+        Self { generation: NEXT_GENERATION.fetch_add(1, Ordering::SeqCst), mode, monitors, frames }
+    }
+
+    /// Identifica a sessão: o rastreador do cursor e o temporizador de segurança só agem sobre a sua.
+    pub fn generation(&self) -> u64 {
+        self.generation
     }
 
     pub fn mode(&self) -> &str {
@@ -106,12 +115,12 @@ impl Drop for BeginPermit<'_> {
     }
 }
 
-/// Copia o quadro sob o lock e codifica fora dele, para outros comandos (Esc, finish) não esperarem o PNG.
-pub fn frame_data_url_with(
+/// Copia o quadro sob o lock e converte fora dele, para outros comandos (Esc, finish) não esperarem.
+pub fn frame_bytes_with(
     state: &SessionState,
     id: u32,
-    encode: impl FnOnce(&RgbaImage) -> Result<String, String>,
-) -> Result<String, String> {
+    convert: impl FnOnce(&RgbaImage) -> Result<Vec<u8>, String>,
+) -> Result<Vec<u8>, String> {
     let frame = {
         let guard = state.lock().unwrap();
         let session = guard
@@ -119,7 +128,7 @@ pub fn frame_data_url_with(
             .ok_or_else(|| "Nenhuma captura em andamento".to_string())?;
         session.frame(id)?.clone()
     };
-    encode(&frame)
+    convert(&frame)
 }
 
 /// URL (relativa ao frontend) carregada por cada janela de overlay.
@@ -142,7 +151,75 @@ struct CaptureCompletePayload {
     fullscreen: bool,
 }
 
+#[derive(Clone, Serialize)]
+struct ActiveMonitorPayload {
+    id: u32,
+}
+
 const MAIN_WINDOW: &str = "main";
+
+fn show_overlays(app: &AppHandle, monitors: &[MonitorInfo]) {
+    for m in monitors {
+        if let Some(window) = app.get_webview_window(&overlay_label(m.id)) {
+            let _ = window.show();
+        }
+    }
+}
+
+/// Segurança: se algum overlay não avisar que está pronto, mostra todos após 3s para o app não ficar invisível.
+fn spawn_show_fallback(app: AppHandle, generation: u64, monitors: Vec<MonitorInfo>) {
+    std::thread::spawn(move || {
+        std::thread::sleep(std::time::Duration::from_secs(3));
+        let same = {
+            let state = app.state::<SessionState>();
+            let guard = state.lock().unwrap();
+            guard.as_ref().map(|s| s.generation()) == Some(generation)
+        };
+        if same {
+            show_overlays(&app, &monitors);
+        }
+    });
+}
+
+/// Acompanha o cursor (~60Hz): descobre o monitor sob ele, avisa os overlays e passa o foco para o
+/// overlay daquele monitor, porque o webview de uma janela sem foco não recebe eventos de mouse.
+/// Com o botão pressionado o foco não muda, para não interromper um arrasto.
+fn spawn_cursor_tracker(app: AppHandle, generation: u64, monitors: Vec<MonitorInfo>) {
+    std::thread::spawn(move || {
+        let mut desired: Option<u32> = None;
+        let mut focused: Option<u32> = None;
+        let mut tick: u32 = 0;
+        loop {
+            std::thread::sleep(std::time::Duration::from_millis(16));
+            tick = tick.wrapping_add(1);
+            let alive = {
+                let state = app.state::<SessionState>();
+                let guard = state.lock().unwrap();
+                guard.as_ref().map(|s| s.generation()) == Some(generation)
+            };
+            if !alive {
+                break;
+            }
+            let Some((x, y)) = cursor_position() else { break };
+            if let Some(id) = monitor_at(&monitors, x, y) {
+                // Reenvia a cada ~320ms: um overlay que acabou de abrir ainda pode não estar ouvindo.
+                if desired != Some(id) || tick % 20 == 0 {
+                    let _ = app.emit(EVENT_ACTIVE_MONITOR, ActiveMonitorPayload { id });
+                }
+                desired = Some(id);
+            }
+            if let Some(id) = desired {
+                if focused != Some(id) && !left_button_down() {
+                    if let Some(window) = app.get_webview_window(&overlay_label(id)) {
+                        if window.is_visible().unwrap_or(false) && window.set_focus().is_ok() {
+                            focused = Some(id);
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
 
 fn restore_main(app: &AppHandle) {
     if let Some(window) = app.get_webview_window(MAIN_WINDOW) {
@@ -236,6 +313,8 @@ pub async fn begin_capture(
         .skip_taskbar(true)
         .visible_on_all_workspaces(true)
         .focused(true)
+        .visible(false)
+        .accept_first_mouse(true)
         .build();
         match built {
             Ok(window) => {
@@ -257,18 +336,34 @@ pub async fn begin_capture(
             }
         }
     }
+
+    let generation = state.lock().unwrap().as_ref().map(|s| s.generation());
+    if let Some(generation) = generation {
+        spawn_show_fallback(app.clone(), generation, monitors.clone());
+        spawn_cursor_tracker(app.clone(), generation, monitors);
+    }
     Ok(())
 }
 
-/// Devolve o quadro congelado de um monitor como data URL PNG (codificado fora do lock da sessão).
+/// Devolve o quadro congelado de um monitor como BMP cru (resposta binária, sem base64 nem codificação).
 #[tauri::command]
-pub async fn get_overlay_frame(app: AppHandle, id: u32) -> Result<String, String> {
-    tauri::async_runtime::spawn_blocking(move || {
+pub async fn get_overlay_frame(app: AppHandle, id: u32) -> Result<tauri::ipc::Response, String> {
+    let bytes = tauri::async_runtime::spawn_blocking(move || {
         let state = app.state::<SessionState>();
-        frame_data_url_with(&state, id, to_data_url)
+        frame_bytes_with(&state, id, |frame| Ok(frame_to_bmp(frame)))
     })
     .await
-    .map_err(|e| e.to_string())?
+    .map_err(|e| e.to_string())??;
+    Ok(tauri::ipc::Response::new(bytes))
+}
+
+/// O overlay avisa que o quadro já foi decodificado; só então a janela aparece (sem tela preta).
+#[tauri::command]
+pub async fn overlay_ready(app: AppHandle, id: u32) -> Result<(), String> {
+    if let Some(window) = app.get_webview_window(&overlay_label(id)) {
+        window.show().map_err(|e| e.to_string())?;
+    }
+    Ok(())
 }
 
 /// Recorta a seleção, copia para o clipboard, fecha os overlays e entrega o resultado à janela principal.

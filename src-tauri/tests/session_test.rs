@@ -1,8 +1,8 @@
 use image::{Rgba, RgbaImage};
 use renart_lib::capture::{MonitorInfo, Selection};
 use renart_lib::capture_session::{
-    build_overlay_url, frame_data_url_with, overlay_label, replace_session, validate_mode, BeginGuard, take_session, CaptureSession, SessionState, DENIED_ERROR,
-    EVENT_CAPTURE_CANCELLED, EVENT_CAPTURE_COMPLETE, EVENT_OVERLAY_MODE,
+    build_overlay_url, frame_bytes_with, overlay_label, replace_session, validate_mode, BeginGuard, take_session, CaptureSession, SessionState, DENIED_ERROR,
+    EVENT_ACTIVE_MONITOR, EVENT_CAPTURE_CANCELLED, EVENT_CAPTURE_COMPLETE, EVENT_OVERLAY_MODE,
 };
 use renart_lib::permissions::{allowed_with, ensure_screen_recording};
 use std::collections::HashMap;
@@ -86,6 +86,7 @@ fn test_event_names_match_the_frontend_contract() {
     assert_eq!(EVENT_CAPTURE_COMPLETE, "capture-complete");
     assert_eq!(EVENT_CAPTURE_CANCELLED, "capture-cancelled");
     assert_eq!(EVENT_OVERLAY_MODE, "overlay-mode-changed");
+    assert_eq!(EVENT_ACTIVE_MONITOR, "overlay-active-monitor");
 }
 
 #[test]
@@ -125,24 +126,41 @@ fn test_begin_guard_blocks_a_second_start_until_the_first_is_released() {
 }
 
 #[test]
-fn test_frame_data_url_is_encoded_outside_the_session_lock() {
+fn test_frame_bytes_are_built_outside_the_session_lock() {
     let state: SessionState = SessionState::default();
     replace_session(&state, sample_session());
-    let url = frame_data_url_with(&state, 1, |frame| {
-        assert!(state.try_lock().is_ok(), "o Mutex não pode ficar preso durante a codificação");
-        Ok(format!("{}x{}", frame.width(), frame.height()))
+    let out = frame_bytes_with(&state, 1, |frame| {
+        assert!(state.try_lock().is_ok(), "o Mutex não pode ficar preso enquanto o quadro é convertido");
+        Ok(format!("{}x{}", frame.width(), frame.height()).into_bytes())
     })
     .unwrap();
-    assert_eq!(url, "100x100");
+    assert_eq!(out, b"100x100".to_vec());
 }
 
 #[test]
-fn test_frame_data_url_without_session_or_with_unknown_id_is_an_error() {
+fn test_frame_bytes_without_session_or_with_unknown_id_is_an_error() {
     let empty: SessionState = SessionState::default();
-    assert!(frame_data_url_with(&empty, 1, |_| Ok(String::new())).is_err());
+    assert!(frame_bytes_with(&empty, 1, |_| Ok(Vec::new())).is_err());
     let state: SessionState = SessionState::default();
     replace_session(&state, sample_session());
-    assert!(frame_data_url_with(&state, 99, |_| Ok(String::new())).is_err());
+    assert!(frame_bytes_with(&state, 99, |_| Ok(Vec::new())).is_err());
+}
+
+#[test]
+fn test_each_session_has_its_own_generation() {
+    let a = sample_session();
+    let b = sample_session();
+    assert_ne!(a.generation(), b.generation(), "o rastreador do cursor precisa distinguir sessões");
+}
+
+#[test]
+fn test_overlays_start_hidden_and_the_cursor_tracker_follows_the_mouse() {
+    let src = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/src/capture_session.rs")).unwrap();
+    assert!(src.contains(".visible(false)"), "overlay só aparece quando o quadro está pronto");
+    assert!(src.contains("overlay_ready"), "comando que mostra o overlay depois do quadro decodificado");
+    assert!(src.contains("accept_first_mouse(true)"), "o primeiro clique no overlay não pode ser perdido");
+    assert!(src.contains("EVENT_ACTIVE_MONITOR"), "avisa os overlays qual monitor está sob o cursor");
+    assert!(src.contains("set_focus"), "o foco acompanha o monitor sob o cursor");
 }
 
 #[test]
