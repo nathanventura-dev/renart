@@ -42,4 +42,17 @@ describe('macOS icon grid', () => {
     expect(margin).toBeLessThanOrEqual(103);
     expect(alphaAt(0)).toBe(0);
   });
+
+  it('icon.png has a soft light rim so the black square does not vanish against a dark Dock', () => {
+    const img = decodeRgba(path.resolve(__dirname, '../src-tauri/icons/icon.png'));
+    const row = Math.floor(img.height / 2);
+    const rgbSum = (x: number) => {
+      const o = (row * img.width + x) * 4;
+      return img.px[o] + img.px[o + 1] + img.px[o + 2];
+    };
+    const first = Array.from({ length: img.width }, (_, x) => x).find((x) => img.px[(row * img.width + x) * 4 + 3] === 255) as number;
+    const k = img.width / 1024;
+    expect(rgbSum(first + Math.round(3 * k))).toBeGreaterThanOrEqual(90); // aro claro na borda
+    expect(rgbSum(first + Math.round(60 * k))).toBeLessThanOrEqual(30); // miolo continua preto
+  });
 });
