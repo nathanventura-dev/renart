@@ -1,15 +1,18 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { CaptureOverlay } from './CaptureOverlay';
 import { ScreenPicker } from './ScreenPicker';
-import type { Point, RectBounds } from '../types/capture';
+import { WindowPicker } from './WindowPicker';
+import type { CaptureMode, Point, RectBounds } from '../types/capture';
 import type { OverlayMode, OverlayParams } from '../utils/overlayParams';
 import {
   CaptureSelection,
+  HoverWindow,
   cancelCapture,
   finishCapture,
   focusThisWindow,
   getOverlayFrame,
   onActiveMonitorChanged,
+  onHoverWindowChanged,
   onOverlayModeChanged,
   overlayReady,
   setOverlayMode,
@@ -32,6 +35,7 @@ export const OverlayApp: React.FC<OverlayParams> = ({ monitorId, mode: initialMo
   const [mode, setMode] = useState<OverlayMode>(initialMode);
   const [frame, setFrame] = useState<string | null>(null);
   const [activeMonitorId, setActiveMonitorId] = useState<number | null>(null);
+  const [hover, setHover] = useState<HoverWindow | null>(null);
 
   const cancel = useCallback(() => {
     void cancelCapture().catch(() => {});
@@ -94,6 +98,17 @@ export const OverlayApp: React.FC<OverlayParams> = ({ monitorId, mode: initialMo
     };
   }, [frame, mode, monitorId]);
 
+  // Modo Janela: o Rust descobre a janela sob o cursor e envia o retângulo recortado de cada monitor.
+  useEffect(() => {
+    let stop: (() => void) | undefined;
+    let cancelled = false;
+    onHoverWindowChanged(setHover).then((unlisten) => (cancelled ? unlisten() : (stop = unlisten)));
+    return () => {
+      cancelled = true;
+      stop?.();
+    };
+  }, []);
+
   // O Rust acompanha o cursor e diz qual monitor está ativo (janelas sem foco não recebem eventos de mouse).
   useEffect(() => {
     let stop: (() => void) | undefined;
@@ -128,6 +143,25 @@ export const OverlayApp: React.FC<OverlayParams> = ({ monitorId, mode: initialMo
     return <div style={{ position: 'fixed', inset: 0, backgroundColor: '#000' }} />;
   }
 
+  const switchMode = (next: CaptureMode) => {
+    if (next === 'region' || next === 'fullscreen' || next === 'window') {
+      void setOverlayMode(next).catch(() => {});
+    }
+  };
+
+  if (mode === 'window') {
+    return (
+      <WindowPicker
+        frameDataUrl={frame}
+        monitorId={monitorId}
+        hover={hover}
+        onPick={(id) => void finish({ kind: 'window', id })}
+        onCancel={cancel}
+        onSwitchMode={switchMode}
+      />
+    );
+  }
+
   if (mode === 'fullscreen') {
     return (
       <ScreenPicker
@@ -135,7 +169,7 @@ export const OverlayApp: React.FC<OverlayParams> = ({ monitorId, mode: initialMo
         active={activeMonitorId === monitorId}
         onPick={() => void finish({ kind: 'fullscreen' })}
         onCancel={cancel}
-        onSwitchMode={() => void setOverlayMode('region').catch(() => {})}
+        onSwitchMode={switchMode}
       />
     );
   }
@@ -144,16 +178,13 @@ export const OverlayApp: React.FC<OverlayParams> = ({ monitorId, mode: initialMo
     <CaptureOverlay
       mode="region"
       backgroundDataUrl={frame}
-      windowDisabled
       onComplete={(result) => {
         const selection = toCaptureSelection(result);
         if (selection) void finish(selection);
         else cancel();
       }}
       onCancel={cancel}
-      onSwitchMode={(next) => {
-        if (next === 'fullscreen') void setOverlayMode('fullscreen').catch(() => {});
-      }}
+      onSwitchMode={switchMode}
     />
   );
 };

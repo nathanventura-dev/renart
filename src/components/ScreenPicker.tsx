@@ -1,5 +1,7 @@
 import React, { useEffect } from 'react';
-import { Camera, Crop, X } from 'lucide-react';
+import { Camera } from 'lucide-react';
+import type { CaptureMode } from '../types/capture';
+import { CaptureModeBar } from './CaptureModeBar';
 
 export function resolvePickerState(active: boolean): { dimmed: boolean; showCamera: boolean; hint: string } {
   return active
@@ -13,7 +15,7 @@ interface ScreenPickerProps {
   active: boolean;
   onPick: () => void;
   onCancel: () => void;
-  onSwitchMode: (mode: 'region') => void;
+  onSwitchMode: (mode: CaptureMode) => void;
 }
 
 /** Seletor de "tela inteira": escurece o monitor e mostra uma câmera quando o mouse está sobre ele. */
@@ -97,65 +99,7 @@ export const ScreenPicker: React.FC<ScreenPickerProps> = ({ frameDataUrl, active
         </div>
       )}
 
-      <div
-        onClick={(e) => e.stopPropagation()}
-        style={{
-          position: 'absolute',
-          top: '24px',
-          left: '50%',
-          transform: 'translateX(-50%)',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '4px',
-          backgroundColor: 'rgba(32, 33, 36, 0.92)',
-          border: '1px solid rgba(255, 255, 255, 0.14)',
-          borderRadius: '12px',
-          padding: '4px 6px',
-          cursor: 'default',
-        }}
-      >
-        <button
-          type="button"
-          onClick={() => onSwitchMode('region')}
-          title="Modo Retangular (Área)"
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '6px',
-            padding: '6px 12px',
-            borderRadius: '8px',
-            border: 'none',
-            backgroundColor: 'transparent',
-            color: 'rgba(255, 255, 255, 0.85)',
-            fontSize: '12px',
-            fontWeight: 600,
-            cursor: 'pointer',
-          }}
-        >
-          <Crop size={15} />
-          <span>Área</span>
-        </button>
-        <button
-          type="button"
-          onClick={onCancel}
-          title="Cancelar (Esc)"
-          aria-label="Cancelar"
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            width: '28px',
-            height: '28px',
-            borderRadius: '8px',
-            border: 'none',
-            backgroundColor: 'transparent',
-            color: 'rgba(255, 255, 255, 0.75)',
-            cursor: 'pointer',
-          }}
-        >
-          <X size={16} />
-        </button>
-      </div>
+      <CaptureModeBar mode="fullscreen" onSwitchMode={onSwitchMode} onCancel={onCancel} />
     </div>
   );
 };

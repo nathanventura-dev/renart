@@ -55,14 +55,14 @@ describe('OverlayApp', () => {
 
 describe('options bar cursor', () => {
   it('the options bar resets the inherited crosshair to the normal cursor', () => {
-    const src = read('src/components/CaptureOverlay.tsx');
+    const src = read('src/components/CaptureModeBar.tsx');
     const start = src.indexOf('data-capture-ui');
     const barStyle = src.slice(start, src.indexOf('}}', start));
     expect(barStyle).toContain("cursor: 'default'");
   });
 
   it('marks the options bar so OverlayApp can report its rectangle to Rust', () => {
-    expect(read('src/components/CaptureOverlay.tsx')).toContain('data-capture-ui');
+    expect(read('src/components/CaptureModeBar.tsx')).toContain('data-capture-ui');
     const app = read('src/components/OverlayApp.tsx');
     expect(app).toContain('setOverlayUiRect');
     expect(app).toContain('getBoundingClientRect');
@@ -80,9 +80,9 @@ describe('OverlayApp frame loading', () => {
 });
 
 describe('CaptureOverlay in overlay windows', () => {
-  it('can disable the window mode with the "Em breve" hint', () => {
+  it('no longer disables the window mode', () => {
     const src = read('src/components/CaptureOverlay.tsx');
-    expect(src).toContain('windowDisabled');
-    expect(src).toContain('Em breve');
+    expect(src).not.toContain('windowDisabled');
+    expect(src).not.toContain('Em breve');
   });
 });
