@@ -86,6 +86,8 @@ pub struct MonitorInfo {
 pub enum Selection {
     Fullscreen,
     Region { x: f64, y: f64, width: f64, height: f64 },
+    /// Janela inteira, resolvida por `resolve_window_capture` (não tem retângulo físico próprio).
+    Window { id: u32 },
 }
 
 /// Converte a seleção lógica em pixels físicos do quadro capturado.
@@ -99,6 +101,7 @@ pub fn selection_to_physical(
 ) -> Result<RectBounds, String> {
     match selection {
         Selection::Fullscreen => Ok(RectBounds { x: 0, y: 0, width: frame_w, height: frame_h }),
+        Selection::Window { .. } => Err("Seleção de janela não tem retângulo próprio".to_string()),
         Selection::Region { x, y, width, height } => {
             if logical_w == 0 || logical_h == 0 {
                 return Err("Monitor com dimensão lógica zero".to_string());
@@ -203,6 +206,139 @@ pub fn left_button_down() -> bool {
 #[cfg(not(target_os = "macos"))]
 pub fn left_button_down() -> bool {
     false
+}
+
+/// Retângulo em coordenadas lógicas.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct RectF {
+    pub x: f64,
+    pub y: f64,
+    pub width: f64,
+    pub height: f64,
+}
+
+/// Janela visível de outro app (coordenadas lógicas, mesma origem de `MonitorInfo`).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct WindowInfo {
+    pub id: u32,
+    pub app_name: String,
+    pub title: String,
+    pub x: i32,
+    pub y: i32,
+    pub width: u32,
+    pub height: u32,
+}
+
+/// Apps do sistema que aparecem na lista de janelas mas não são janelas que o usuário queira capturar.
+const SYSTEM_APPS: [&str; 6] = [
+    "Window Server",
+    "Dock",
+    "SystemUIServer",
+    "Control Center",
+    "Notification Center",
+    "Spotlight",
+];
+
+/// Decide se uma janela da lista do sistema é uma janela de usuário capturável.
+pub fn is_capturable_window(
+    app_name: &str,
+    width: u32,
+    height: u32,
+    minimized: bool,
+    pid: u32,
+    own_pid: u32,
+) -> bool {
+    !minimized && pid != own_pid && width >= 80 && height >= 40 && !SYSTEM_APPS.contains(&app_name)
+}
+
+/// Id da janela no topo sob o ponto; `windows` vem da frente para trás e as bordas são `[início, fim)`.
+pub fn window_at(windows: &[WindowInfo], x: f64, y: f64) -> Option<u32> {
+    windows
+        .iter()
+        .find(|w| {
+            x >= w.x as f64
+                && x < w.x as f64 + w.width as f64
+                && y >= w.y as f64
+                && y < w.y as f64 + w.height as f64
+        })
+        .map(|w| w.id)
+}
+
+/// Retângulo da janela recortado por cada monitor que ela toca, em coordenadas locais ao monitor.
+pub fn local_rects_for(window: &WindowInfo, monitors: &[MonitorInfo]) -> Vec<(u32, RectF)> {
+    let (wl, wt) = (window.x as f64, window.y as f64);
+    let (wr, wb) = (wl + window.width as f64, wt + window.height as f64);
+    monitors
+        .iter()
+        .filter_map(|m| {
+            let (ml, mt) = (m.x as f64, m.y as f64);
+            let (mr, mb) = (ml + m.width as f64, mt + m.height as f64);
+            let (l, t, r, b) = (wl.max(ml), wt.max(mt), wr.min(mr), wb.min(mb));
+            if r > l && b > t {
+                Some((m.id, RectF { x: l - ml, y: t - mt, width: r - l, height: b - t }))
+            } else {
+                None
+            }
+        })
+        .collect()
+}
+
+/// Imagem da janela: a captura limpa da própria janela e, se ela falhar (janela fechada, por exemplo),
+/// o recorte do quadro congelado do monitor no retângulo da janela.
+pub fn resolve_window_capture(
+    frame: &image::RgbaImage,
+    monitor: &MonitorInfo,
+    window: &WindowInfo,
+    capture: impl FnOnce(u32) -> Result<image::RgbaImage, String>,
+) -> Result<image::RgbaImage, String> {
+    if let Ok(clean) = capture(window.id) {
+        return Ok(clean);
+    }
+    let (_, rect) = local_rects_for(window, std::slice::from_ref(monitor))
+        .into_iter()
+        .next()
+        .ok_or_else(|| "A janela não está neste monitor".to_string())?;
+    let bounds = selection_to_physical(
+        &Selection::Region { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
+        monitor.width,
+        monitor.height,
+        frame.width(),
+        frame.height(),
+    )?;
+    Ok(image::imageops::crop_imm(frame, bounds.x, bounds.y, bounds.width, bounds.height).to_image())
+}
+
+/// Lista as janelas visíveis dos outros apps, da frente para trás.
+pub fn list_windows() -> Result<Vec<WindowInfo>, String> {
+    let own_pid = std::process::id();
+    let windows = xcap::Window::all().map_err(|e| format!("Erro ao listar janelas: {}", e))?;
+    Ok(windows
+        .iter()
+        .filter(|w| {
+            is_capturable_window(w.app_name(), w.width(), w.height(), w.is_minimized(), w.pid(), own_pid)
+        })
+        .map(|w| WindowInfo {
+            id: w.id(),
+            app_name: w.app_name().to_string(),
+            title: w.title().to_string(),
+            x: w.x(),
+            y: w.y(),
+            width: w.width(),
+            height: w.height(),
+        })
+        .collect())
+}
+
+/// Captura apenas a janela `id` (a imagem dela mesma, mesmo que outra esteja por cima).
+pub fn capture_window(id: u32) -> Result<image::RgbaImage, String> {
+    let windows = xcap::Window::all().map_err(|e| format!("Erro ao listar janelas: {}", e))?;
+    let window = windows
+        .into_iter()
+        .find(|w| w.id() == id)
+        .ok_or_else(|| format!("Janela {} não encontrada", id))?;
+    window
+        .capture_image()
+        .map_err(|e| format!("Erro ao capturar a janela {}: {}", id, e))
 }
 
 /// Lista todos os monitores conectados.

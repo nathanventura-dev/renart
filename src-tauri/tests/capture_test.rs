@@ -184,3 +184,88 @@ fn test_selection_rejects_non_finite_numbers() {
     assert!(selection_to_physical(&region(f64::NAN, 0.0, 10.0, 10.0), 1000, 800, 1000, 800).is_err());
     assert!(selection_to_physical(&region(0.0, 0.0, f64::INFINITY, 10.0), 1000, 800, 1000, 800).is_err());
 }
+
+// ---- Captura de janela: filtro, topo sob o cursor, recorte por monitor e captura limpa ----
+use renart_lib::capture::{
+    is_capturable_window, local_rects_for, resolve_window_capture, window_at, RectF, WindowInfo,
+};
+
+fn win(id: u32, x: i32, y: i32, w: u32, h: u32) -> WindowInfo {
+    WindowInfo { id, app_name: "App".into(), title: format!("Janela {id}"), x, y, width: w, height: h }
+}
+
+#[test]
+fn test_is_capturable_window_rejects_system_own_minimized_and_tiny() {
+    assert!(is_capturable_window("Safari", 1200, 800, false, 10, 99));
+    assert!(!is_capturable_window("Dock", 1200, 800, false, 10, 99));
+    assert!(!is_capturable_window("Window Server", 1200, 800, false, 10, 99));
+    assert!(!is_capturable_window("Safari", 1200, 800, true, 10, 99), "minimizada");
+    assert!(!is_capturable_window("RenArt", 1200, 800, false, 99, 99), "janela do próprio app");
+    assert!(!is_capturable_window("Safari", 79, 800, false, 10, 99), "estreita demais");
+    assert!(!is_capturable_window("Safari", 1200, 39, false, 10, 99), "baixa demais");
+}
+
+#[test]
+fn test_window_at_returns_the_topmost_window_under_the_point() {
+    let windows = vec![win(1, 0, 0, 100, 100), win(2, 50, 50, 100, 100)]; // frente -> trás
+    assert_eq!(window_at(&windows, 60.0, 60.0), Some(1), "na sobreposição vence a do topo");
+    assert_eq!(window_at(&windows, 120.0, 120.0), Some(2));
+    assert_eq!(window_at(&windows, 500.0, 500.0), None, "sobre o desktop não há janela");
+    assert_eq!(window_at(&windows, 100.0, 10.0), None, "a borda de fim (x = 100) não pertence à janela 1");
+}
+
+#[test]
+fn test_local_rects_for_clips_to_each_monitor() {
+    let monitors = vec![mon(1, 0, 0, 1000, 800), mon(2, 1000, 0, 1000, 800)];
+    let rects = local_rects_for(&win(5, 900, 100, 300, 200), &monitors);
+    assert_eq!(
+        rects,
+        vec![
+            (1, RectF { x: 900.0, y: 100.0, width: 100.0, height: 200.0 }),
+            (2, RectF { x: 0.0, y: 100.0, width: 200.0, height: 200.0 }),
+        ]
+    );
+}
+
+#[test]
+fn test_local_rects_for_handles_negative_origin_and_no_intersection() {
+    let monitors = vec![mon(3, -1920, -200, 1920, 1080)];
+    assert_eq!(
+        local_rects_for(&win(1, -1900, -100, 400, 300), &monitors),
+        vec![(3, RectF { x: 20.0, y: 100.0, width: 400.0, height: 300.0 })]
+    );
+    assert!(local_rects_for(&win(2, 5000, 5000, 100, 100), &monitors).is_empty());
+    let big = local_rects_for(&win(3, -3000, -500, 9000, 9000), &monitors);
+    assert_eq!(big, vec![(3, RectF { x: 0.0, y: 0.0, width: 1920.0, height: 1080.0 })], "recortada ao monitor");
+}
+
+#[test]
+fn test_resolve_window_capture_prefers_the_clean_window_image() {
+    let frame = image::RgbaImage::from_pixel(100, 100, image::Rgba([255, 0, 0, 255]));
+    let clean = image::RgbaImage::from_pixel(10, 10, image::Rgba([0, 0, 255, 255]));
+    let out = resolve_window_capture(&frame, &mon(1, 0, 0, 100, 100), &win(9, 10, 10, 30, 20), |_| Ok(clean.clone())).unwrap();
+    assert_eq!(out.dimensions(), (10, 10));
+    assert_eq!(*out.get_pixel(0, 0), image::Rgba([0, 0, 255, 255]));
+}
+
+#[test]
+fn test_resolve_window_capture_falls_back_to_cropping_the_frozen_frame() {
+    let frame = image::RgbaImage::from_pixel(100, 100, image::Rgba([255, 0, 0, 255]));
+    let out = resolve_window_capture(&frame, &mon(1, 0, 0, 100, 100), &win(9, 10, 10, 30, 20), |_| Err("sumiu".into())).unwrap();
+    assert_eq!(out.dimensions(), (30, 20));
+    assert_eq!(*out.get_pixel(0, 0), image::Rgba([255, 0, 0, 255]));
+}
+
+#[test]
+fn test_resolve_window_capture_errors_when_window_is_outside_the_frame() {
+    let frame = image::RgbaImage::from_pixel(100, 100, image::Rgba([255, 0, 0, 255]));
+    let r = resolve_window_capture(&frame, &mon(1, 0, 0, 100, 100), &win(9, 500, 500, 30, 20), |_| Err("sumiu".into()));
+    assert!(r.is_err());
+}
+
+#[test]
+fn test_window_selection_serializes_with_kind_and_has_no_physical_rect() {
+    let json = serde_json::to_string(&Selection::Window { id: 7 }).unwrap();
+    assert!(json.contains("\"kind\":\"window\"") && json.contains("\"id\":7"), "{json}");
+    assert!(selection_to_physical(&Selection::Window { id: 7 }, 1000, 800, 1000, 800).is_err());
+}
