@@ -4,6 +4,7 @@ import Konva from 'konva';
 import { Toolbar } from './components/Toolbar';
 import { useTheme } from './hooks/useTheme';
 import { Mascot } from './components/Mascot';
+import { listenForCaptureShortcut } from './services/shortcutService';
 import { GallerySidebar } from './components/GallerySidebar';
 import { CanvasEditor } from './components/CanvasEditor';
 import { CaptureOverlay } from './components/CaptureOverlay';
@@ -377,6 +378,28 @@ export const App: React.FC = () => {
     setPreCapturedScreen(screenFrame);
     setIsCapturing(true);
   };
+
+  // Atalho global de captura (Tauri): usa refs para o listener ficar estável e enxergar o estado atual.
+  const handleStartCaptureRef = useRef(handleStartCapture);
+  handleStartCaptureRef.current = handleStartCapture;
+  const isCapturingRef = useRef(isCapturing);
+  isCapturingRef.current = isCapturing;
+
+  useEffect(() => {
+    let stop: (() => void) | undefined;
+    let cancelled = false;
+    listenForCaptureShortcut(() => {
+      if (isCapturingRef.current) return;
+      void handleStartCaptureRef.current('region');
+    }).then((unlisten) => {
+      if (cancelled) unlisten();
+      else stop = unlisten;
+    });
+    return () => {
+      cancelled = true;
+      stop?.();
+    };
+  }, []);
 
   const handleSwitchCaptureMode = async (newMode: CaptureMode) => {
     if (newMode === 'region') {
