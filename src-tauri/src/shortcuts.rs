@@ -1,3 +1,4 @@
+use crate::capture_session::BeginGuard;
 use tauri::{Emitter, Manager};
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
 
@@ -19,6 +20,10 @@ pub fn register_global_shortcuts(app: &tauri::AppHandle) -> Result<(), String> {
     app.global_shortcut()
         .on_shortcut(default_capture_shortcut(), |app, _shortcut, event| {
             if event.state() == ShortcutState::Pressed {
+                // Uma captura ainda congelando as telas: não mexe na janela principal nem dispara outra.
+                if app.state::<BeginGuard>().is_busy() {
+                    return;
+                }
                 // Traz a janela para frente para a captura não abrir escondida atrás de outro app.
                 if let Some(window) = app.get_webview_window("main") {
                     let _ = window.show();

@@ -8,8 +8,9 @@ use base64::Engine;
 use image::RgbaImage;
 use serde::Serialize;
 use std::collections::HashMap;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
-use tauri::{AppHandle, Emitter, Manager, State, WebviewUrl, WebviewWindowBuilder};
+use tauri::{AppHandle, Emitter, Manager, State, WebviewUrl, WebviewWindowBuilder, WindowEvent};
 
 /// Eventos emitidos ao frontend (os mesmos nomes existem em `src/services/captureService.ts`).
 pub const EVENT_CAPTURE_COMPLETE: &str = "capture-complete";
@@ -78,6 +79,49 @@ pub fn take_session(state: &SessionState) -> Option<CaptureSession> {
     state.lock().unwrap().take()
 }
 
+/// Impede que duas capturas comecem ao mesmo tempo (ex.: atalho global apertado duas vezes).
+#[derive(Default)]
+pub struct BeginGuard(AtomicBool);
+
+/// Permissão de iniciar uma captura; libera o `BeginGuard` quando sai de escopo.
+pub struct BeginPermit<'a>(&'a AtomicBool);
+
+impl BeginGuard {
+    pub fn try_acquire(&self) -> Option<BeginPermit<'_>> {
+        if self.0.swap(true, Ordering::SeqCst) {
+            None
+        } else {
+            Some(BeginPermit(&self.0))
+        }
+    }
+
+    pub fn is_busy(&self) -> bool {
+        self.0.load(Ordering::SeqCst)
+    }
+}
+
+impl Drop for BeginPermit<'_> {
+    fn drop(&mut self) {
+        self.0.store(false, Ordering::SeqCst);
+    }
+}
+
+/// Copia o quadro sob o lock e codifica fora dele, para outros comandos (Esc, finish) não esperarem o PNG.
+pub fn frame_data_url_with(
+    state: &SessionState,
+    id: u32,
+    encode: impl FnOnce(&RgbaImage) -> Result<String, String>,
+) -> Result<String, String> {
+    let frame = {
+        let guard = state.lock().unwrap();
+        let session = guard
+            .as_ref()
+            .ok_or_else(|| "Nenhuma captura em andamento".to_string())?;
+        session.frame(id)?.clone()
+    };
+    encode(&frame)
+}
+
 /// URL (relativa ao frontend) carregada por cada janela de overlay.
 pub fn build_overlay_url(id: u32, mode: &str) -> String {
     format!("index.html?overlay={id}&mode={mode}")
@@ -134,9 +178,14 @@ fn to_data_url(image: &RgbaImage) -> Result<String, String> {
 pub async fn begin_capture(
     app: AppHandle,
     state: State<'_, SessionState>,
+    guard: State<'_, BeginGuard>,
     mode: String,
 ) -> Result<(), String> {
     validate_mode(&mode)?;
+    // Segundo pedido enquanto o primeiro ainda está congelando as telas: ignora, em vez de derrubar o primeiro.
+    let Some(_permit) = guard.try_acquire() else {
+        return Ok(());
+    };
     ensure_screen_recording(screen_recording_allowed())?;
 
     // Uma captura nova substitui qualquer sessão anterior (ex.: atalho apertado duas vezes).
@@ -188,22 +237,38 @@ pub async fn begin_capture(
         .visible_on_all_workspaces(true)
         .focused(true)
         .build();
-        if let Err(e) = built {
-            end_session(&app, &state);
-            return Err(format!("Falha ao abrir o overlay do monitor {}: {}", m.id, e));
+        match built {
+            Ok(window) => {
+                // Se o sistema fechar um overlay (Cmd+W, Alt+F4), encerra a captura e devolve a janela principal.
+                let handle = app.clone();
+                window.on_window_event(move |event| {
+                    if matches!(event, WindowEvent::CloseRequested { .. }) {
+                        let handle = handle.clone();
+                        tauri::async_runtime::spawn(async move {
+                            end_session(&handle, &handle.state::<SessionState>());
+                            let _ = handle.emit(EVENT_CAPTURE_CANCELLED, ());
+                        });
+                    }
+                });
+            }
+            Err(e) => {
+                end_session(&app, &state);
+                return Err(format!("Falha ao abrir o overlay do monitor {}: {}", m.id, e));
+            }
         }
     }
     Ok(())
 }
 
-/// Devolve o quadro congelado de um monitor como data URL PNG.
+/// Devolve o quadro congelado de um monitor como data URL PNG (codificado fora do lock da sessão).
 #[tauri::command]
-pub async fn get_overlay_frame(state: State<'_, SessionState>, id: u32) -> Result<String, String> {
-    let guard = state.lock().unwrap();
-    let session = guard
-        .as_ref()
-        .ok_or_else(|| "Nenhuma captura em andamento".to_string())?;
-    to_data_url(session.frame(id)?)
+pub async fn get_overlay_frame(app: AppHandle, id: u32) -> Result<String, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<SessionState>();
+        frame_data_url_with(&state, id, to_data_url)
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 /// Recorta a seleção, copia para o clipboard, fecha os overlays e entrega o resultado à janela principal.

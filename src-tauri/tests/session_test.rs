@@ -1,10 +1,10 @@
 use image::{Rgba, RgbaImage};
 use renart_lib::capture::{MonitorInfo, Selection};
 use renart_lib::capture_session::{
-    build_overlay_url, overlay_label, replace_session, validate_mode, take_session, CaptureSession, SessionState, DENIED_ERROR,
+    build_overlay_url, frame_data_url_with, overlay_label, replace_session, validate_mode, BeginGuard, take_session, CaptureSession, SessionState, DENIED_ERROR,
     EVENT_CAPTURE_CANCELLED, EVENT_CAPTURE_COMPLETE, EVENT_OVERLAY_MODE,
 };
-use renart_lib::permissions::ensure_screen_recording;
+use renart_lib::permissions::{allowed_with, ensure_screen_recording};
 use std::collections::HashMap;
 
 fn monitor(id: u32, w: u32, h: u32, scale: f32) -> MonitorInfo {
@@ -107,4 +107,65 @@ fn test_validate_mode_accepts_only_region_and_fullscreen() {
     assert!(validate_mode("fullscreen").is_ok());
     assert!(validate_mode("window").is_err());
     assert!(validate_mode("").is_err());
+}
+
+// ---- Correções da revisão final ----
+
+#[test]
+fn test_begin_guard_blocks_a_second_start_until_the_first_is_released() {
+    let guard = BeginGuard::default();
+    assert!(!guard.is_busy());
+    let first = guard.try_acquire();
+    assert!(first.is_some());
+    assert!(guard.is_busy());
+    assert!(guard.try_acquire().is_none(), "segunda captura iniciando ao mesmo tempo deve ser ignorada");
+    drop(first);
+    assert!(!guard.is_busy());
+    assert!(guard.try_acquire().is_some());
+}
+
+#[test]
+fn test_frame_data_url_is_encoded_outside_the_session_lock() {
+    let state: SessionState = SessionState::default();
+    replace_session(&state, sample_session());
+    let url = frame_data_url_with(&state, 1, |frame| {
+        assert!(state.try_lock().is_ok(), "o Mutex não pode ficar preso durante a codificação");
+        Ok(format!("{}x{}", frame.width(), frame.height()))
+    })
+    .unwrap();
+    assert_eq!(url, "100x100");
+}
+
+#[test]
+fn test_frame_data_url_without_session_or_with_unknown_id_is_an_error() {
+    let empty: SessionState = SessionState::default();
+    assert!(frame_data_url_with(&empty, 1, |_| Ok(String::new())).is_err());
+    let state: SessionState = SessionState::default();
+    replace_session(&state, sample_session());
+    assert!(frame_data_url_with(&state, 99, |_| Ok(String::new())).is_err());
+}
+
+#[test]
+fn test_permission_is_requested_only_when_preflight_fails() {
+    use std::cell::Cell;
+    let requested = Cell::new(0);
+    assert!(allowed_with(|| true, || { requested.set(requested.get() + 1); false }));
+    assert_eq!(requested.get(), 0, "com a permissão já concedida não deve pedir de novo");
+
+    assert!(!allowed_with(|| false, || { requested.set(requested.get() + 1); false }));
+    assert_eq!(requested.get(), 1, "sem permissão deve pedir ao sistema (abre o diálogo e lista o app)");
+}
+
+#[test]
+fn test_closing_an_overlay_ends_the_session_and_brings_the_main_window_back() {
+    let src = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/src/capture_session.rs")).unwrap();
+    assert!(src.contains("CloseRequested"), "overlay fechado pelo sistema deve encerrar a captura");
+}
+
+#[test]
+fn test_global_shortcut_does_not_touch_the_main_window_while_a_capture_is_starting() {
+    let src = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/src/shortcuts.rs")).unwrap();
+    let busy = src.find("is_busy").expect("atalho deve checar BeginGuard::is_busy");
+    let show = src.find(".show()").expect("atalho mostra a janela principal");
+    assert!(busy < show, "a checagem de captura em andamento vem antes de mostrar a janela");
 }

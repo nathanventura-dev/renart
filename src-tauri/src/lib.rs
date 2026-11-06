@@ -10,6 +10,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .manage(capture_session::SessionState::default())
+        .manage(capture_session::BeginGuard::default())
         .invoke_handler(tauri::generate_handler![
             capture::tauri_capture_screen,
             capture_session::begin_capture,

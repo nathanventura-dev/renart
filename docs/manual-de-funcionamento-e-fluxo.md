@@ -62,6 +62,8 @@ No app desktop, ao iniciar uma captura de **Área** ou **Tela Inteira** o RenArt
 
 No macOS é preciso liberar o RenArt (ou o terminal, durante o desenvolvimento) em *Ajustes do Sistema → Privacidade e Segurança → Gravação de Tela*. Sem a permissão o app mostra um aviso explicando o caminho. No navegador continua valendo o fluxo anterior, dentro da própria janela.
 
+> **Limite conhecido:** a captura multi-monitor foi validada apenas no macOS. No Windows e no Linux, monitores com escala diferente de 100% podem posicionar os overlays e a seleção de forma errada.
+
 ---
 
 ## 3. Cópia Automática Imediata para o Clipboard
