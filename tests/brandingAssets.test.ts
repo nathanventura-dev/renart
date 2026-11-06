@@ -17,3 +17,15 @@ describe('Branding Assets', () => {
     expect(lightStats.size).toBeGreaterThan(1000);
   });
 });
+
+describe('Tauri bundle icons', () => {
+  it('every icon referenced in tauri.conf.json exists in src-tauri/', () => {
+    const confPath = path.resolve(__dirname, '../src-tauri/tauri.conf.json');
+    const conf = JSON.parse(fs.readFileSync(confPath, 'utf-8'));
+    const icons: string[] = conf.bundle.icon;
+    expect(icons.length).toBeGreaterThan(0);
+    for (const icon of icons) {
+      expect(fs.existsSync(path.resolve(__dirname, '../src-tauri', icon)), icon).toBe(true);
+    }
+  });
+});
