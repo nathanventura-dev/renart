@@ -419,10 +419,11 @@ export const App: React.FC = () => {
   useEffect(() => {
     let stop: (() => void) | undefined;
     let cancelled = false;
-    onCaptureComplete(({ dataUrl, fullscreen }) => {
+    onCaptureComplete(({ dataUrl, fullscreen, kind: resultKind }) => {
+      const kind = resultKind ?? (fullscreen ? 'fullscreen' : 'region');
       const count = galleryStore.getState().captures.length;
       const id = `cap-${Date.now()}`;
-      galleryStore.addCapture({ id, title: captureTitle(fullscreen, count), dataUrl, createdAt: Date.now() });
+      galleryStore.addCapture({ id, title: captureTitle(kind, count), dataUrl, createdAt: Date.now() });
       editorStore.switchCapture(id, dataUrl);
       editorStore.setImageBase64(dataUrl);
       setZoomLevel(1.0);

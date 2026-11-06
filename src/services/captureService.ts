@@ -5,15 +5,26 @@ export const EVENT_CAPTURE_COMPLETE = 'capture-complete';
 export const EVENT_CAPTURE_CANCELLED = 'capture-cancelled';
 export const EVENT_OVERLAY_MODE = 'overlay-mode-changed';
 export const EVENT_ACTIVE_MONITOR = 'overlay-active-monitor';
+export const EVENT_HOVER_WINDOW = 'overlay-hover-window';
 export const DENIED_ERROR = 'screen-recording-denied';
 
 export type CaptureSelection =
   | { kind: 'fullscreen' }
-  | { kind: 'region'; x: number; y: number; width: number; height: number };
+  | { kind: 'region'; x: number; y: number; width: number; height: number }
+  | { kind: 'window'; id: number };
 
 export interface CaptureResult {
   dataUrl: string;
   fullscreen: boolean;
+  kind?: 'region' | 'fullscreen' | 'window';
+}
+
+/** Janela sob o cursor, com o retângulo (local) de cada monitor que ela toca; `id` nulo = nenhuma janela. */
+export interface HoverWindow {
+  id: number | null;
+  appName: string;
+  title: string;
+  rects: { monitorId: number; x: number; y: number; width: number; height: number }[];
 }
 
 export interface ServiceDeps {
@@ -97,6 +108,9 @@ export const onCaptureCancelled = (cb: () => void, deps: ServiceDeps = {}) =>
 
 export const onActiveMonitorChanged = (cb: (id: number) => void, deps: ServiceDeps = {}) =>
   subscribe<{ id: number }>(EVENT_ACTIVE_MONITOR, (payload) => cb(payload.id), deps);
+
+export const onHoverWindowChanged = (cb: (hover: HoverWindow) => void, deps: ServiceDeps = {}) =>
+  subscribe<HoverWindow>(EVENT_HOVER_WINDOW, cb, deps);
 
 export const onOverlayModeChanged = (cb: (mode: OverlayMode) => void, deps: ServiceDeps = {}) =>
   subscribe<OverlayMode>(EVENT_OVERLAY_MODE, cb, deps);

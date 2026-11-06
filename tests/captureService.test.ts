@@ -5,6 +5,7 @@ import {
   EVENT_ACTIVE_MONITOR,
   EVENT_CAPTURE_CANCELLED,
   EVENT_CAPTURE_COMPLETE,
+  EVENT_HOVER_WINDOW,
   EVENT_OVERLAY_MODE,
   beginCapture,
   cancelCapture,
@@ -14,6 +15,7 @@ import {
   onCaptureCancelled,
   overlayReady,
   onCaptureComplete,
+  onHoverWindowChanged,
   onOverlayModeChanged,
   setOverlayMode,
   setOverlayUiRect,
@@ -75,6 +77,29 @@ describe('captureService (Tauri)', () => {
     expect(env.invoke).toHaveBeenCalledWith('set_overlay_ui_rect', { id: 2, rect });
   });
 
+  it('finishCapture accepts a window selection', async () => {
+    const env = fakeEnv();
+    await finishCapture(2, { kind: 'window', id: 77 }, { ...env, isTauri: true });
+    expect(env.invoke).toHaveBeenCalledWith('finish_capture', { id: 2, selection: { kind: 'window', id: 77 } });
+  });
+
+  it('onHoverWindowChanged forwards the window under the cursor with its per-monitor rectangles', async () => {
+    const env = fakeEnv();
+    const cb = vi.fn();
+    await onHoverWindowChanged(cb, { ...env, isTauri: true });
+    const hover = { id: 9, appName: 'Safari', title: 'Aba', rects: [{ monitorId: 1, x: 1, y: 2, width: 3, height: 4 }] };
+    env.handlers[EVENT_HOVER_WINDOW](hover);
+    expect(cb).toHaveBeenCalledWith(hover);
+  });
+
+  it('onCaptureComplete forwards the capture kind', async () => {
+    const env = fakeEnv();
+    const cb = vi.fn();
+    await onCaptureComplete(cb, { ...env, isTauri: true });
+    env.handlers[EVENT_CAPTURE_COMPLETE]({ dataUrl: 'data:image/png;base64,AAA', fullscreen: false, kind: 'window' });
+    expect(cb).toHaveBeenCalledWith({ dataUrl: 'data:image/png;base64,AAA', fullscreen: false, kind: 'window' });
+  });
+
   it('onActiveMonitorChanged forwards the id of the monitor under the cursor', async () => {
     const env = fakeEnv();
     const cb = vi.fn();
@@ -123,5 +148,6 @@ describe('contract with the Rust side', () => {
     expect(lit('EVENT_CAPTURE_CANCELLED')).toBe(EVENT_CAPTURE_CANCELLED);
     expect(lit('EVENT_OVERLAY_MODE')).toBe(EVENT_OVERLAY_MODE);
     expect(lit('EVENT_ACTIVE_MONITOR')).toBe(EVENT_ACTIVE_MONITOR);
+    expect(lit('EVENT_HOVER_WINDOW')).toBe(EVENT_HOVER_WINDOW);
   });
 });

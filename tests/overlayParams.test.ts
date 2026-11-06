@@ -12,8 +12,12 @@ describe('parseOverlayParams', () => {
     expect(parseOverlayParams('?mode=region')).toBeNull();
   });
 
+  it('accepts the window mode', () => {
+    expect(parseOverlayParams('?overlay=1&mode=window')).toEqual({ monitorId: 1, mode: 'window' });
+  });
+
   it('returns null for unsupported or missing modes', () => {
-    expect(parseOverlayParams('?overlay=1&mode=window')).toBeNull();
+    expect(parseOverlayParams('?overlay=1&mode=freeform')).toBeNull();
     expect(parseOverlayParams('?overlay=1')).toBeNull();
   });
 

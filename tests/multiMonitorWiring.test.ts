@@ -8,8 +8,9 @@ const read = (rel: string) => fs.readFileSync(path.resolve(__dirname, '..', rel)
 
 describe('captureTitle', () => {
   it('names region and full screen captures after the current gallery size', () => {
-    expect(captureTitle(false, 0)).toBe('Captura #1');
-    expect(captureTitle(true, 4)).toBe('Tela Inteira #5');
+    expect(captureTitle('region', 0)).toBe('Captura #1');
+    expect(captureTitle('fullscreen', 4)).toBe('Tela Inteira #5');
+    expect(captureTitle('window', 2)).toBe('Janela #3');
   });
 });
 
@@ -32,7 +33,7 @@ describe('App multi-monitor wiring', () => {
     expect(app).toContain('beginCapture');
     expect(app).toContain('onCaptureComplete');
     expect(app).toContain('describeCaptureError');
-    expect(app).toContain('captureTitle');
+    expect(app).toContain('captureTitle(kind');
   });
 
   it('keeps the in-app overlay as the browser fallback', () => {
