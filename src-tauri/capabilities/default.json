@@ -3,5 +3,5 @@
   "identifier": "default",
   "description": "Permissões da janela principal do RenArt (eventos, janela e núcleo do Tauri).",
   "windows": ["main", "capture-overlay-*"],
-  "permissions": ["core:default"]
+  "permissions": ["core:default", "core:window:allow-set-focus"]
 }

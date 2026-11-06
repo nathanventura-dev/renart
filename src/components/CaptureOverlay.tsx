@@ -10,6 +10,8 @@ interface CaptureOverlayProps {
   onComplete: (bounds: RectBounds | { freeformPoints: Point[] } | 'fullscreen') => void;
   onCancel: () => void;
   onSwitchMode?: (mode: CaptureMode) => void;
+  /** Desativa o botão "Janela" (captura de janela ainda não disponível). */
+  windowDisabled?: boolean;
 }
 
 export const CaptureOverlay: React.FC<CaptureOverlayProps> = ({
@@ -18,6 +20,7 @@ export const CaptureOverlay: React.FC<CaptureOverlayProps> = ({
   onComplete,
   onCancel,
   onSwitchMode,
+  windowDisabled = false,
 }) => {
   const [isDragging, setIsDragging] = useState(false);
   const [startPoint, setStartPoint] = useState<Point | null>(null);
@@ -216,8 +219,9 @@ export const CaptureOverlay: React.FC<CaptureOverlayProps> = ({
         {/* Modo Janela */}
         <button
           type="button"
-          onClick={() => (onSwitchMode ? onSwitchMode('window') : undefined)}
-          title="Capturar Janela do Sistema"
+          onClick={() => (!windowDisabled && onSwitchMode ? onSwitchMode('window') : undefined)}
+          disabled={windowDisabled}
+          title={windowDisabled ? 'Em breve' : 'Capturar Janela do Sistema'}
           style={{
             display: 'inline-flex',
             alignItems: 'center',
@@ -229,7 +233,8 @@ export const CaptureOverlay: React.FC<CaptureOverlayProps> = ({
             color: mode === 'window' ? '#ffffff' : 'rgba(255, 255, 255, 0.75)',
             fontSize: '12px',
             fontWeight: 600,
-            cursor: 'pointer',
+            cursor: windowDisabled ? 'not-allowed' : 'pointer',
+            opacity: windowDisabled ? 0.4 : 1,
             transition: 'all 0.15s ease',
           }}
         >

@@ -76,3 +76,14 @@ export const onCaptureCancelled = (cb: () => void, deps: ServiceDeps = {}) =>
 
 export const onOverlayModeChanged = (cb: (mode: OverlayMode) => void, deps: ServiceDeps = {}) =>
   subscribe<OverlayMode>(EVENT_OVERLAY_MODE, cb, deps);
+
+/** Pede foco para a janela atual (overlays de monitores diferentes disputam o foco do teclado). */
+export async function focusThisWindow(deps: ServiceDeps = {}): Promise<void> {
+  if (!(deps.isTauri ?? isTauri())) return;
+  try {
+    const { getCurrentWindow } = await import('@tauri-apps/api/window');
+    await getCurrentWindow().setFocus();
+  } catch {
+    /* sem permissão ou janela já fechada: ignora */
+  }
+}
