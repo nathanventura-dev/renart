@@ -6,9 +6,9 @@ Adicionar suporte a **Tema Claro e Escuro** na interface do RenArt, integrado à
 ## 2. Decisões Acordadas
 - **Controle:** modo `system` (padrão), `light` ou `dark`. Um botão na toolbar alterna entre os três; a preferência é salva no `localStorage`.
 - **Abordagem:** tokens de cor em JS + store de tema + hook `useTheme()`. Serve DOM e Konva com o mesmo mecanismo e é testável em Vitest sem navegador.
-- **Referência visual do escuro:** Ferramenta de Captura (Snipping Tool) do Windows 11, com cores amostradas de dois prints reais. O chrome do Snipping Tool usa Mica (tingido pelo papel de parede); no RenArt usa-se um tom fixo, sem tingimento dinâmico.
-- **Fundo da área de edição (escuro):** `#121211`.
-- **Destaque:** laranja da raposa (`RENART_THEME`) nos dois temas, no lugar do azul/verde do sistema.
+- **Referência visual do escuro:** a Ferramenta de Captura (Snipping Tool) do Windows 11 foi medida em dois prints, mas o chrome dela é azul-petróleo (matiz ~203°) e brigava com o laranja da raposa (~18°), quase complementares. Decisão posterior: **grafite neutro** (`#1e1e1e`) com o **laranja original** (`#d3551d`, hover `#e66a2d`) e texto branco sobre ele, igual ao tema claro. Tentativas de clarear/dessaturar o laranja foram descartadas.
+- **Fundo da área de edição (escuro):** `#121212`.
+- **Destaque:** laranja da raposa nos dois temas, no lugar do azul/verde do sistema.
 
 ## 3. Arquitetura
 
@@ -18,14 +18,14 @@ Adicionar suporte a **Tema Claro e Escuro** na interface do RenArt, integrado à
 
 | Token | Claro | Escuro |
 | :--- | :--- | :--- |
-| `chrome` (toolbar, galeria) | `#ffffff` | `#1a2227` |
-| `control` (botões) | `rgba(0,0,0,0.04)` | `#272f34` |
-| `popup` (menus, dropdowns) | `#f8fafc` | `#2b2c2d` |
-| `border` | `#e5e5e7` | `#2c3338` |
+| `chrome` (toolbar, galeria) | `#ffffff` | `#1e1e1e` |
+| `control` (botões) | `rgba(0,0,0,0.04)` | `#2b2b2b` |
+| `popup` (menus, dropdowns) | `#f8fafc` | `#2a2a2a` |
+| `border` | `#e5e5e7` | `#363636` |
 | `textPrimary` | `#1e293b` | `#ffffff` |
 | `textSecondary` | `#475569` | `#c5c5c5` |
-| `textMuted` | `#86868b` | `#9aa0a6` |
-| `workspace` (atrás da imagem) | `#e5e5e7` | `#121211` |
+| `textMuted` | `#86868b` | `#9a9a9a` |
+| `workspace` (atrás da imagem) | `#e5e5e7` | `#121212` |
 
 Os valores de `control` no escuro e de `textMuted` no escuro são pontos de partida; a validação visual do plano pode ajustá-los. Os tints laranja (`primaryTint`, `galleryActiveBg`) podem ganhar uma variante com mais opacidade no escuro para manter a leitura.
 

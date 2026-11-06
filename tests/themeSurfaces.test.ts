@@ -41,7 +41,7 @@ describe('theme surfaces', () => {
     const html = fs.readFileSync(path.resolve(__dirname, '../index.html'), 'utf-8');
     expect(html).toContain('prefers-color-scheme: dark');
     expect(html).toContain("html[data-theme='dark']");
-    expect(html).toContain('#121211');
+    expect(html).toContain('#121212');
   });
 
   it('CanvasEditor workspace background comes from the palette', () => {

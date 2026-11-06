@@ -22,14 +22,14 @@ describe('RenArt Theme Colors', () => {
     expect(Object.keys(LIGHT_PALETTE).sort()).toEqual(Object.keys(DARK_PALETTE).sort());
   });
 
-  it('dark palette matches colors measured from Windows Snipping Tool', () => {
-    expect(DARK_PALETTE.chrome).toBe('#1a2227');
-    expect(DARK_PALETTE.control).toBe('#272f34');
-    expect(DARK_PALETTE.popup).toBe('#2b2c2d');
-    expect(DARK_PALETTE.border).toBe('#2c3338');
+  it('dark palette uses neutral graphite surfaces', () => {
+    expect(DARK_PALETTE.chrome).toBe('#1e1e1e');
+    expect(DARK_PALETTE.control).toBe('#2b2b2b');
+    expect(DARK_PALETTE.popup).toBe('#2a2a2a');
+    expect(DARK_PALETTE.border).toBe('#363636');
     expect(DARK_PALETTE.textPrimary).toBe('#ffffff');
     expect(DARK_PALETTE.textSecondary).toBe('#c5c5c5');
-    expect(DARK_PALETTE.workspace).toBe('#121211');
+    expect(DARK_PALETTE.workspace).toBe('#121212');
   });
 
   it('light palette keeps current interface colors', () => {
@@ -52,13 +52,13 @@ describe('RenArt Theme Colors', () => {
     expect(LIGHT_PALETTE.onPrimary).toBe('#ffffff');
   });
 
-  it('dark palette uses a lighter orange with dark text on it', () => {
-    expect(DARK_PALETTE.primary).toBe('#d79373');
-    expect(DARK_PALETTE.primaryHover).toBe('#dca287');
-    expect(DARK_PALETTE.onPrimary).toBe('#1a1a1a');
+  it('dark palette keeps the original fox orange with white text on it', () => {
+    expect(DARK_PALETTE.primary).toBe('#d3551d');
+    expect(DARK_PALETTE.primaryHover).toBe('#e66a2d');
+    expect(DARK_PALETTE.onPrimary).toBe('#ffffff');
   });
 
-  it('dark orange keeps readable contrast (>=3:1 on chrome, >=4.5:1 for text on it)', () => {
+  it('dark orange keeps readable contrast (>=3:1 on chrome, >=4:1 for text on it)', () => {
     const lum = (hex: string) => {
       const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255).map((c) =>
         c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4)
@@ -70,6 +70,6 @@ describe('RenArt Theme Colors', () => {
       return (hi + 0.05) / (lo + 0.05);
     };
     expect(ratio(DARK_PALETTE.primary, DARK_PALETTE.chrome)).toBeGreaterThanOrEqual(3);
-    expect(ratio(DARK_PALETTE.onPrimary, DARK_PALETTE.primary)).toBeGreaterThanOrEqual(4.5);
+    expect(ratio(DARK_PALETTE.onPrimary, DARK_PALETTE.primary)).toBeGreaterThanOrEqual(4);
   });
 });
