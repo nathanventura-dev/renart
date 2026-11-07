@@ -58,7 +58,7 @@ No app desktop, ao iniciar uma captura de **Área** ou **Tela Inteira** o RenArt
 
 - **Área:** arraste no monitor que quiser. A seleção fica restrita àquele monitor.
 - **Tela Inteira:** cada monitor aparece escurecido; ao passar o mouse sobre um deles surge uma **câmera** com "Clique para capturar esta tela". O clique captura aquele monitor.
-- **Janela:** a janela sob o mouse é destacada, com o nome do app e o título; um clique captura a janela **inteira e limpa** (mesmo que outra esteja por cima dela), com os cantos arredondados transparentes. Uma janela que ocupa dois monitores é destacada nos dois. Clicar onde não há janela não faz nada.
+- **Janela:** a janela sob o mouse aparece **à frente de todas as outras**, com a própria imagem dela (sem o que estivesse por cima), o nome do app e o título; o resto da tela fica escurecido. A primeira passada sobre uma janela grande leva uma fração de segundo para carregar; nesse intervalo aparece só o contorno; um clique captura a janela **inteira e limpa** (mesmo que outra esteja por cima dela), com os cantos arredondados transparentes. Uma janela que ocupa dois monitores é destacada nos dois. Clicar onde não há janela não faz nada.
 - A barra de modos (Área / Janela / Tela Inteira) aparece em todos os overlays, e dá para trocar de modo sem sair da captura.
 - **Esc** cancela e devolve a janela do RenArt.
 
