@@ -1,7 +1,7 @@
 use image::{Rgba, RgbaImage};
 use renart_lib::capture::{local_point, MonitorInfo, Selection, WindowInfo};
 use renart_lib::capture_session::{
-    build_complete_payload, build_hover_payload, build_overlay_url, capture_kind, EVENT_HOVER_WINDOW, cursor_for_mode, frame_bytes_with, should_force_crosshair, OverlayCursor, UiRect, overlay_label, replace_session, validate_mode, BeginGuard, take_session, CaptureSession, SessionState, DENIED_ERROR,
+    build_complete_payload, build_hover_payload, window_image_with, build_overlay_url, capture_kind, EVENT_HOVER_WINDOW, cursor_for_mode, frame_bytes_with, should_force_crosshair, OverlayCursor, UiRect, overlay_label, replace_session, validate_mode, BeginGuard, take_session, CaptureSession, SessionState, DENIED_ERROR,
     EVENT_ACTIVE_MONITOR, EVENT_CAPTURE_CANCELLED, EVENT_CAPTURE_COMPLETE, EVENT_OVERLAY_MODE,
 };
 use renart_lib::permissions::{allowed_with, ensure_screen_recording};
@@ -386,4 +386,82 @@ fn test_tracker_emits_hover_window_events_in_window_mode() {
     for needle in ["EVENT_HOVER_WINDOW", "window_at", "list_windows", "capture_selection"] {
         assert!(src.contains(needle), "capture_session.rs deve usar {needle}");
     }
+}
+
+// ---- Pré-visualização da janela: cache e retângulo completo ----
+
+#[test]
+fn test_hover_payload_carries_the_full_unclipped_window_rect_per_monitor() {
+    let monitors = vec![
+        MonitorInfo { id: 1, name: "A".into(), x: 0, y: 0, width: 1000, height: 800, scale_factor: 1.0, is_primary: true },
+        MonitorInfo { id: 2, name: "B".into(), x: 1000, y: 0, width: 1000, height: 800, scale_factor: 1.0, is_primary: false },
+    ];
+    let p = build_hover_payload(Some(&sample_window(7, 900, 100, 300, 200)), &monitors);
+    assert_eq!((p.rects[0].full_x, p.rects[0].full_y, p.rects[0].full_width, p.rects[0].full_height), (900.0, 100.0, 300.0, 200.0));
+    assert_eq!((p.rects[1].full_x, p.rects[1].full_width), (-100.0, 300.0), "no segundo monitor a janela começa antes da borda");
+    assert_eq!(p.rects[1].width, 200.0, "o retângulo recortado continua sendo o visível");
+}
+
+#[test]
+fn test_window_image_is_captured_once_and_then_served_from_the_cache() {
+    use std::cell::Cell;
+    let state: SessionState = SessionState::default();
+    replace_session(&state, sample_session());
+    let calls = Cell::new(0);
+    let capture = |_: u32| {
+        calls.set(calls.get() + 1);
+        Ok(RgbaImage::from_pixel(4, 3, Rgba([7, 7, 7, 255])))
+    };
+    let first = window_image_with(&state, 50, capture).unwrap();
+    let second = window_image_with(&state, 50, capture).unwrap();
+    assert_eq!(calls.get(), 1, "a segunda passada sobre a mesma janela vem do cache");
+    assert_eq!(first.dimensions(), (4, 3));
+    assert!(std::sync::Arc::ptr_eq(&first, &second));
+}
+
+#[test]
+fn test_window_image_for_an_unknown_window_or_without_session_is_an_error() {
+    let state: SessionState = SessionState::default();
+    assert!(window_image_with(&state, 50, |_| unreachable!()).is_err(), "sem sessão");
+    replace_session(&state, sample_session());
+    assert!(window_image_with(&state, 99, |_| unreachable!()).is_err(), "janela que não está na sessão");
+}
+
+#[test]
+fn test_a_failed_window_capture_is_not_cached() {
+    use std::cell::Cell;
+    let state: SessionState = SessionState::default();
+    replace_session(&state, sample_session());
+    let calls = Cell::new(0);
+    let failing = |_: u32| {
+        calls.set(calls.get() + 1);
+        Err::<RgbaImage, String>("sumiu".into())
+    };
+    assert!(window_image_with(&state, 50, failing).is_err());
+    assert!(window_image_with(&state, 50, failing).is_err());
+    assert_eq!(calls.get(), 2, "uma falha não pode ficar em cache: tenta de novo");
+}
+
+#[test]
+fn test_an_image_captured_for_an_old_session_does_not_leak_into_the_new_one() {
+    let state: SessionState = SessionState::default();
+    replace_session(&state, sample_session());
+    // durante a captura a sessão é substituída (nova captura iniciada)
+    let img = window_image_with(&state, 50, |_| {
+        replace_session(&state, sample_session());
+        Ok(RgbaImage::from_pixel(2, 2, Rgba([1, 1, 1, 255])))
+    })
+    .unwrap();
+    assert_eq!(img.dimensions(), (2, 2));
+    let guard = state.lock().unwrap();
+    assert!(guard.as_ref().unwrap().cached_window_image(50).is_none(), "a sessão nova começa sem cache");
+}
+
+#[test]
+fn test_finish_capture_reuses_the_previewed_window_image_and_the_command_is_registered() {
+    let session = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/src/capture_session.rs")).unwrap();
+    assert!(session.contains("cached_window_image"), "o clique reaproveita a imagem que o usuário viu");
+    assert!(session.contains("get_window_image"));
+    let lib = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/src/lib.rs")).unwrap();
+    assert!(lib.contains("capture_session::get_window_image"));
 }

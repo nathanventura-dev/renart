@@ -187,8 +187,8 @@ fn test_selection_rejects_non_finite_numbers() {
 
 // ---- Captura de janela: filtro, topo sob o cursor, recorte por monitor e captura limpa ----
 use renart_lib::capture::{
-    filter_normal_layer, is_capturable_window, local_rects_for, resolve_window_capture, window_at, RectF,
-    WindowInfo,
+    encode_rgba_blob, filter_normal_layer, is_capturable_window, local_rects_for, local_window_rect,
+    resolve_window_capture, window_at, RectF, WindowInfo,
 };
 
 fn win(id: u32, x: i32, y: i32, w: u32, h: u32) -> WindowInfo {
@@ -300,4 +300,27 @@ fn test_list_windows_filters_by_layer_instead_of_relying_on_english_app_names() 
     assert!(src.contains("normal_window_ids"), "list_windows consulta as camadas do sistema");
     assert!(src.contains("kCGWindowLayer"), "lê a camada (kCGWindowLayer) de cada janela");
     assert!(src.contains("filter_normal_layer("), "e aplica o filtro à lista do xcap");
+}
+
+// ---- Pré-visualização da janela: retângulo completo e bytes crus ----
+
+#[test]
+fn test_local_window_rect_is_relative_to_the_monitor_and_not_clipped() {
+    let m = mon(3, -1920, -200, 1920, 1080);
+    // começa antes do monitor e passa da borda: o retângulo completo preserva isso
+    assert_eq!(
+        local_window_rect(&win(1, -2000, -100, 400, 300), &m),
+        RectF { x: -80.0, y: 100.0, width: 400.0, height: 300.0 }
+    );
+}
+
+#[test]
+fn test_rgba_blob_has_a_size_header_and_raw_rgba_pixels() {
+    let mut img = image::RgbaImage::new(2, 1);
+    img.put_pixel(0, 0, image::Rgba([255, 0, 0, 128]));
+    img.put_pixel(1, 0, image::Rgba([0, 255, 0, 255]));
+    let blob = encode_rgba_blob(&img);
+    assert_eq!(&blob[0..4], &2u32.to_le_bytes(), "largura");
+    assert_eq!(&blob[4..8], &1u32.to_le_bytes(), "altura");
+    assert_eq!(&blob[8..], &[255, 0, 0, 128, 0, 255, 0, 255], "RGBA cru, com o alfa preservado");
 }

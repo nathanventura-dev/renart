@@ -1,5 +1,6 @@
 use crate::capture::{
-    capture_monitor, capture_window, copy_image_to_clipboard, cursor_position, frame_to_bmp, image_to_png_bytes,
+    capture_monitor, capture_window, copy_image_to_clipboard, cursor_position, encode_rgba_blob, frame_to_bmp,
+    image_to_png_bytes, local_window_rect,
     left_button_down, list_monitors, list_windows, local_point, local_rects_for, monitor_at, overlay_geometry,
     resolve_window_capture, selection_to_physical, window_at, MonitorInfo, Selection, WindowInfo,
 };
@@ -9,6 +10,7 @@ use base64::Engine;
 use image::RgbaImage;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Mutex;
 use tauri::{AppHandle, Emitter, Manager, State, WebviewUrl, WebviewWindowBuilder, WindowEvent};
@@ -57,6 +59,7 @@ pub struct CaptureSession {
     windows: Vec<WindowInfo>,
     frames: HashMap<u32, RgbaImage>,
     ui_rects: HashMap<u32, UiRect>,
+    window_images: HashMap<u32, Arc<RgbaImage>>,
 }
 
 impl CaptureSession {
@@ -73,6 +76,7 @@ impl CaptureSession {
             windows,
             frames,
             ui_rects: HashMap::new(),
+            window_images: HashMap::new(),
         }
     }
 
@@ -83,6 +87,15 @@ impl CaptureSession {
 
     pub fn ui_rect(&self, id: u32) -> Option<UiRect> {
         self.ui_rects.get(&id).copied()
+    }
+
+    /// Imagem da janela já capturada para a pré-visualização (o clique reaproveita a mesma imagem).
+    pub fn cached_window_image(&self, id: u32) -> Option<Arc<RgbaImage>> {
+        self.window_images.get(&id).cloned()
+    }
+
+    pub fn cache_window_image(&mut self, id: u32, image: Arc<RgbaImage>) {
+        self.window_images.insert(id, image);
     }
 
     pub fn set_ui_rect(&mut self, id: u32, rect: UiRect) -> Result<(), String> {
@@ -204,10 +217,16 @@ pub fn capture_kind(selection: &Selection) -> &'static str {
 #[serde(rename_all = "camelCase")]
 pub struct HoverRect {
     pub monitor_id: u32,
+    /// Parte visível da janela neste monitor (recortada).
     pub x: f64,
     pub y: f64,
     pub width: f64,
     pub height: f64,
+    /// Retângulo completo da janela, local a este monitor e sem recorte (pode sair da tela).
+    pub full_x: f64,
+    pub full_y: f64,
+    pub full_width: f64,
+    pub full_height: f64,
 }
 
 /// Janela sob o cursor, enviada a todos os overlays (sem janela: `id` nulo e nenhum retângulo).
@@ -228,7 +247,21 @@ pub fn build_hover_payload(window: Option<&WindowInfo>, monitors: &[MonitorInfo]
             title: w.title.clone(),
             rects: local_rects_for(w, monitors)
                 .into_iter()
-                .map(|(monitor_id, r)| HoverRect { monitor_id, x: r.x, y: r.y, width: r.width, height: r.height })
+                .filter_map(|(monitor_id, r)| {
+                    let monitor = monitors.iter().find(|m| m.id == monitor_id)?;
+                    let full = local_window_rect(w, monitor);
+                    Some(HoverRect {
+                        monitor_id,
+                        x: r.x,
+                        y: r.y,
+                        width: r.width,
+                        height: r.height,
+                        full_x: full.x,
+                        full_y: full.y,
+                        full_width: full.width,
+                        full_height: full.height,
+                    })
+                })
                 .collect(),
         },
         None => HoverWindowPayload { id: None, app_name: String::new(), title: String::new(), rects: Vec::new() },
@@ -290,6 +323,33 @@ fn apply_overlay_cursor(app: &AppHandle, cursor: OverlayCursor) {
 
 #[cfg(not(target_os = "macos"))]
 fn apply_overlay_cursor(_app: &AppHandle, _cursor: OverlayCursor) {}
+
+/// Imagem da janela para a pré-visualização: captura uma vez e guarda no cache da sessão.
+/// A captura roda fora do lock, e só entra no cache se a sessão ainda for a mesma.
+pub fn window_image_with(
+    state: &SessionState,
+    id: u32,
+    capture: impl FnOnce(u32) -> Result<RgbaImage, String>,
+) -> Result<Arc<RgbaImage>, String> {
+    let generation = {
+        let guard = state.lock().unwrap();
+        let session = guard
+            .as_ref()
+            .ok_or_else(|| "Nenhuma captura em andamento".to_string())?;
+        session.window(id)?;
+        if let Some(image) = session.cached_window_image(id) {
+            return Ok(image);
+        }
+        session.generation()
+    };
+    let image = Arc::new(capture(id)?);
+    if let Some(session) = state.lock().unwrap().as_mut() {
+        if session.generation() == generation {
+            session.cache_window_image(id, Arc::clone(&image));
+        }
+    }
+    Ok(image)
+}
 
 /// URL (relativa ao frontend) carregada por cada janela de overlay.
 pub fn build_overlay_url(id: u32, mode: &str) -> String {
@@ -584,6 +644,18 @@ pub async fn get_overlay_frame(app: AppHandle, id: u32) -> Result<tauri::ipc::Re
     Ok(tauri::ipc::Response::new(bytes))
 }
 
+/// Pixels crus (cabeçalho de tamanho + RGBA) da janela `id`, para o overlay mostrá-la à frente das demais.
+#[tauri::command]
+pub async fn get_window_image(app: AppHandle, id: u32) -> Result<tauri::ipc::Response, String> {
+    let bytes = tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<SessionState>();
+        window_image_with(&state, id, capture_window).map(|image| encode_rgba_blob(&image))
+    })
+    .await
+    .map_err(|e| e.to_string())??;
+    Ok(tauri::ipc::Response::new(bytes))
+}
+
 /// O overlay avisa que o quadro já foi decodificado; só então a janela aparece (sem tela preta).
 #[tauri::command]
 pub async fn overlay_ready(app: AppHandle, id: u32) -> Result<(), String> {
@@ -604,7 +676,15 @@ pub async fn finish_capture(
     let session = take_session(&state).ok_or_else(|| "Nenhuma captura em andamento".to_string())?;
     let monitors = session.monitors().to_vec();
 
-    let cropped = session.capture_selection(id, &selection, capture_window);
+    // O clique reaproveita a imagem que o usuário viu na pré-visualização; sem ela, captura agora.
+    let previewed = match &selection {
+        Selection::Window { id: window_id } => session.cached_window_image(*window_id),
+        _ => None,
+    };
+    let cropped = session.capture_selection(id, &selection, |window_id| match previewed {
+        Some(image) => Ok((*image).clone()),
+        None => capture_window(window_id),
+    });
 
     close_overlays(&app, &monitors);
     restore_main(&app);

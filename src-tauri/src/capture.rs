@@ -283,6 +283,26 @@ pub fn local_rects_for(window: &WindowInfo, monitors: &[MonitorInfo]) -> Vec<(u3
         .collect()
 }
 
+/// Retângulo completo da janela em coordenadas locais ao monitor, sem recorte (pode sair do monitor).
+pub fn local_window_rect(window: &WindowInfo, monitor: &MonitorInfo) -> RectF {
+    RectF {
+        x: (window.x - monitor.x) as f64,
+        y: (window.y - monitor.y) as f64,
+        width: window.width as f64,
+        height: window.height as f64,
+    }
+}
+
+/// Imagem RGBA crua para o frontend: cabeçalho de 8 bytes (largura e altura, `u32` little-endian) e os
+/// pixels RGBA. Sem codificação (PNG levava segundos em modo dev) e com o alfa dos cantos preservado.
+pub fn encode_rgba_blob(img: &image::RgbaImage) -> Vec<u8> {
+    let mut out = Vec::with_capacity(8 + img.as_raw().len());
+    out.extend_from_slice(&img.width().to_le_bytes());
+    out.extend_from_slice(&img.height().to_le_bytes());
+    out.extend_from_slice(img.as_raw());
+    out
+}
+
 /// Imagem da janela: a captura limpa da própria janela e, se ela falhar (janela fechada, por exemplo),
 /// o recorte do quadro congelado do monitor no retângulo da janela.
 pub fn resolve_window_capture(
