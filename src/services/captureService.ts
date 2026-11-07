@@ -24,7 +24,38 @@ export interface HoverWindow {
   id: number | null;
   appName: string;
   title: string;
-  rects: { monitorId: number; x: number; y: number; width: number; height: number }[];
+  rects: {
+    monitorId: number;
+    /** Parte visível da janela neste monitor (recortada), local ao monitor. */
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    /** Retângulo completo da janela, local ao monitor e sem recorte (pode sair da tela). */
+    fullX: number;
+    fullY: number;
+    fullWidth: number;
+    fullHeight: number;
+  }[];
+}
+
+/** Imagem RGBA crua de uma janela (sem codificação), pronta para `ImageData`. */
+export interface WindowImage {
+  width: number;
+  height: number;
+  pixels: Uint8ClampedArray;
+}
+
+/** Lê o buffer de `get_window_image`: cabeçalho de 8 bytes (largura e altura, `u32` little-endian) + RGBA. */
+export function parseWindowImage(data: ArrayBuffer | Uint8Array | number[]): WindowImage {
+  const bytes = data instanceof Uint8Array ? data : Array.isArray(data) ? new Uint8Array(data) : new Uint8Array(data);
+  if (bytes.byteLength < 8) throw new Error('window-image-invalid');
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const width = view.getUint32(0, true);
+  const height = view.getUint32(4, true);
+  const size = width * height * 4;
+  if (bytes.byteLength !== 8 + size) throw new Error('window-image-invalid');
+  return { width, height, pixels: new Uint8ClampedArray(bytes.buffer, bytes.byteOffset + 8, size) };
 }
 
 export interface ServiceDeps {
@@ -76,6 +107,11 @@ export async function getOverlayFrame(id: number, deps: ServiceDeps = {}): Promi
   const part = Array.isArray(data) ? new Uint8Array(data) : data;
   const blob = new Blob([part as BlobPart], { type: 'image/bmp' });
   return (deps.createObjectUrl ?? ((b: Blob) => URL.createObjectURL(b)))(blob);
+}
+
+/** Imagem real da janela `id` (capturada uma vez e guardada em cache pelo Rust). */
+export async function getWindowImage(id: number, deps: ServiceDeps = {}): Promise<WindowImage> {
+  return parseWindowImage(await call<ArrayBuffer>('get_window_image', { id }, deps));
 }
 
 /** Avisa o Rust que o quadro já foi decodificado: só então a janela do overlay aparece. */

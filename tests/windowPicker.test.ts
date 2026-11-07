@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import React from 'react';
 import { renderToString } from 'react-dom/server';
-import { resolveWindowHighlight } from '../src/components/WindowPicker';
+import { computeWindowLayout, resolveWindowHighlight } from '../src/components/WindowPicker';
 import { CaptureModeBar } from '../src/components/CaptureModeBar';
 import type { HoverWindow } from '../src/services/captureService';
 
@@ -14,8 +14,8 @@ const hover: HoverWindow = {
   appName: 'Safari',
   title: 'Documentação',
   rects: [
-    { monitorId: 1, x: 900, y: 100, width: 100, height: 200 },
-    { monitorId: 2, x: 0, y: 100, width: 200, height: 200 },
+    { monitorId: 1, x: 900, y: 100, width: 100, height: 200, fullX: 900, fullY: 100, fullWidth: 300, fullHeight: 200 },
+    { monitorId: 2, x: 0, y: 100, width: 200, height: 200, fullX: -100, fullY: 100, fullWidth: 300, fullHeight: 200 },
   ],
 };
 
@@ -32,6 +32,7 @@ describe('resolveWindowHighlight', () => {
   it('returns the local rectangle of this monitor and the "App — título" label', () => {
     expect(resolveWindowHighlight(hover, 2)).toEqual({
       rect: { x: 0, y: 100, width: 200, height: 200 },
+      full: { x: -100, y: 100, width: 300, height: 200 },
       label: 'Safari — Documentação',
     });
     expect(resolveWindowHighlight(hover, 1)?.rect).toEqual({ x: 900, y: 100, width: 100, height: 200 });
@@ -39,6 +40,36 @@ describe('resolveWindowHighlight', () => {
 
   it('labels with only the app name when the window has no title', () => {
     expect(resolveWindowHighlight({ ...hover, title: '' }, 1)?.label).toBe('Safari');
+  });
+});
+
+describe('computeWindowLayout', () => {
+  it('positions the window image relative to the visible (clipped) rectangle', () => {
+    // janela começa 100px antes da borda esquerda deste monitor: só 200 dos 300px são visíveis
+    const layout = computeWindowLayout(
+      { x: 0, y: 100, width: 200, height: 200 },
+      { x: -100, y: 100, width: 300, height: 200 }
+    );
+    expect(layout.container).toEqual({ x: 0, y: 100, width: 200, height: 200 });
+    expect(layout.canvas).toEqual({ left: -100, top: 0, width: 300, height: 200 });
+  });
+
+  it('puts the image at the origin when the window is fully visible', () => {
+    const rect = { x: 50, y: 60, width: 400, height: 300 };
+    expect(computeWindowLayout(rect, rect).canvas).toEqual({ left: 0, top: 0, width: 400, height: 300 });
+  });
+});
+
+describe('WindowPicker image preview', () => {
+  it('draws the real window image on a canvas (keeps the rounded-corner transparency)', () => {
+    const src = read('src/components/WindowPicker.tsx');
+    expect(src).toContain('putImageData');
+    expect(src).toContain('loadImage');
+    expect(src).toContain('<canvas');
+  });
+
+  it('OverlayApp feeds the picker with getWindowImage', () => {
+    expect(read('src/components/OverlayApp.tsx')).toContain('getWindowImage');
   });
 });
 

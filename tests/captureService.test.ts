@@ -11,6 +11,8 @@ import {
   cancelCapture,
   finishCapture,
   getOverlayFrame,
+  getWindowImage,
+  parseWindowImage,
   onActiveMonitorChanged,
   onCaptureCancelled,
   overlayReady,
@@ -126,6 +128,35 @@ describe('captureService (Tauri)', () => {
     env.handlers[EVENT_OVERLAY_MODE]('fullscreen');
     expect(cancelled).toHaveBeenCalledTimes(1);
     expect(mode).toHaveBeenCalledWith('fullscreen');
+  });
+});
+
+describe('window image preview', () => {
+  const blob = (w: number, h: number, pixels: number[]) => {
+    const buf = new Uint8Array(8 + pixels.length);
+    new DataView(buf.buffer).setUint32(0, w, true);
+    new DataView(buf.buffer).setUint32(4, h, true);
+    buf.set(pixels, 8);
+    return buf.buffer;
+  };
+
+  it('parseWindowImage reads the size header and exposes the RGBA pixels', () => {
+    const img = parseWindowImage(blob(2, 1, [255, 0, 0, 128, 0, 255, 0, 255]));
+    expect([img.width, img.height]).toEqual([2, 1]);
+    expect(Array.from(img.pixels)).toEqual([255, 0, 0, 128, 0, 255, 0, 255]);
+  });
+
+  it('parseWindowImage rejects a buffer whose size does not match the header', () => {
+    expect(() => parseWindowImage(blob(2, 2, [1, 2, 3, 4]))).toThrow();
+    expect(() => parseWindowImage(new Uint8Array([1, 2, 3]).buffer)).toThrow();
+  });
+
+  it('getWindowImage invokes get_window_image and parses the response', async () => {
+    const env = fakeEnv();
+    env.invoke.mockResolvedValueOnce(blob(1, 1, [9, 8, 7, 6]));
+    const img = await getWindowImage(5, { ...env, isTauri: true });
+    expect(env.invoke).toHaveBeenCalledWith('get_window_image', { id: 5 });
+    expect(Array.from(img.pixels)).toEqual([9, 8, 7, 6]);
   });
 });
 

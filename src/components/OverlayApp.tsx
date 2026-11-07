@@ -11,6 +11,7 @@ import {
   finishCapture,
   focusThisWindow,
   getOverlayFrame,
+  getWindowImage,
   onActiveMonitorChanged,
   onHoverWindowChanged,
   onOverlayModeChanged,
@@ -155,6 +156,7 @@ export const OverlayApp: React.FC<OverlayParams> = ({ monitorId, mode: initialMo
         frameDataUrl={frame}
         monitorId={monitorId}
         hover={hover}
+        loadImage={getWindowImage}
         onPick={(id) => void finish({ kind: 'window', id })}
         onCancel={cancel}
         onSwitchMode={switchMode}

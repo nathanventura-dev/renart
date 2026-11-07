@@ -400,6 +400,19 @@ pub fn list_windows() -> Result<Vec<WindowInfo>, String> {
     Ok(filter_normal_layer(listed, normal_window_ids().as_ref()))
 }
 
+/// Converte alfa pré-multiplicado (o que o CoreGraphics entrega) em alfa direto, que o PNG e o canvas esperam.
+/// Sem isso os pixels semitransparentes dos cantos arredondados ficam com uma franja escura.
+pub fn unpremultiply_alpha(img: &mut image::RgbaImage) {
+    for px in img.pixels_mut() {
+        let a = px[3] as u32;
+        if a > 0 && a < 255 {
+            for c in &mut px.0[..3] {
+                *c = ((*c as u32 * 255 + a / 2) / a).min(255) as u8;
+            }
+        }
+    }
+}
+
 /// Captura apenas a janela `id` (a imagem dela mesma, mesmo que outra esteja por cima).
 pub fn capture_window(id: u32) -> Result<image::RgbaImage, String> {
     let windows = xcap::Window::all().map_err(|e| format!("Erro ao listar janelas: {}", e))?;
@@ -407,9 +420,12 @@ pub fn capture_window(id: u32) -> Result<image::RgbaImage, String> {
         .into_iter()
         .find(|w| w.id() == id)
         .ok_or_else(|| format!("Janela {} não encontrada", id))?;
-    window
+    let mut image = window
         .capture_image()
-        .map_err(|e| format!("Erro ao capturar a janela {}: {}", id, e))
+        .map_err(|e| format!("Erro ao capturar a janela {}: {}", id, e))?;
+    #[cfg(target_os = "macos")]
+    unpremultiply_alpha(&mut image);
+    Ok(image)
 }
 
 /// Lista todos os monitores conectados.

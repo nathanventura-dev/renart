@@ -187,7 +187,7 @@ fn test_selection_rejects_non_finite_numbers() {
 
 // ---- Captura de janela: filtro, topo sob o cursor, recorte por monitor e captura limpa ----
 use renart_lib::capture::{
-    encode_rgba_blob, filter_normal_layer, is_capturable_window, local_rects_for, local_window_rect,
+    encode_rgba_blob, filter_normal_layer, unpremultiply_alpha, is_capturable_window, local_rects_for, local_window_rect,
     resolve_window_capture, window_at, RectF, WindowInfo,
 };
 
@@ -323,4 +323,32 @@ fn test_rgba_blob_has_a_size_header_and_raw_rgba_pixels() {
     assert_eq!(&blob[0..4], &2u32.to_le_bytes(), "largura");
     assert_eq!(&blob[4..8], &1u32.to_le_bytes(), "altura");
     assert_eq!(&blob[8..], &[255, 0, 0, 128, 0, 255, 0, 255], "RGBA cru, com o alfa preservado");
+}
+
+// ---- Alfa pré-multiplicado do macOS ----
+
+#[test]
+fn test_unpremultiply_restores_straight_alpha_colors() {
+    let mut img = image::RgbaImage::new(3, 1);
+    img.put_pixel(0, 0, image::Rgba([64, 0, 32, 128])); // semitransparente (pré-multiplicado)
+    img.put_pixel(1, 0, image::Rgba([0, 0, 0, 0])); // totalmente transparente
+    img.put_pixel(2, 0, image::Rgba([10, 20, 30, 255])); // opaco: não muda
+    unpremultiply_alpha(&mut img);
+    assert_eq!(*img.get_pixel(0, 0), image::Rgba([128, 0, 64, 128]), "127,5 arredonda para 128");
+    assert_eq!(*img.get_pixel(1, 0), image::Rgba([0, 0, 0, 0]));
+    assert_eq!(*img.get_pixel(2, 0), image::Rgba([10, 20, 30, 255]));
+}
+
+#[test]
+fn test_unpremultiply_never_overflows_a_channel() {
+    let mut img = image::RgbaImage::new(1, 1);
+    img.put_pixel(0, 0, image::Rgba([200, 200, 200, 100])); // inconsistente (cor > alfa)
+    unpremultiply_alpha(&mut img);
+    assert_eq!(*img.get_pixel(0, 0), image::Rgba([255, 255, 255, 100]));
+}
+
+#[test]
+fn test_capture_window_unpremultiplies_the_macos_image() {
+    let src = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/src/capture.rs")).unwrap();
+    assert!(src.contains("unpremultiply_alpha(&mut"), "capture_window corrige o alfa pré-multiplicado");
 }
