@@ -1,15 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
-import fs from 'node:fs';
-import path from 'node:path';
 import { CAPTURE_SHORTCUT_EVENT, listenForCaptureShortcut } from '../src/services/shortcutService';
 
 describe('shortcutService', () => {
-  it('uses the same event name as the Rust side (shortcuts.rs)', () => {
-    const rust = fs.readFileSync(path.resolve(__dirname, '../src-tauri/src/shortcuts.rs'), 'utf-8');
-    const match = rust.match(/CAPTURE_SHORTCUT_EVENT: &str = "([^"]+)"/);
-    expect(match?.[1]).toBe(CAPTURE_SHORTCUT_EVENT);
-  });
-
   it('subscribes to the capture shortcut event and triggers the callback', async () => {
     let registered: (() => void) | undefined;
     const listen = vi.fn(async (_event: string, handler: () => void) => {

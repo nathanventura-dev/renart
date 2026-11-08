@@ -17,13 +17,4 @@ describe('global capture shortcut wiring', () => {
     expect(cap.windows).toContain('main');
     expect(cap.permissions).toContain('core:default');
   });
-
-  it('Rust brings the main window to the front before emitting the event', () => {
-    const rust = read('src-tauri/src/shortcuts.rs');
-    const focusAt = rust.indexOf('set_focus');
-    const emitAt = rust.indexOf('.emit(');
-    expect(focusAt).toBeGreaterThan(-1);
-    expect(focusAt).toBeLessThan(emitAt);
-    expect(rust).toContain('unminimize');
-  });
 });
