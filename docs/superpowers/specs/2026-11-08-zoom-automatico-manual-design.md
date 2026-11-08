@@ -31,7 +31,8 @@ Fazer a imagem do editor **acompanhar a área útil da janela** sem que o usuár
 ## 4. Regras Puras — `src/utils/zoomMode.ts` (novo)
 - `type ZoomMode = 'auto' | 'manual'`; `DEFAULT_ZOOM_MODE = 'auto'`.
 - `nextZoomMode(mode, action)`, com `action` em `'user-zoom' | 'reset-to-auto' | 'image-load'`: `user-zoom` → `manual`; `reset-to-auto` → `auto`; `image-load` → o próprio `mode`.
-- `shouldApplyFit({ mode, reason, width, height })`, com `reason` em `'load' | 'resize'`: devolve `true` só quando `mode === 'auto'` e `width > 0` e `height > 0`. Container com tamanho zero (janela escondida na bandeja) **nunca** reajusta.
+- `shouldApplyFit({ mode, reason, width, height })`, com `reason` em `'load' | 'resize'`: devolve `true` quando `width > 0` e `height > 0` e (`mode === 'auto'` ou `reason === 'load'`): o Automático reage a `load` e `resize`; o Manual só a `load` (para restaurar o zoom salvo). Container com tamanho zero (janela escondida na bandeja) **nunca** reajusta.
+- `decideZoomOnFit({ mode, reason, width, height, fitScale, savedZoom })` → `{ zoom: number | null; saveZoom: boolean }`: concentra a decisão do §7 (`zoom: null` = não alterar), para o `App` só aplicar o resultado.
 - `resolveManualZoomOnLoad(saved, fitScale)`: devolve `saved` quando existe, senão `fitScale`.
 - `describeZoomIndicator(mode, zoomLevel)` → `{ label, showFitIcon, tooltip, ariaLabel, clickable }`:
   - `auto`: `showFitIcon = true`, `clickable = false`, tooltip "Zoom automático: a imagem acompanha o tamanho da janela. Dê zoom para controlar manualmente.";
