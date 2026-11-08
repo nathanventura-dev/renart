@@ -161,7 +161,7 @@ Quando o overlay translúcido surge na tela, os seguintes atalhos controlam a ca
 | :--- | :--- |
 | `Ctrl + +` / `Cmd + +` | Aumentar Zoom (Zoom In) |
 | `Ctrl + -` / `Cmd + -` | Diminuir Zoom (Zoom Out) |
-| `Ctrl + 0` / `Cmd + 0` | Ajustar à tela / Zoom 100% |
+| `Ctrl + 0` / `Cmd + 0` | Voltar ao zoom automático (imagem ajustada à área útil da janela) |
 | `Ctrl + Scroll do Mouse` | Zoom suave centrado na posição do cursor |
 
 #### E. Teclas de Seleção Rápida de Ferramentas

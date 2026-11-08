@@ -171,7 +171,7 @@ vulcap ocr --clipboard --json
 | `Ctrl + C` / `Cmd + C` | Editor | Copia imagem achatada com anotações e redações para o clipboard |
 | `Ctrl + S` / `Cmd + S` | Editor | Abre o menu de exportação rápida (PNG, JPEG, PDF) |
 | `Ctrl + Z` / `Ctrl + Shift + Z` | Editor | Desfazer e Refazer ilimitados |
-| `Ctrl + +` / `Ctrl + -` / `Ctrl + 0` | Canvas | Zoom In, Zoom Out e Ajustar 100% |
+| `Ctrl + +` / `Ctrl + -` / `Ctrl + 0` | Canvas | Zoom In, Zoom Out e voltar ao zoom automático |
 | `Duplo Clique na Elipse` | Canvas | Converte a elipse em círculo perfeito proporcional |
 | `Duplo Clique na Alça de Rotação`| Canvas | Restaura a rotação da forma selecionada para `0°` |
 | `Arrastar Coroa da Lupa` | Lupa | Gira a haste de fixação da lente em 360° |
