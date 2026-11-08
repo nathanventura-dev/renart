@@ -89,6 +89,51 @@ function toggleEditorOverlaysVisibility(stage: Konva.Stage, visible: boolean): A
 }
 
 /**
+ * Gera o data URL do stage na resolução nativa exata da imagem.
+ * Com a imagem de fundo presente (`bg-image`), renderiza em escala 1 no tamanho nativo e pixelRatio 1,
+ * sem depender do tamanho visual arredondado (que, com zoom fracionário, causava erro de 1px).
+ * Sem a imagem de fundo, usa o pixelRatio inverso do zoom. O zoom e o tamanho da tela são restaurados.
+ */
+export function toNativeDataUrl(
+  stage: Konva.Stage,
+  zoomLevel?: number,
+  options: { mimeType?: string; quality?: number } = {}
+): { dataUrl: string; width: number; height: number } {
+  const currentScale = zoomLevel ?? stage.scaleX() ?? 1.0;
+  const bg = stage.findOne('.bg-image');
+
+  if (!bg) {
+    const pixelRatio = calculateNativeExportPixelRatio(currentScale);
+    return {
+      dataUrl: stage.toDataURL({ ...options, pixelRatio }),
+      width: Math.round(stage.width() * pixelRatio),
+      height: Math.round(stage.height() * pixelRatio),
+    };
+  }
+
+  const nativeWidth = Math.round(bg.width());
+  const nativeHeight = Math.round(bg.height());
+  const prevScale = { x: stage.scaleX(), y: stage.scaleY() };
+  const prevWidth = stage.width();
+  const prevHeight = stage.height();
+
+  stage.scale({ x: 1, y: 1 });
+  stage.width(nativeWidth);
+  stage.height(nativeHeight);
+  try {
+    return {
+      dataUrl: stage.toDataURL({ ...options, pixelRatio: 1 }),
+      width: nativeWidth,
+      height: nativeHeight,
+    };
+  } finally {
+    stage.scale(prevScale);
+    stage.width(prevWidth);
+    stage.height(prevHeight);
+  }
+}
+
+/**
  * Exporta o stage do Konva como um arquivo baixável no navegador ou sistema local,
  * mantendo a fidelidade nativa 1:1 da imagem original.
  */
@@ -99,16 +144,11 @@ export async function exportCanvas(
   zoomLevel?: number
 ): Promise<void> {
   const filename = formatExportFilename(prefix, format);
-  const currentScale = zoomLevel ?? stage.scaleX() ?? 1.0;
-  const pixelRatio = calculateNativeExportPixelRatio(currentScale);
-
   const restorers = toggleEditorOverlaysVisibility(stage, false);
 
   try {
     if (format === 'pdf') {
-      const dataUrl = stage.toDataURL({ pixelRatio });
-      const nativeWidth = Math.round(stage.width() * pixelRatio);
-      const nativeHeight = Math.round(stage.height() * pixelRatio);
+      const { dataUrl, width: nativeWidth, height: nativeHeight } = toNativeDataUrl(stage, zoomLevel);
       const { width, height, orientation } = calculatePdfPageDimensions(nativeWidth, nativeHeight);
 
       const pdf = new jsPDF({
@@ -124,7 +164,7 @@ export async function exportCanvas(
 
     // Exportação como imagem (PNG ou JPEG)
     const mimeType = getMimeTypeForFormat(format as ExportImageFormat);
-    const dataUrl = stage.toDataURL({ mimeType, quality: 0.95, pixelRatio });
+    const { dataUrl } = toNativeDataUrl(stage, zoomLevel, { mimeType, quality: 0.95 });
 
     if (typeof document !== 'undefined') {
       const link = document.createElement('a');
@@ -150,14 +190,11 @@ export async function copyCanvasToClipboard(
   stage: Konva.Stage,
   zoomLevel?: number
 ): Promise<void> {
-  const currentScale = zoomLevel ?? stage.scaleX() ?? 1.0;
-  const pixelRatio = calculateNativeExportPixelRatio(currentScale);
-
   const restorers = toggleEditorOverlaysVisibility(stage, false);
   let dataUrl = '';
 
   try {
-    dataUrl = stage.toDataURL({ pixelRatio });
+    dataUrl = toNativeDataUrl(stage, zoomLevel).dataUrl;
   } finally {
     for (const restore of restorers) {
       restore();

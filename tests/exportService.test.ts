@@ -7,6 +7,7 @@ import {
   calculateNativeExportPixelRatio,
   copyCanvasToClipboard,
   exportCanvas,
+  toNativeDataUrl,
 } from '../src/services/exportService';
 
 describe('Export Service', () => {
@@ -188,5 +189,63 @@ describe('Export Service', () => {
     // Restaurados após a exportação
     expect(transformerVisible).toBe(true);
     expect(outlinesVisible).toBe(true);
+  });
+
+  describe('toNativeDataUrl (exportação 1:1 independente do arredondamento do zoom)', () => {
+    function makeStage(native: { w: number; h: number } | null, zoom: number, visualW: number, visualH: number) {
+      const state = { sx: zoom, sy: zoom, w: visualW, h: visualH };
+      const seen: Record<string, unknown> = {};
+      const stage = {
+        scaleX: () => state.sx,
+        scaleY: () => state.sy,
+        scale: (v?: { x: number; y: number }) => {
+          if (v) { state.sx = v.x; state.sy = v.y; }
+          return { x: state.sx, y: state.sy };
+        },
+        width: (v?: number) => { if (v !== undefined) state.w = v; return state.w; },
+        height: (v?: number) => { if (v !== undefined) state.h = v; return state.h; },
+        findOne: (sel: string) =>
+          sel === '.bg-image' && native ? { width: () => native.w, height: () => native.h } : null,
+        batchDraw: () => {},
+        toDataURL: (params: Record<string, unknown>) => {
+          seen.params = params;
+          seen.stageW = state.w;
+          seen.stageH = state.h;
+          seen.stageScale = state.sx;
+          return 'data:image/png;base64,x';
+        },
+      };
+      return { stage, state, seen };
+    }
+
+    it('renders at the exact native size (ratio 1, scale 1) even when the rounded visual size would be off by 1px', () => {
+      // 3456x2234 com zoom 0.3813: visual 1318x852; 1/zoom arredondado exportaria 3457x2234
+      const { stage, seen } = makeStage({ w: 3456, h: 2234 }, 0.3813, 1318, 852);
+      const out = toNativeDataUrl(stage as any, 0.3813);
+      expect(seen.params).toMatchObject({ pixelRatio: 1 });
+      expect(seen.stageW).toBe(3456);
+      expect(seen.stageH).toBe(2234);
+      expect(seen.stageScale).toBe(1);
+      expect(out).toMatchObject({ width: 3456, height: 2234 });
+    });
+
+    it('restores the on-screen zoom and visual size after rendering', () => {
+      const { stage, state } = makeStage({ w: 3456, h: 2234 }, 0.3813, 1318, 852);
+      toNativeDataUrl(stage as any, 0.3813);
+      expect(state).toEqual({ sx: 0.3813, sy: 0.3813, w: 1318, h: 852 });
+    });
+
+    it('falls back to the inverse-zoom pixelRatio when the stage has no background image', () => {
+      const { stage, seen } = makeStage(null, 0.5, 400, 300);
+      const out = toNativeDataUrl(stage as any, 0.5);
+      expect(seen.params).toMatchObject({ pixelRatio: 2 });
+      expect(out).toMatchObject({ width: 800, height: 600 });
+    });
+
+    it('forwards mimeType and quality', () => {
+      const { stage, seen } = makeStage({ w: 100, h: 100 }, 1, 100, 100);
+      toNativeDataUrl(stage as any, 1, { mimeType: 'image/jpeg', quality: 0.95 });
+      expect(seen.params).toMatchObject({ mimeType: 'image/jpeg', quality: 0.95, pixelRatio: 1 });
+    });
   });
 });

@@ -26,6 +26,7 @@ import {
   calculateCropBounds,
   getNextZoomStep,
   isZoomShortcut,
+  resolveZoomOnImageLoad,
 } from './utils/zoomAndCrop';
 import { isEditingTextElement } from './utils/textStyle';
 
@@ -118,8 +119,10 @@ export const App: React.FC = () => {
 
   const handleFitScaleCalculated = useCallback((scale: number) => {
     setFitScale(scale);
-    // Preserva o zoom em 100% (1.0) nativo ou no nível escolhido pelo usuário, sem rebaixamento arbitrário.
-    // O usuário pode clicar no indicador de zoom ou pressionar Ctrl+0 para alternar para fitScale a qualquer momento.
+    // Só o carregamento de uma imagem (captura, colagem ou troca na galeria) reajusta o zoom:
+    // 100% quando cabe, redução proporcional quando não cabe. Redimensionar a janela não reajusta;
+    // depois disso o usuário pode dar zoom livremente (ou Ctrl+0 para alternar entre ajustado e 100%).
+    setZoomLevel((prev) => resolveZoomOnImageLoad(prev, scale, false));
   }, []);
 
   const handleZoomIn = useCallback(() => {
@@ -322,7 +325,6 @@ export const App: React.FC = () => {
                 });
                 editorStore.switchCapture(newId, pastedDataUrl);
                 editorStore.setImageBase64(pastedDataUrl);
-                setZoomLevel(1.0); // Garante a manutenção dos 100% (1.0) nativos ao colar nova imagem
               }
             };
             reader.readAsDataURL(file);
@@ -364,7 +366,6 @@ export const App: React.FC = () => {
         });
         editorStore.switchCapture(newCaptureId, windowFrame);
         editorStore.setImageBase64(windowFrame);
-        setZoomLevel(1.0);
       }
       return;
     }
@@ -383,7 +384,6 @@ export const App: React.FC = () => {
         });
         editorStore.switchCapture(newCaptureId, screenFrame);
         editorStore.setImageBase64(screenFrame);
-        setZoomLevel(1.0);
       }
       return;
     }
@@ -426,7 +426,6 @@ export const App: React.FC = () => {
       galleryStore.addCapture({ id, title: captureTitle(kind, count), dataUrl, createdAt: Date.now() });
       editorStore.switchCapture(id, dataUrl);
       editorStore.setImageBase64(dataUrl);
-      setZoomLevel(1.0);
     }).then((unlisten) => {
       if (cancelled) unlisten();
       else stop = unlisten;

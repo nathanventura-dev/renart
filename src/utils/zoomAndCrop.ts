@@ -36,9 +36,10 @@ export function calculateFitToScreenScale(
 
   const scaleX = usableWidth / imageWidth;
   const scaleY = usableHeight / imageHeight;
+  // O ajuste automático não respeita o mínimo manual de 25%: uma imagem enorme ainda deve caber.
+  // Arredonda para baixo (4 casas) para o tamanho visual nunca ultrapassar a área útil em 1px.
   const fitScale = Math.min(scaleX, scaleY);
-
-  return clampZoomLevel(fitScale);
+  return Math.max(0.0001, Math.min(DEFAULT_ZOOM_LEVEL, Math.floor(fitScale * 10000) / 10000));
 }
 
 /**
@@ -54,7 +55,8 @@ export function resolveZoomOnImageLoad(
   if (maintainNativeZoom) {
     return currentZoom > 0 ? clampZoomLevel(currentZoom) : DEFAULT_ZOOM_LEVEL;
   }
-  return clampZoomLevel(calculatedFitScale);
+  // Ajuste automático: aplica o fitScale como calculado, sem o mínimo de 25% do zoom manual.
+  return calculatedFitScale > 0 ? calculatedFitScale : DEFAULT_ZOOM_LEVEL;
 }
 
 /**
@@ -72,7 +74,8 @@ export function clampZoomLevel(
  * Retorna o próximo passo discreto de zoom para Zoom In (+) ou Zoom Out (-).
  */
 export function getNextZoomStep(currentZoom: number, direction: 'in' | 'out'): number {
-  const safeCurrent = clampZoomLevel(currentZoom);
+  // Não eleva níveis abaixo do mínimo: o ajuste automático pode deixar o zoom < 25%.
+  const safeCurrent = Math.min(MAX_ZOOM_LEVEL, Math.max(0.0001, currentZoom));
 
   if (direction === 'in') {
     for (const step of ZOOM_PRESETS) {
@@ -90,7 +93,7 @@ export function getNextZoomStep(currentZoom: number, direction: 'in' | 'out'): n
       return step;
     }
   }
-  return MIN_ZOOM_LEVEL;
+  return Math.min(safeCurrent, MIN_ZOOM_LEVEL);
 }
 
 /**
