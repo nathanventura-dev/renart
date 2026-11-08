@@ -38,14 +38,13 @@ Quando instalada, a aplicação pode ser disparada através de **5 canais comple
 - O hook global é gerenciado em nível de sistema operacional através do core em Rust (Tauri), garantindo resposta em poucos milissegundos sem travamentos.
 
 ### 1.2. Ícone na Bandeja do Sistema (System Tray / Menu Bar)
-- Um ícone residente no relógio do sistema (Windows/Linux) ou na barra de menus superior (macOS).
-- **Clique com o botão esquerdo:** Inicia uma captura imediata no modo padrão.
-- **Clique com o botão direito:** Exibe o menu de acesso rápido:
-  - *Nova Captura (Área / Janela / Tela Inteira)*
-  - *Abrir Editor com a Última Captura*
-  - *Galeria de Capturas Recentes*
-  - *Configurações e Atalhos*
-  - *Sair*
+- Um ícone residente na barra de menus superior do macOS (monocromático: o sistema o pinta de claro ou escuro conforme o tema). Validado apenas no macOS; no Windows e no Linux o código compila, mas a bandeja não foi testada (no Linux ela também depende do ambiente de desktop).
+- **Qualquer clique** no ícone abre o menu (padrão do macOS):
+  - *Nova Captura* ▸ *Área*, *Janela*, *Tela Inteira* — inicia a captura na hora, **sem mostrar a janela do editor**.
+  - *Abrir RenArt* — mostra e foca a janela do editor, com a galeria e a última captura.
+  - *Sair* — encerra o aplicativo.
+- **Fechar a janela do editor** (o X ou `Cmd+W`) apenas a esconde: o RenArt continua na bandeja, e o atalho global `Cmd+Shift+S` segue funcionando. Para reabrir, use *Abrir RenArt* ou clique no ícone do Dock. `Cmd+Q` também encerra o app.
+- Se a captura não puder começar (por exemplo, sem a permissão de Gravação de Tela), a janela abre com um aviso explicando como resolver.
 
 ### 1.3. Lançador de Aplicativos / Menu Iniciar
 - Como qualquer software desktop instalado, o aplicativo pode ser aberto pelo **Menu Iniciar** (Windows), **Spotlight / Launchpad** (`Cmd + Espaço` no macOS) ou lançador de aplicativos do Linux (GNOME Dash, KRunner, Rofi).

@@ -6,6 +6,7 @@ export const EVENT_CAPTURE_CANCELLED = 'capture-cancelled';
 export const EVENT_OVERLAY_MODE = 'overlay-mode-changed';
 export const EVENT_ACTIVE_MONITOR = 'overlay-active-monitor';
 export const EVENT_HOVER_WINDOW = 'overlay-hover-window';
+export const EVENT_CAPTURE_ERROR = 'capture-error';
 export const DENIED_ERROR = 'screen-recording-denied';
 
 export type CaptureSelection =
@@ -138,6 +139,10 @@ export const setOverlayUiRect = (id: number, rect: UiRect, deps: ServiceDeps = {
 
 export const onCaptureComplete = (cb: (r: CaptureResult) => void, deps: ServiceDeps = {}) =>
   subscribe<CaptureResult>(EVENT_CAPTURE_COMPLETE, cb, deps);
+
+/** Erro ao iniciar uma captura pela bandeja ou pelo atalho global (o payload é o código do erro). */
+export const onCaptureError = (cb: (message: string) => void, deps: ServiceDeps = {}) =>
+  subscribe<string>(EVENT_CAPTURE_ERROR, cb, deps);
 
 export const onCaptureCancelled = (cb: () => void, deps: ServiceDeps = {}) =>
   subscribe<unknown>(EVENT_CAPTURE_CANCELLED, () => cb(), deps);

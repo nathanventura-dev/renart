@@ -16,7 +16,7 @@
 <p align="center">
   <a href="https://react.dev/"><img src="https://img.shields.io/badge/React-19-61dafb?logo=react&logoColor=black" alt="React 19"></a>
   <a href="https://www.typescriptlang.org/"><img src="https://img.shields.io/badge/TypeScript-5.7-blue?logo=typescript" alt="TypeScript"></a>
-  <a href="https://vitest.dev/"><img src="https://img.shields.io/badge/Vitest-318%20Passed-brightgreen?logo=vitest" alt="Vitest 318 Tests"></a>
+  <a href="https://vitest.dev/"><img src="https://img.shields.io/badge/Vitest-373%20Passed-brightgreen?logo=vitest" alt="Vitest 373 Tests"></a>
   <a href="https://tauri.app/"><img src="https://img.shields.io/badge/Tauri-v2-orange?logo=tauri" alt="Tauri v2"></a>
   <a href="https://www.rust-lang.org/"><img src="https://img.shields.io/badge/Rust-Core%20(vulcap)-dea584?logo=rust" alt="Rust Core"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License MIT"></a>
@@ -49,7 +49,7 @@ Para mudar essa dinâmica, decidi adotar a IA não apenas como uma ferramenta de
    Em vez de pedir para a IA simplesmente "escrever código", o fluxo de trabalho exige a criação de uma **especificação clara e detalhada** (`docs/superpowers/specs`) e um **plano de execução em etapas** (`docs/superpowers/plans`) antes que qualquer linha de código seja criada. Isso com certeza exercitou diretamente minhas habilidades de arquitetura, levantamento de requisitos e visão de produto.
 
 2. **Test-Driven Development (TDD) com Rigor Técnico:**  
-   Com a metodologia do Superpowers, nenhuma funcionalidade ou correção é implementada sem que antes seja criado um **teste que falha (RED)**, seguido pela **implementação mínima necessária (GREEN)** e posterior refatoração. O resultado são **318 testes automatizados** que garantem que nenhuma alteração quebre recursos anteriores.
+   Com a metodologia do Superpowers, nenhuma funcionalidade ou correção é implementada sem que antes seja criado um **teste que falha (RED)**, seguido pela **implementação mínima necessária (GREEN)** e posterior refatoração. O resultado são **373 testes automatizados** que garantem que nenhuma alteração quebre recursos anteriores.
 
 3. **Subagentes e Separação de Responsabilidades:**  
    Através do **Antigravity CLI**, o desenvolvimento foi dividido entre agentes especializados (pesquisa, planejamento, implementação e verificação). Isso permitiu explorar na prática conceitos corporativos modernos como isolamento de contexto, revisão de código por agentes e integração contínua.
@@ -90,6 +90,7 @@ Para mudar essa dinâmica, decidi adotar a IA não apenas como uma ferramenta de
 - **Barra Flutuante de Captura (Estilo Snipping Tool):** Seleção retangular por Área, Janela individual ou Tela Inteira com atalho `Esc` para cancelamento.
 - **Captura multi-monitor (app desktop):** ao capturar, o RenArt congela todos os monitores e abre uma seleção em cada tela. Em **Área** você escolhe o monitor ao começar a arrastar; em **Tela Inteira** uma câmera indica qual tela será capturada ao passar o mouse. Em **Janela** a janela sob o mouse é destacada e o clique captura a janela inteira e limpa, mesmo que outra esteja por cima. No macOS é preciso liberar a Gravação de Tela. Esta captura foi validada apenas no macOS; Windows e Linux ainda não foram testados (monitores com escala diferente de 100% podem posicionar a seleção de forma errada).
 - **Captura de janela:** o destaque acompanha o mouse entre os monitores, e uma janela que ocupa duas telas é destacada nas duas.
+- **Bandeja do sistema (macOS):** um ícone na barra de menus mantém o RenArt disponível em segundo plano. O clique abre o menu (Nova Captura › Área / Janela / Tela Inteira, Abrir RenArt, Sair). Fechar a janela (`Cmd+W` ou o X) só a esconde: o app e o atalho `Cmd+Shift+S` continuam ativos e a captura começa **sem a janela do editor aparecer**; ao terminar, ela volta com a imagem. O ícone do Dock reabre a janela, e só "Sair" ou `Cmd+Q` encerram o app. Validada apenas no macOS.
 - **Cópia Instantânea para o Clipboard:** Ao soltar o cursor após uma seleção, os pixels são enviados diretamente para a área de transferência do SO (`Ctrl+V` imediato).
 - **Recorte de Imagem (Crop):** Quadro de recorte com menu flutuante translúcido para confirmação (`Enter`) ou cancelamento (`Esc`).
 - **Alternância de tema (Sistema / Claro / Escuro):** Botão na barra superior que segue o tema do sistema operacional por padrão e permite forçar o modo claro ou escuro. A escolha fica salva entre sessões e o escuro usa os tons da Ferramenta de Captura do Windows 11 com destaque ciano glacial (a raposa na noite polar). A imagem exportada nunca depende do tema.
@@ -154,8 +155,8 @@ vulcap ocr --clipboard --json
 
 | Fase | Escopo | Status |
 | :--- | :--- | :---: |
-| **Fase 1: Web Core & Canvas Engine** | Editor vetorial Konva, Lupa com coroa, Smart Text OCR, Redação 3 níveis, Alt+Click, 318 testes automatizados | ✅ Concluído |
-| **Fase 2: Desktop Tauri v2 & Temas** | Atalhos globais de captura do SO ✅, bandeja do sistema (Tray), captura multi-monitor de região, tela inteira e janela ✅ e suporte a Tema Claro e Escuro (Light / Dark Mode) ✅ | 🔄 Em andamento |
+| **Fase 1: Web Core & Canvas Engine** | Editor vetorial Konva, Lupa com coroa, Smart Text OCR, Redação 3 níveis, Alt+Click, 373 testes automatizados | ✅ Concluído |
+| **Fase 2: Desktop Tauri v2 & Temas** | Atalhos globais de captura do SO ✅, bandeja do sistema ✅, captura multi-monitor de região, tela inteira e janela ✅ e suporte a Tema Claro e Escuro (Light / Dark Mode) ✅ | ✅ Concluído |
 | **Fase 3: Ecossistema `vulcap` CLI** | Binário CLI independente em Rust com subcomandos para captura headless, OCR e redação em pipelines de CI/CD | 🚀 Planejado |
 
 ---
@@ -206,7 +207,7 @@ npm run tauri dev
 ```bash
 npm test
 ```
-*Garantia de 100% de integridade com 318 testes unitários e de integração.*
+*Garantia de 100% de integridade com 373 testes unitários e de integração.*
 
 ### 5. Compilar para Produção (Web & Desktop)
 ```bash

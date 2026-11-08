@@ -2,7 +2,7 @@ use image::{Rgba, RgbaImage};
 use renart_lib::capture::{local_point, MonitorInfo, Selection, WindowInfo};
 use renart_lib::capture_session::{
     build_complete_payload, build_hover_payload, window_image_with, build_overlay_url, capture_kind, EVENT_HOVER_WINDOW, cursor_for_mode, frame_bytes_with, should_force_crosshair, OverlayCursor, UiRect, overlay_label, replace_session, validate_mode, BeginGuard, take_session, CaptureSession, SessionState, DENIED_ERROR,
-    EVENT_ACTIVE_MONITOR, EVENT_CAPTURE_CANCELLED, EVENT_CAPTURE_COMPLETE, EVENT_OVERLAY_MODE,
+    EVENT_ACTIVE_MONITOR, EVENT_CAPTURE_CANCELLED, EVENT_CAPTURE_ERROR, EVENT_CAPTURE_COMPLETE, EVENT_OVERLAY_MODE,
 };
 use renart_lib::permissions::{allowed_with, ensure_screen_recording};
 use std::collections::HashMap;
@@ -92,6 +92,7 @@ fn test_event_names_match_the_frontend_contract() {
     assert_eq!(EVENT_CAPTURE_CANCELLED, "capture-cancelled");
     assert_eq!(EVENT_OVERLAY_MODE, "overlay-mode-changed");
     assert_eq!(EVENT_ACTIVE_MONITOR, "overlay-active-monitor");
+    assert_eq!(EVENT_CAPTURE_ERROR, "capture-error");
 }
 
 #[test]
@@ -187,11 +188,24 @@ fn test_closing_an_overlay_ends_the_session_and_brings_the_main_window_back() {
 }
 
 #[test]
-fn test_global_shortcut_does_not_touch_the_main_window_while_a_capture_is_starting() {
+fn test_global_shortcut_starts_the_capture_in_rust_without_showing_the_window() {
     let src = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/src/shortcuts.rs")).unwrap();
-    let busy = src.find("is_busy").expect("atalho deve checar BeginGuard::is_busy");
-    let show = src.find(".show()").expect("atalho mostra a janela principal");
-    assert!(busy < show, "a checagem de captura em andamento vem antes de mostrar a janela");
+    for needle in ["is_busy", "start_capture", "report_start_error"] {
+        assert!(src.contains(needle), "shortcuts.rs deve usar {needle}");
+    }
+    for forbidden in [".show()", "set_focus", "CAPTURE_SHORTCUT_EVENT", ".emit("] {
+        assert!(!src.contains(forbidden), "shortcuts.rs não pode conter {forbidden}");
+    }
+}
+
+#[test]
+fn test_start_capture_is_shared_by_the_command_and_reports_errors_to_the_window() {
+    let src = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/src/capture_session.rs")).unwrap();
+    assert!(src.contains("pub async fn start_capture"), "função compartilhada pela bandeja, atalho e comando");
+    assert!(src.contains("pub fn report_start_error"), "erro ao iniciar abre a janela com o aviso");
+    assert!(src.contains("EVENT_CAPTURE_ERROR"));
+    let command = src.split("pub async fn begin_capture").nth(1).expect("comando begin_capture");
+    assert!(command.contains("start_capture(&app"), "begin_capture só delega a start_capture");
 }
 
 // ---- Cursor de mira e modo mutável ----

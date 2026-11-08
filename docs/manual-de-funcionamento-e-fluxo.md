@@ -68,6 +68,12 @@ No macOS é preciso liberar o RenArt (ou o terminal, durante o desenvolvimento) 
 
 ---
 
+### 2.2. Bandeja do Sistema e Fechar a Janela (App Desktop)
+
+O RenArt fica na barra de menus do macOS. **Fechar a janela do editor não encerra o app**: ele continua na bandeja, e o atalho `Cmd+Shift+S` e o menu *Nova Captura* seguem funcionando. A captura começa sem a janela do editor aparecer, e ao terminar a janela volta com a imagem na galeria. Para sair de verdade, use *Sair* no menu da bandeja ou `Cmd+Q`. Se o sistema não permitir criar o ícone, fechar a janela volta a encerrar o app, para você nunca ficar sem uma interface.
+
+---
+
 ## 3. Cópia Automática Imediata para o Clipboard
 
 Assim que o mouse é solto ao finalizar a seleção:

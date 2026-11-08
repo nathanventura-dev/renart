@@ -4,8 +4,13 @@ import Konva from 'konva';
 import { Toolbar } from './components/Toolbar';
 import { useTheme } from './hooks/useTheme';
 import { Mascot } from './components/Mascot';
-import { listenForCaptureShortcut } from './services/shortcutService';
-import { beginCapture, describeCaptureError, isTauri, onCaptureComplete } from './services/captureService';
+import {
+  beginCapture,
+  describeCaptureError,
+  isTauri,
+  onCaptureComplete,
+  onCaptureError,
+} from './services/captureService';
 import { captureTitle } from './utils/captureTitle';
 import { GallerySidebar } from './components/GallerySidebar';
 import { CanvasEditor } from './components/CanvasEditor';
@@ -393,18 +398,13 @@ export const App: React.FC = () => {
     setIsCapturing(true);
   };
 
-  // Atalho global de captura (Tauri): usa refs para o listener ficar estável e enxergar o estado atual.
-  const handleStartCaptureRef = useRef(handleStartCapture);
-  handleStartCaptureRef.current = handleStartCapture;
-  const isCapturingRef = useRef(isCapturing);
-  isCapturingRef.current = isCapturing;
-
+  // Captura iniciada pela bandeja ou pelo atalho global que falhou (permissão negada, por exemplo):
+  // o Rust abre a janela e envia o código do erro para o aviso aparecer aqui.
   useEffect(() => {
     let stop: (() => void) | undefined;
     let cancelled = false;
-    listenForCaptureShortcut(() => {
-      if (isCapturingRef.current) return;
-      void handleStartCaptureRef.current('region');
+    onCaptureError((message) => {
+      setCaptureNotice(describeCaptureError(message));
     }).then((unlisten) => {
       if (cancelled) unlisten();
       else stop = unlisten;

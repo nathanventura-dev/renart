@@ -21,6 +21,8 @@ pub const EVENT_CAPTURE_CANCELLED: &str = "capture-cancelled";
 pub const EVENT_OVERLAY_MODE: &str = "overlay-mode-changed";
 pub const EVENT_ACTIVE_MONITOR: &str = "overlay-active-monitor";
 pub const EVENT_HOVER_WINDOW: &str = "overlay-hover-window";
+/// Erro ao iniciar uma captura (bandeja ou atalho global); o payload é o código do erro.
+pub const EVENT_CAPTURE_ERROR: &str = "capture-error";
 
 /// Código de erro devolvido quando a permissão de Gravação de Tela está negada.
 pub const DENIED_ERROR: &str = "screen-recording-denied";
@@ -511,7 +513,8 @@ fn spawn_cursor_tracker(
     });
 }
 
-fn restore_main(app: &AppHandle) {
+/// Mostra, tira da minimização e foca a janela principal.
+pub fn restore_main(app: &AppHandle) {
     if let Some(window) = app.get_webview_window(MAIN_WINDOW) {
         let _ = window.show();
         let _ = window.unminimize();
@@ -536,13 +539,10 @@ fn end_session(app: &AppHandle, state: &SessionState) {
 }
 
 /// Congela todos os monitores e abre uma janela de seleção por monitor.
-#[tauri::command]
-pub async fn begin_capture(
-    app: AppHandle,
-    state: State<'_, SessionState>,
-    guard: State<'_, BeginGuard>,
-    mode: String,
-) -> Result<(), String> {
+/// Usada pelo comando `begin_capture`, pela bandeja do sistema e pelo atalho global.
+pub async fn start_capture(app: &AppHandle, mode: String) -> Result<(), String> {
+    let state = app.state::<SessionState>();
+    let guard = app.state::<BeginGuard>();
     validate_mode(&mode)?;
     // Segundo pedido enquanto o primeiro ainda está congelando as telas: ignora, em vez de derrubar o primeiro.
     let Some(_permit) = guard.try_acquire() else {
@@ -552,7 +552,7 @@ pub async fn begin_capture(
 
     // Uma captura nova substitui qualquer sessão anterior (ex.: atalho apertado duas vezes).
     if let Some(previous) = take_session(&state) {
-        close_overlays(&app, previous.monitors());
+        close_overlays(app, previous.monitors());
     }
 
     // Esconde a janela principal e dá tempo ao sistema de removê-la antes de congelar as telas.
@@ -577,7 +577,7 @@ pub async fn begin_capture(
     let (monitors, windows, frames) = match captured {
         Ok(v) => v,
         Err(e) => {
-            restore_main(&app);
+            restore_main(app);
             return Err(e);
         }
     };
@@ -587,7 +587,7 @@ pub async fn begin_capture(
     for m in &monitors {
         let (x, y, w, h) = overlay_geometry(m);
         let built = WebviewWindowBuilder::new(
-            &app,
+            app,
             overlay_label(m.id),
             WebviewUrl::App(build_overlay_url(m.id, &mode).into()),
         )
@@ -618,7 +618,7 @@ pub async fn begin_capture(
                 });
             }
             Err(e) => {
-                end_session(&app, &state);
+                end_session(app, &state);
                 return Err(format!("Falha ao abrir o overlay do monitor {}: {}", m.id, e));
             }
         }
@@ -630,6 +630,20 @@ pub async fn begin_capture(
         spawn_cursor_tracker(app.clone(), generation, monitors, windows);
     }
     Ok(())
+}
+
+
+/// Comando chamado pelo frontend; a lógica fica em `start_capture`.
+#[tauri::command]
+pub async fn begin_capture(app: AppHandle, mode: String) -> Result<(), String> {
+    start_capture(&app, mode).await
+}
+
+/// Erro ao iniciar uma captura sem o usuário ter usado a janela (bandeja ou atalho): mostra a janela
+/// principal e envia o código do erro para ela exibir o aviso.
+pub fn report_start_error(app: &AppHandle, error: &str) {
+    restore_main(app);
+    let _ = app.emit(EVENT_CAPTURE_ERROR, error.to_string());
 }
 
 /// Devolve o quadro congelado de um monitor como BMP cru (resposta binária, sem base64 nem codificação).
