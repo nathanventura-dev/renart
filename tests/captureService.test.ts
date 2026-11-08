@@ -5,6 +5,7 @@ import {
   EVENT_ACTIVE_MONITOR,
   EVENT_CAPTURE_CANCELLED,
   EVENT_CAPTURE_COMPLETE,
+  EVENT_CAPTURE_ERROR,
   EVENT_HOVER_WINDOW,
   EVENT_OVERLAY_MODE,
   beginCapture,
@@ -17,6 +18,7 @@ import {
   onCaptureCancelled,
   overlayReady,
   onCaptureComplete,
+  onCaptureError,
   onHoverWindowChanged,
   onOverlayModeChanged,
   setOverlayMode,
@@ -102,6 +104,14 @@ describe('captureService (Tauri)', () => {
     expect(cb).toHaveBeenCalledWith({ dataUrl: 'data:image/png;base64,AAA', fullscreen: false, kind: 'window' });
   });
 
+  it('onCaptureError subscribes to capture-error and forwards the error code', async () => {
+    const env = fakeEnv();
+    const cb = vi.fn();
+    await onCaptureError(cb, { ...env, isTauri: true });
+    env.handlers[EVENT_CAPTURE_ERROR]('screen-recording-denied');
+    expect(cb).toHaveBeenCalledWith('screen-recording-denied');
+  });
+
   it('onActiveMonitorChanged forwards the id of the monitor under the cursor', async () => {
     const env = fakeEnv();
     const cb = vi.fn();
@@ -166,6 +176,7 @@ describe('captureService (browser)', () => {
     await expect(beginCapture('region', { ...env, isTauri: false })).rejects.toThrow('capture-unavailable');
     await expect(cancelCapture({ ...env, isTauri: false })).rejects.toThrow('capture-unavailable');
     const stop = await onCaptureComplete(() => {}, { ...env, isTauri: false });
+    await onCaptureError(() => {}, { ...env, isTauri: false });
     expect(env.listen).not.toHaveBeenCalled();
     expect(() => stop()).not.toThrow();
   });
@@ -180,5 +191,6 @@ describe('contract with the Rust side', () => {
     expect(lit('EVENT_OVERLAY_MODE')).toBe(EVENT_OVERLAY_MODE);
     expect(lit('EVENT_ACTIVE_MONITOR')).toBe(EVENT_ACTIVE_MONITOR);
     expect(lit('EVENT_HOVER_WINDOW')).toBe(EVENT_HOVER_WINDOW);
+    expect(lit('EVENT_CAPTURE_ERROR')).toBe(EVENT_CAPTURE_ERROR);
   });
 });
