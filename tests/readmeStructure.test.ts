@@ -42,6 +42,8 @@ describe('README.md Structure', () => {
     expect(content).toContain('validada apenas no macOS');
     expect(content).toContain('Captura de janela');
     expect(content).not.toContain('chega no próximo ciclo');
+    expect(content).toContain('Bandeja do sistema');
+    expect(content).toMatch(/bandeja do sistema ✅/);
 
     // Link para documentação técnica em docs/
     expect(content).toContain('docs/README.md');

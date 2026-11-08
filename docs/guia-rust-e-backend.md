@@ -21,7 +21,8 @@ O **Rust** resolve isso com:
 - **`main.rs`**: O binário executável que inicia o loop de eventos no Windows/Mac/Linux.
 - **`capture.rs`**: O motor de captura de tela e cópia imediata para a área de transferência.
 - **`instance.rs`**: O controlador que garante que no máximo 2 instâncias do aplicativo fiquem abertas ao mesmo tempo.
-- **`shortcuts.rs`**: O registrador de atalhos globais de teclado (ex: `Ctrl+Shift+S`).
+- **`shortcuts.rs`**: O registrador de atalhos globais de teclado (ex: `Ctrl+Shift+S`); o atalho inicia a captura de área direto no Rust.
+- **`tray.rs`**: O ícone e o menu da bandeja do sistema, o modelo do menu (testável) e a flag `TrayActive`.
 - **`capture_session.rs`**: A sessão de captura multi-monitor: guarda o quadro congelado de cada monitor e expõe os comandos `begin_capture`, `get_overlay_frame`, `finish_capture`, `cancel_capture` e `set_overlay_mode`.
 - **`permissions.rs`**: Consulta a permissão de Gravação de Tela do macOS (`screen_recording_allowed`) e converte a negativa no erro `screen-recording-denied`.
 
@@ -139,4 +140,14 @@ Os nomes dos eventos (`capture-complete`, `capture-cancelled`, `overlay-mode-cha
 - O clique envia `Selection::Window { id }`. `resolve_window_capture` captura só aquela janela (`capture_window`, a imagem dela mesma) e, se isso falhar, recorta o quadro congelado no retângulo da janela. O resultado (`capture-complete`) leva o campo `kind` (`region`, `fullscreen` ou `window`) para o título da galeria.
 - **Pré-visualização da janela:** `get_window_image(id)` captura a janela uma vez e guarda no cache da sessão (`window_image_with`: a captura roda fora do lock e só entra no cache se a sessão ainda for a mesma). Devolve os pixels **crus** (cabeçalho de 8 bytes com largura e altura + RGBA, `encode_rgba_blob`), sem codificar PNG. O evento de hover traz também o retângulo **completo** da janela (`full_*`, local ao monitor e sem recorte), para o overlay alinhar a imagem mesmo quando a janela sai da tela ou ocupa dois monitores. O clique reaproveita a imagem do cache, então o que é salvo é exatamente o que foi exibido.
 - **Alfa pré-multiplicado:** o CoreGraphics entrega a janela com alfa pré-multiplicado e o `xcap` só troca BGRA por RGBA; `unpremultiply_alpha` converte para alfa direto (PNG e canvas esperam isso), evitando a franja escura nos cantos arredondados.
+
+---
+
+## 5. Bandeja do Sistema (`tray.rs`)
+
+- **Ícone e menu:** `setup_tray` cria o ícone (`icons/tray.png`, preto sobre transparente, em modo *template* para o macOS pintá-lo conforme o tema) com o menu *Nova Captura* ▸ (*Área*, *Janela*, *Tela Inteira*), *Abrir RenArt* e *Sair*. Os itens e a ação de cada um vivem em `tray_menu_items` e `parse_menu_id`, que não dependem do Tauri e têm testes próprios. Um clique no ícone abre o menu.
+- **Quem inicia a captura:** `start_capture(app, modo)` é a função única, usada pelo comando `begin_capture` (chamado pelo frontend), pelo menu da bandeja e pelo atalho global. Assim a captura não depende de a janela do editor estar aberta, nem de o JavaScript de uma janela escondida estar rodando. Se falhar (permissão de Gravação de Tela negada, por exemplo), `report_start_error` mostra a janela e emite `capture-error` com o código do erro, que o frontend transforma em aviso.
+- **Fechar a janela só a esconde:** `lib.rs` intercepta `CloseRequested` na janela `main` e, **somente se** `TrayActive` for `true`, chama `prevent_close()` e `hide()`. A flag só vira `true` depois de a bandeja ser criada com sucesso; sem bandeja, fechar a janela encerra o app como antes.
+- **Dock:** no macOS, `RunEvent::Reopen` (clique no ícone do Dock com a janela escondida) reabre a janela. Isso exigiu trocar `.run(context)` por `.build(context)` seguido de `.run(callback)`.
+- **Sair:** `app.exit(0)` encerra o app, inclusive qualquer captura em andamento.
 
