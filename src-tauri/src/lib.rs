@@ -4,6 +4,7 @@ pub mod permissions;
 pub mod instance;
 pub mod ocr;
 pub mod shortcuts;
+pub mod tray;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
