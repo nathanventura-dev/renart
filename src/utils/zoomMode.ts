@@ -16,6 +16,11 @@ export function nextZoomMode(mode: ZoomMode, action: ZoomModeAction): ZoomMode {
   return mode;
 }
 
+/** Área do editor com tamanho real (janela escondida ou sem layout mede zero). */
+export function isUsableViewport(width: number, height: number): boolean {
+  return width > 0 && height > 0;
+}
+
 /**
  * Decide se um recálculo de ajuste deve ser considerado.
  * Container com tamanho zero (janela escondida na bandeja) nunca reajusta.
@@ -27,7 +32,7 @@ export function shouldApplyFit(input: {
   width: number;
   height: number;
 }): boolean {
-  if (!(input.width > 0) || !(input.height > 0)) return false;
+  if (!isUsableViewport(input.width, input.height)) return false;
   return input.mode === 'auto' || input.reason === 'load';
 }
 
@@ -52,8 +57,10 @@ export function decideZoomOnFit(input: {
   fitScale: number;
   savedZoom?: number;
 }): { zoom: number | null; saveZoom: boolean } {
-  if (!shouldApplyFit(input)) return { zoom: null, saveZoom: false };
+  if (!isUsableViewport(input.width, input.height)) return { zoom: null, saveZoom: false };
   if (input.mode === 'auto') return { zoom: input.fitScale, saveZoom: false };
+  // Manual: o resize só age quando a imagem ainda não tem zoom salvo (ex.: carregou com a janela escondida).
+  if (input.reason === 'resize' && isValidZoom(input.savedZoom)) return { zoom: null, saveZoom: false };
   return {
     zoom: resolveManualZoomOnLoad(input.savedZoom, input.fitScale),
     saveZoom: !isValidZoom(input.savedZoom),

@@ -6,6 +6,7 @@ import {
   resolveManualZoomOnLoad,
   decideZoomOnFit,
   describeZoomIndicator,
+  isUsableViewport,
 } from '../src/utils/zoomMode';
 
 describe('zoomMode: transições de modo', () => {
@@ -75,8 +76,19 @@ describe('zoomMode: decideZoomOnFit', () => {
     expect(decideZoomOnFit({ ...base, mode: 'auto', reason: 'load' })).toEqual({ zoom: 0.5, saveZoom: false });
   });
 
-  it('manual em resize não altera o zoom', () => {
-    expect(decideZoomOnFit({ ...base, mode: 'manual', reason: 'resize' })).toEqual({ zoom: null, saveZoom: false });
+  it('manual em resize com zoom salvo não altera o zoom', () => {
+    expect(decideZoomOnFit({ ...base, mode: 'manual', reason: 'resize', savedZoom: 1.5 })).toEqual({
+      zoom: null,
+      saveZoom: false,
+    });
+  });
+
+  it('manual em resize sem zoom salvo ajusta e salva (imagem que carregou com a janela escondida)', () => {
+    expect(decideZoomOnFit({ ...base, mode: 'manual', reason: 'resize' })).toEqual({ zoom: 0.5, saveZoom: true });
+    expect(decideZoomOnFit({ ...base, mode: 'manual', reason: 'resize', savedZoom: 0 })).toEqual({
+      zoom: 0.5,
+      saveZoom: true,
+    });
   });
 
   it('manual em load restaura o zoom salvo sem regravar', () => {
@@ -132,5 +144,15 @@ describe('zoomMode: describeZoomIndicator', () => {
       const d = describeZoomIndicator(mode, 1);
       expect(d.clickable && d.showFitIcon).toBe(false);
     }
+  });
+});
+
+describe('zoomMode: isUsableViewport', () => {
+  it('só aceita largura e altura positivas', () => {
+    expect(isUsableViewport(1200, 800)).toBe(true);
+    expect(isUsableViewport(0, 800)).toBe(false);
+    expect(isUsableViewport(1200, 0)).toBe(false);
+    expect(isUsableViewport(-1, 800)).toBe(false);
+    expect(isUsableViewport(NaN, 800)).toBe(false);
   });
 });

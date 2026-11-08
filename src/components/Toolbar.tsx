@@ -444,6 +444,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
 
   const [hoveredAction, setHoveredAction] = useState<HoveredToolbarAction>(null);
   const [isCopied, setIsCopied] = useState(false);
+  const [zoomHover, setZoomHover] = useState(false);
   const [openMenu, setOpenMenu] = useState<OpenToolbarMenu>(initialOpenMenu);
   const openMenuRef = useRef<OpenToolbarMenu>(openMenu);
   openMenuRef.current = openMenu;
@@ -1608,14 +1609,10 @@ export const Toolbar: React.FC<ToolbarProps> = ({
               type="button"
               title={indicator.tooltip}
               aria-label={indicator.ariaLabel}
-              aria-pressed={zoomMode === 'auto'}
+              aria-disabled={!indicator.clickable}
               onClick={indicator.clickable ? onResetZoom : undefined}
-              onMouseEnter={(e) => {
-                if (indicator.clickable) e.currentTarget.style.backgroundColor = palette.hover;
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = palette.chrome;
-              }}
+              onMouseEnter={() => setZoomHover(true)}
+              onMouseLeave={() => setZoomHover(false)}
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
@@ -1625,7 +1622,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 boxSizing: 'border-box',
                 border: `1px solid ${indicator.showFitIcon ? palette.primaryBorder : palette.borderStrong}`,
                 borderRadius: '6px',
-                backgroundColor: palette.chrome,
+                backgroundColor: indicator.clickable && zoomHover ? palette.hover : palette.chrome,
                 cursor: indicator.clickable ? 'pointer' : 'default',
                 padding: '0 6px',
                 fontSize: '11px',

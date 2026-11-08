@@ -58,7 +58,7 @@ Segue o padrão do `themeStore`: fábrica `createZoomStore(env?)` com `StorageLi
 2. Lê o modo do `zoomStore`. Se `shouldApplyFit` for `false`, para.
 3. **Automático:** `setZoomLevel(scale)` (em `load` e em `resize`).
 4. **Manual, `load`:** `setZoomLevel(resolveManualZoomOnLoad(getManualZoom(activeId), scale))`; se não havia zoom salvo, salva o `scale` para aquela captura. Se a imagem mudou dentro da mesma captura (recorte), mantém o zoom atual.
-5. **Manual, `resize`:** não altera o zoom.
+5. **Manual, `resize`:** não altera o zoom, exceto se a captura ainda não tem zoom salvo (ex.: a imagem carregou com a janela escondida); nesse caso ajusta e salva, como um `load`.
 
 Demais pontos:
 - `handleZoomIn`, `handleZoomOut` (inclui `Cmd`/`Ctrl` + roda e pinça, que já chamam esses handlers) executam `nextZoomMode('user-zoom')`, gravam `manual` e salvam o novo zoom da captura ativa. Na primeira transição `auto → manual` da sessão, disparam o aviso.
@@ -71,7 +71,7 @@ Demais pontos:
 - Novas props: `zoomMode`, e o texto e o estado vêm de `describeZoomIndicator`.
 - **Automático:** ícone `Scan` (lucide-react) na cor de destaque do tema antes do percentual; sem ação ao clicar.
 - **Manual:** sem ícone, texto neutro, cursor de mão e fundo no hover; clique chama `onResetZoom`.
-- `title` e `aria-label` por modo; `aria-pressed` reflete o modo Automático. Todas as cores saem de `palette` (temas claro e escuro).
+- `title` e `aria-label` por modo; `aria-disabled` indica que o clique não faz nada em Automático (ruling da revisão: `aria-pressed` num botão inerte confundia leitores de tela). Todas as cores saem de `palette` (temas claro e escuro).
 
 ## 9. Casos de Borda
 - **Janela escondida (bandeja):** container com tamanho zero → `shouldApplyFit` falso; o zoom não pula para 100% ao reaparecer.

@@ -62,6 +62,7 @@ import {
   getAnnotationSelectionOutline,
 } from '../utils/magnifierAndHover';
 import { createFrameCoalescer } from '../utils/frameCoalescer';
+import { loadImage } from '../utils/imageLoader';
 import type { FitReason } from '../utils/zoomMode';
 import {
   calculateFitToScreenScale,
@@ -477,9 +478,8 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
 
   useEffect(() => {
     if (!imageBase64) return;
-    const img = new window.Image();
-    img.src = imageBase64;
-    img.onload = () => {
+    // O cancelamento descarta o onload de uma imagem já substituída (troca rápida na galeria).
+    return loadImage(imageBase64, (img) => {
       setBgImage(img);
       if (containerRef.current) {
         const vw = containerRef.current.clientWidth;
@@ -487,7 +487,7 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
         const scale = calculateFitToScreenScale(img.width, img.height, vw, vh, 24);
         onFitScaleCalculated?.(scale, 'load', { width: vw, height: vh });
       }
-    };
+    });
   }, [imageBase64, onFitScaleCalculated]);
 
   // Reajusta quando a área do editor muda de tamanho (redimensionar a janela, trocar de monitor).

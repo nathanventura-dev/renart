@@ -27,7 +27,7 @@ import {
   getNextZoomStep,
   isZoomShortcut,
 } from './utils/zoomAndCrop';
-import { decideZoomOnFit, nextZoomMode, type FitReason } from './utils/zoomMode';
+import { decideZoomOnFit, isUsableViewport, nextZoomMode, type FitReason } from './utils/zoomMode';
 import { zoomStore } from './state/zoomStore';
 import { isEditingTextElement } from './utils/textStyle';
 
@@ -132,7 +132,8 @@ export const App: React.FC = () => {
   // Aplica o resultado de decideZoomOnFit. Lê os stores ao vivo (sem fechamento obsoleto).
   const handleFitScaleCalculated = useCallback(
     (scale: number, reason: FitReason, viewport: { width: number; height: number }) => {
-      setFitScale(scale);
+      // Com a área zerada (janela escondida) o ajuste calculado é inválido: não o guarda para o Ctrl+0.
+      if (isUsableViewport(viewport.width, viewport.height)) setFitScale(scale);
       const activeId = galleryStore.getActiveCapture()?.id;
       const decision = decideZoomOnFit({
         mode: zoomStore.getMode(),
@@ -788,7 +789,7 @@ export const App: React.FC = () => {
           style={{
             position: 'fixed',
             left: '50%',
-            bottom: '24px',
+            bottom: captureNotice ? '88px' : '24px',
             transform: 'translateX(-50%)',
             maxWidth: '560px',
             padding: '10px 16px',
