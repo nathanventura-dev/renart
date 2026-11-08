@@ -26,8 +26,9 @@ import {
   calculateCropBounds,
   getNextZoomStep,
   isZoomShortcut,
-  resolveZoomOnImageLoad,
 } from './utils/zoomAndCrop';
+import { decideZoomOnFit, nextZoomMode, type FitReason } from './utils/zoomMode';
+import { zoomStore } from './state/zoomStore';
 import { isEditingTextElement } from './utils/textStyle';
 
 // Instâncias globais dos stores para a sessão da janela
@@ -42,12 +43,16 @@ export const App: React.FC = () => {
   const [preCapturedScreen, setPreCapturedScreen] = useState<string | null>(null);
   const [zoomLevel, setZoomLevel] = useState<number>(1.0);
   const [fitScale, setFitScale] = useState<number>(1.0);
+  const [zoomNotice, setZoomNotice] = useState<string | null>(null);
   const [cropRect, setCropRect] = useState<CropBox | null>(null);
   const stageRef = useRef<Konva.Stage | null>(null);
+  const zoomLevelRef = useRef<number>(1.0);
+  zoomLevelRef.current = zoomLevel;
 
   // Sincronização dos estados com React
   const editorState = useSyncExternalStore(editorStore.subscribe, editorStore.getState);
   const galleryState = useSyncExternalStore(galleryStore.subscribe, galleryStore.getState);
+  const zoomMode = useSyncExternalStore(zoomStore.subscribe, zoomStore.getMode);
 
   // Imagem ativa atual
   const activeCapture = galleryStore.getActiveCapture();
@@ -109,6 +114,13 @@ export const App: React.FC = () => {
     }
   }, []);
 
+  // O aviso de zoom manual some sozinho.
+  useEffect(() => {
+    if (!zoomNotice) return;
+    const timer = setTimeout(() => setZoomNotice(null), 4000);
+    return () => clearTimeout(timer);
+  }, [zoomNotice]);
+
   const handleExport = useCallback(async (format: ExportFormat) => {
     if (stageRef.current) {
       // Trava movimentação após salvar
@@ -117,24 +129,48 @@ export const App: React.FC = () => {
     }
   }, [activeCapture?.title, zoomLevel]);
 
-  const handleFitScaleCalculated = useCallback((scale: number) => {
-    setFitScale(scale);
-    // Só o carregamento de uma imagem (captura, colagem ou troca na galeria) reajusta o zoom:
-    // 100% quando cabe, redução proporcional quando não cabe. Redimensionar a janela não reajusta;
-    // depois disso o usuário pode dar zoom livremente (ou Ctrl+0 para alternar entre ajustado e 100%).
-    setZoomLevel((prev) => resolveZoomOnImageLoad(prev, scale, false));
+  // Aplica o resultado de decideZoomOnFit. Lê os stores ao vivo (sem fechamento obsoleto).
+  const handleFitScaleCalculated = useCallback(
+    (scale: number, reason: FitReason, viewport: { width: number; height: number }) => {
+      setFitScale(scale);
+      const activeId = galleryStore.getActiveCapture()?.id;
+      const decision = decideZoomOnFit({
+        mode: zoomStore.getMode(),
+        reason,
+        width: viewport.width,
+        height: viewport.height,
+        fitScale: scale,
+        savedZoom: activeId ? zoomStore.getManualZoom(activeId) : undefined,
+      });
+      if (decision.zoom === null) return;
+      setZoomLevel(decision.zoom);
+      if (decision.saveZoom && activeId) zoomStore.saveManualZoom(activeId, decision.zoom);
+    },
+    []
+  );
+
+  // Zoom feito pelo usuário (botões, atalhos, Cmd/Ctrl + roda, pinça) fixa o modo manual.
+  const applyUserZoom = useCallback((direction: 'in' | 'out') => {
+    const wasAuto = zoomStore.getMode() === 'auto';
+    const next = getNextZoomStep(zoomLevelRef.current, direction);
+    zoomLevelRef.current = next;
+    setZoomLevel(next);
+    zoomStore.setMode(nextZoomMode(zoomStore.getMode(), 'user-zoom'));
+    const activeId = galleryStore.getActiveCapture()?.id;
+    if (activeId) zoomStore.saveManualZoom(activeId, next);
+    if (wasAuto && !zoomStore.hasShownManualNotice()) {
+      zoomStore.markManualNoticeShown();
+      setZoomNotice('Zoom manual ativado. Ctrl+0 volta ao automático.');
+    }
   }, []);
 
-  const handleZoomIn = useCallback(() => {
-    setZoomLevel((prev) => getNextZoomStep(prev, 'in'));
-  }, []);
+  const handleZoomIn = useCallback(() => applyUserZoom('in'), [applyUserZoom]);
+  const handleZoomOut = useCallback(() => applyUserZoom('out'), [applyUserZoom]);
 
-  const handleZoomOut = useCallback(() => {
-    setZoomLevel((prev) => getNextZoomStep(prev, 'out'));
-  }, []);
-
+  // Ctrl/Cmd 0 e clique no indicador: volta ao zoom automático (ajustado à área útil).
   const handleResetZoom = useCallback(() => {
-    setZoomLevel((prev) => (Math.abs(prev - 1.0) < 0.01 ? fitScale : 1.0));
+    zoomStore.setMode(nextZoomMode(zoomStore.getMode(), 'reset-to-auto'));
+    setZoomLevel(fitScale);
   }, [fitScale]);
 
   const handleToggleCrop = useCallback(() => {
@@ -644,6 +680,7 @@ export const App: React.FC = () => {
         autoWrap={editorState.autoWrap}
         onToggleAutoWrap={() => editorStore.toggleAutoWrap()}
         zoomLevel={zoomLevel}
+        zoomMode={zoomMode}
         onZoomIn={handleZoomIn}
         onZoomOut={handleZoomOut}
         onResetZoom={handleResetZoom}
@@ -675,6 +712,7 @@ export const App: React.FC = () => {
           }}
           onClose={(id: string) => {
             galleryStore.removeCapture(id);
+            zoomStore.removeManualZoom(id);
             editorStore.removeCaptureSession(id);
             const nextActive = galleryStore.getState().activeId;
             if (nextActive) {
@@ -743,6 +781,29 @@ export const App: React.FC = () => {
           </div>
         )}
       </div>
+
+      {zoomNotice && (
+        <div
+          role="status"
+          style={{
+            position: 'fixed',
+            left: '50%',
+            bottom: '24px',
+            transform: 'translateX(-50%)',
+            maxWidth: '560px',
+            padding: '10px 16px',
+            borderRadius: '10px',
+            backgroundColor: palette.popup,
+            color: palette.textPrimary,
+            border: `1px solid ${palette.borderStrong}`,
+            boxShadow: `0 8px 32px ${palette.shadow}`,
+            fontSize: '13px',
+            zIndex: 20000,
+          }}
+        >
+          {zoomNotice}
+        </div>
+      )}
 
       {captureNotice && (
         <div

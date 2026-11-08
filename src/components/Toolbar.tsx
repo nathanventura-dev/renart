@@ -17,7 +17,7 @@ import {
   RedactionLevel,
 } from '../state/editorStore';
 import { resolveRedactionLevel } from '../utils/redaction';
-import { formatZoomPercentage } from '../utils/zoomAndCrop';
+import { describeZoomIndicator, type ZoomMode } from '../utils/zoomMode';
 import {
   MousePointer,
   Square,
@@ -43,6 +43,7 @@ import {
   X,
   ZoomIn,
   ZoomOut,
+  Scan,
   Sun,
   Moon,
   Undo2,
@@ -248,6 +249,7 @@ interface ToolbarProps {
   autoWrap?: boolean;
   onToggleAutoWrap?: () => void;
   zoomLevel?: number;
+  zoomMode?: ZoomMode;
   onZoomIn?: () => void;
   onZoomOut?: () => void;
   onResetZoom?: () => void;
@@ -408,6 +410,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   autoWrap = false,
   onToggleAutoWrap,
   zoomLevel = 1.0,
+  zoomMode = 'auto',
   onZoomIn,
   onZoomOut,
   onResetZoom,
@@ -1598,28 +1601,43 @@ export const Toolbar: React.FC<ToolbarProps> = ({
           <ZoomOut size={16} />
         </button>
 
-        <button
-          type="button"
-          title="Ajustar à tela (Ctrl/Cmd 0)"
-          onClick={onResetZoom}
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            height: INNER_CONTROL_HEIGHT,
-            boxSizing: 'border-box',
-            border: `1px solid ${palette.borderStrong}`,
-            borderRadius: '6px',
-            backgroundColor: palette.chrome,
-            cursor: 'pointer',
-            padding: '0 6px',
-            fontSize: '11px',
-            fontWeight: 600,
-            color: palette.icon,
-          }}
-        >
-          {formatZoomPercentage(zoomLevel)}
-        </button>
+        {(() => {
+          const indicator = describeZoomIndicator(zoomMode, zoomLevel);
+          return (
+            <button
+              type="button"
+              title={indicator.tooltip}
+              aria-label={indicator.ariaLabel}
+              aria-pressed={zoomMode === 'auto'}
+              onClick={indicator.clickable ? onResetZoom : undefined}
+              onMouseEnter={(e) => {
+                if (indicator.clickable) e.currentTarget.style.backgroundColor = palette.hover;
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = palette.chrome;
+              }}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '4px',
+                height: INNER_CONTROL_HEIGHT,
+                boxSizing: 'border-box',
+                border: `1px solid ${indicator.showFitIcon ? palette.primaryBorder : palette.borderStrong}`,
+                borderRadius: '6px',
+                backgroundColor: palette.chrome,
+                cursor: indicator.clickable ? 'pointer' : 'default',
+                padding: '0 6px',
+                fontSize: '11px',
+                fontWeight: 600,
+                color: indicator.showFitIcon ? palette.primary : palette.icon,
+              }}
+            >
+              {indicator.showFitIcon && <Scan size={12} aria-hidden="true" />}
+              {indicator.label}
+            </button>
+          );
+        })()}
 
         <button
           type="button"
