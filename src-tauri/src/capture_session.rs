@@ -513,7 +513,8 @@ fn spawn_cursor_tracker(
     });
 }
 
-fn restore_main(app: &AppHandle) {
+/// Mostra, tira da minimização e foca a janela principal.
+pub fn restore_main(app: &AppHandle) {
     if let Some(window) = app.get_webview_window(MAIN_WINDOW) {
         let _ = window.show();
         let _ = window.unminimize();
