@@ -141,20 +141,23 @@ Se você desejar apontar, destacar ou enriquecer o print antes de salvar:
 - **Desselecionar (`ESC`) e Salvar (`Ctrl+S`):** Pressionar `ESC` desmarca qualquer bloco selecionado mantendo os blocos móveis até que o usuário salve a imagem com `Ctrl+S` ou pelo menu Salvar/Exportar.
 
 ### 4.4. Ajuste Automático à Tela (Fit to Screen) e Zoom Multiplataforma
-- **Ajuste Automático sem Barras de Rolagem Iniciais:**
-  - Ao colar imagens externas (`Ctrl+V`) ou abrir capturas com dimensões superiores à janela do usuário (ex: imagens Full HD ou 4K em notebooks de 13 ou 14 polegadas), a imagem calcula automaticamente uma escala proporcional (`fitScale`) para ficar **100% visível sem gerar barras de rolagem horizontais ou verticais**, preservando a nitidez total.
-  - Imagens menores que a tela abrem centralizadas em tamanho nativo (`100%`).
+- **Dois Modos de Zoom: Automático (padrão) e Manual:**
+  - **Automático:** a imagem sempre acompanha a área útil da janela, **sem barras de rolagem**. O ajuste é refeito ao abrir, colar ou capturar uma imagem, ao trocar de imagem na galeria, ao redimensionar a janela e ao mover o app para outro monitor. Ele nunca passa de `100%`: imagens menores que a área ficam centralizadas em tamanho natural, sem ampliar nem borrar. A resolução da imagem não muda, só a exibição.
+  - **Manual:** o zoom escolhido se mantém ao redimensionar a janela ou trocar de monitor. Cada imagem da galeria guarda o próprio zoom manual durante a sessão; uma imagem nova abre ajustada à tela uma vez e então fica fixa.
+  - **Como trocar de modo:** dar zoom (botões `[-]`/`[+]`, `Ctrl/Cmd` + `+`/`-`, `Ctrl/Cmd` + roda ou pinça) passa para o **Manual**. `Ctrl/Cmd 0` ou o clique no indicador de percentual voltam para o **Automático**. O modo escolhido fica salvo entre aberturas do app.
+  - **Aviso de primeira vez:** ao passar para o Manual pela primeira vez na sessão, aparece por alguns segundos: "Zoom manual ativado. Ctrl+0 volta ao automático."
+  - **Exportar e copiar** sempre geram a imagem na resolução original, independente do zoom.
 - **Controles de Zoom na Barra Superior:**
   - Posicionados logo após os botões de Desfazer e Refazer, separados por um divisor visual (`|`):
-    - `[-]`: Reduz o zoom em degraus lógicos (até o mínimo de `25%`).
-    - `[ 100% ]`: Botão indicador de percentual que, ao ser clicado, alterna instantaneamente entre o ajuste à tela e `100%` (ou atalho `Ctrl/Cmd 0`).
+    - `[-]`: Reduz o zoom em degraus lógicos (até o mínimo de `25%` no zoom manual).
+    - `[ ⛶ 52% ]` (Automático) / `[ 150% ]` (Manual): indicador de percentual real. No Automático mostra o ícone de ajustar na cor de destaque e não faz nada ao clicar; no Manual não tem ícone e, ao ser clicado, volta ao Automático (ou atalho `Ctrl/Cmd 0`). O tooltip explica o modo atual.
     - `[+]`: Aumenta o zoom em degraus lógicos (até o máximo de `400%`).
 - **Atalhos de Teclado, Mouse e Trackpad:**
-  - **Teclado:** `Ctrl +` e `Ctrl -` (Windows/Linux) ou `Cmd +` e `Cmd -` (macOS) para ampliar e diminuir o zoom; `Ctrl 0` ou `Cmd 0` para redefinir.
+  - **Teclado:** `Ctrl +` e `Ctrl -` (Windows/Linux) ou `Cmd +` e `Cmd -` (macOS) para ampliar e diminuir o zoom; `Ctrl 0` ou `Cmd 0` para voltar ao zoom automático.
   - **Mouse:** `Ctrl + Roda do Mouse` (scroll wheel) amplia ou reduz suavemente.
   - **Trackpad:** Gesto de pinça (pinch-to-zoom) amplia e reduz a imagem diretamente.
   - **Interceptação Inteligente:** A aplicação intercepta os eventos com `{ passive: false }` e cancela o zoom padrão de página do navegador/WebView2, mantendo toda a interface e os botões fixos no tamanho correto enquanto apenas a imagem e suas anotações sofrem zoom.
-  - **Barras de Rolagem Sob Demanda:** As barras de rolagem aparecem de forma fluida apenas quando o usuário aplica zoom além dos limites visíveis da janela.
+  - **Barras de Rolagem Sob Demanda:** No modo Automático nunca há rolagem; no Manual elas aparecem apenas quando o zoom escolhido ultrapassa os limites visíveis da janela.
 
 ### 4.5. Ferramenta de Recorte (Crop Mode) Estilo Windows
 - **Ativação:** Clique no botão de Recorte (**Crop**) na barra de ferramentas.

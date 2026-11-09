@@ -22,6 +22,9 @@ import {
 import { calculateNativeExportPixelRatio } from '../src/services/exportService';
 import { getAnnotationSelectionOutline } from '../src/utils/magnifierAndHover';
 import { CaptureMode } from '../src/types/capture';
+import { calculateFitToScreenScale } from '../src/utils/zoomAndCrop';
+import { decideZoomOnFit, nextZoomMode, type FitReason } from '../src/utils/zoomMode';
+import { createZoomStore } from '../src/state/zoomStore';
 
 describe('Integration Flow', () => {
   it('coordinates gallery selection with canvas editor state', () => {
@@ -882,5 +885,135 @@ describe('Integration Flow', () => {
       expect(redoneAnn.radiusX).toBe(120);
       expect(redoneAnn.radiusY).toBe(120);
     }
+  });
+});
+
+describe('zoom automático e manual (integração)', () => {
+  const memoryStorage = () => {
+    const data = new Map<string, string>();
+    return { getItem: (k: string) => data.get(k) ?? null, setItem: (k: string, v: string) => void data.set(k, v) };
+  };
+
+  // Reproduz o que o App faz em handleFitScaleCalculated, lendo os stores ao vivo.
+  function setup() {
+    const gallery = createGalleryStore();
+    const zoomStore = createZoomStore({ storage: memoryStorage() });
+    let zoom = 1.0;
+    let fitScale = 1.0;
+    const image = { w: 3000, h: 2000 };
+
+    const fit = (reason: FitReason, vw: number, vh: number) => {
+      fitScale = calculateFitToScreenScale(image.w, image.h, vw, vh, 24);
+      const activeId = gallery.getActiveCapture()?.id;
+      const decision = decideZoomOnFit({
+        mode: zoomStore.getMode(),
+        reason,
+        width: vw,
+        height: vh,
+        fitScale,
+        savedZoom: activeId ? zoomStore.getManualZoom(activeId) : undefined,
+      });
+      if (decision.zoom !== null) zoom = decision.zoom;
+      if (decision.saveZoom && activeId && decision.zoom !== null) zoomStore.saveManualZoom(activeId, decision.zoom);
+    };
+    const userZoom = (next: number) => {
+      zoom = next;
+      zoomStore.setMode(nextZoomMode(zoomStore.getMode(), 'user-zoom'));
+      const id = gallery.getActiveCapture()?.id;
+      if (id) zoomStore.saveManualZoom(id, next);
+    };
+    const resetToAuto = () => {
+      zoomStore.setMode(nextZoomMode(zoomStore.getMode(), 'reset-to-auto'));
+      zoom = fitScale;
+    };
+    const add = (id: string) => gallery.addCapture({ id, title: id, dataUrl: `data:image/png;base64,${id}`, createdAt: 1 });
+    return { gallery, zoomStore, image, fit, userZoom, resetToAuto, add, get: () => ({ zoom, fitScale }) };
+  }
+
+  it('automático acompanha a área útil ao trocar de monitor, sem passar de 100%', () => {
+    const t = setup();
+    t.add('a');
+    t.fit('load', 1200, 800);
+    const small = t.get().zoom;
+    expect(small).toBeLessThan(1);
+    t.fit('resize', 2400, 1600);
+    const big = t.get().zoom;
+    expect(big).toBeGreaterThan(small);
+    expect(big).toBeLessThanOrEqual(1);
+    t.fit('resize', 1200, 800);
+    expect(t.get().zoom).toBe(small);
+  });
+
+  it('imagem pequena nunca é ampliada, mesmo em monitor grande', () => {
+    const t = setup();
+    t.image.w = 600;
+    t.image.h = 400;
+    t.add('a');
+    t.fit('load', 2400, 1600);
+    expect(t.get().zoom).toBe(1.0);
+  });
+
+  it('manual mantém o zoom ao redimensionar', () => {
+    const t = setup();
+    t.add('a');
+    t.fit('load', 1200, 800);
+    t.userZoom(1.5);
+    t.fit('resize', 2400, 1600);
+    expect(t.get().zoom).toBe(1.5);
+  });
+
+  it('manual guarda o zoom de cada imagem e ajusta a imagem nova uma vez', () => {
+    const t = setup();
+    t.add('a');
+    t.fit('load', 1200, 800);
+    t.userZoom(1.5);
+    t.add('b');
+    t.fit('load', 1200, 800);
+    const fitted = t.get().zoom;
+    expect(fitted).toBeLessThan(1);
+    expect(t.zoomStore.getManualZoom('b')).toBe(fitted);
+    t.gallery.setActive('a');
+    t.fit('load', 1200, 800);
+    expect(t.get().zoom).toBe(1.5);
+  });
+
+  it('voltar ao automático reaplica o ajuste atual', () => {
+    const t = setup();
+    t.add('a');
+    t.fit('load', 1200, 800);
+    t.userZoom(2.0);
+    t.resetToAuto();
+    expect(t.zoomStore.getMode()).toBe('auto');
+    t.fit('resize', 1600, 1000);
+    expect(t.get().zoom).toBe(t.get().fitScale);
+  });
+
+  it('janela escondida (viewport zerado) não altera o zoom em nenhum modo', () => {
+    const t = setup();
+    t.add('a');
+    t.fit('load', 1200, 800);
+    const before = t.get().zoom;
+    t.fit('resize', 0, 0);
+    expect(t.get().zoom).toBe(before);
+    t.userZoom(1.5);
+    t.fit('resize', 0, 0);
+    expect(t.get().zoom).toBe(1.5);
+  });
+
+  it('sem captura ativa não lança nem grava zoom em chave indefinida', () => {
+    const t = setup();
+    t.zoomStore.setMode('manual');
+    expect(() => t.fit('load', 1200, 800)).not.toThrow();
+    expect(t.zoomStore.getManualZoom('undefined')).toBeUndefined();
+  });
+
+  it('fechar a captura descarta o zoom manual salvo dela', () => {
+    const t = setup();
+    t.add('a');
+    t.fit('load', 1200, 800);
+    t.userZoom(1.5);
+    t.gallery.removeCapture('a');
+    t.zoomStore.removeManualZoom('a');
+    expect(t.zoomStore.getManualZoom('a')).toBeUndefined();
   });
 });

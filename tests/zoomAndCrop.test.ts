@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   calculateFitToScreenScale,
+  MIN_ZOOM_LEVEL,
   resolveZoomOnImageLoad,
   clampZoomLevel,
   getNextZoomStep,
@@ -61,6 +62,28 @@ describe('Zoom and Fit-To-Screen Calculations', () => {
     expect(2160 * scale).toBeLessThanOrEqual(800 - 48);
   });
 
+  it('auto-fit goes below the 25% manual minimum so a very large image still fits without scrollbars', () => {
+    // Imagem 20000x12000 em viewport 1200x800 (útil 1152x752): 752 / 12000 = 0.0626
+    const scale = calculateFitToScreenScale(20000, 12000, 1200, 800, 24);
+    expect(scale).toBeLessThan(MIN_ZOOM_LEVEL);
+    expect(Math.round(20000 * scale)).toBeLessThanOrEqual(1200 - 48);
+    expect(Math.round(12000 * scale)).toBeLessThanOrEqual(800 - 48);
+  });
+
+  it('auto-fit rounds down so the rounded visual size never exceeds the usable area', () => {
+    // 1153 / 1000 e 753 / 1000 não são exatos: arredondar para cima estouraria a área útil em 1px
+    for (const [w, h] of [[1999, 1333], [3001, 2003], [2881, 1801], [1153, 4001]]) {
+      const scale = calculateFitToScreenScale(w, h, 1200, 800, 24);
+      expect(Math.round(w * scale)).toBeLessThanOrEqual(1200 - 48);
+      expect(Math.round(h * scale)).toBeLessThanOrEqual(800 - 48);
+    }
+  });
+
+  it('applies the fit scale as-is when a new image is loaded with auto-fit (maintainNativeZoom = false)', () => {
+    expect(resolveZoomOnImageLoad(2.0, 0.0626, false)).toBe(0.0626);
+    expect(resolveZoomOnImageLoad(1.0, 1.0, false)).toBe(1.0);
+  });
+
   it('clamps zoom levels between 25% (0.25) and 400% (4.0)', () => {
     expect(clampZoomLevel(0.1)).toBe(0.25);
     expect(clampZoomLevel(0.75)).toBe(0.75);
@@ -88,6 +111,11 @@ describe('Zoom and Fit-To-Screen Calculations', () => {
     expect(getNextZoomStep(1.0, 'out')).toBeLessThan(1.0);
     expect(getNextZoomStep(4.0, 'in')).toBe(4.0); // trava no máximo
     expect(getNextZoomStep(0.25, 'out')).toBe(0.25); // trava no mínimo
+  });
+
+  it('zoom out from an auto-fitted level below 25% never jumps up, and zoom in returns to the presets', () => {
+    expect(getNextZoomStep(0.06, 'out')).toBe(0.06);
+    expect(getNextZoomStep(0.06, 'in')).toBe(0.25);
   });
 
   it('formats zoom percentage cleanly for UI display', () => {

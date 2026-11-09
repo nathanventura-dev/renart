@@ -61,6 +61,9 @@ import {
   clampTextResizeBox,
   getAnnotationSelectionOutline,
 } from '../utils/magnifierAndHover';
+import { createFrameCoalescer } from '../utils/frameCoalescer';
+import { loadImage } from '../utils/imageLoader';
+import type { FitReason } from '../utils/zoomMode';
 import {
   calculateFitToScreenScale,
   calculateCropBounds,
@@ -124,7 +127,11 @@ interface CanvasEditorProps {
   zoomLevel?: number;
   onZoomIn?: () => void;
   onZoomOut?: () => void;
-  onFitScaleCalculated?: (scale: number) => void;
+  onFitScaleCalculated?: (
+    scale: number,
+    reason: FitReason,
+    viewport: { width: number; height: number }
+  ) => void;
   isCropping?: boolean;
   onCropRectChange?: (cropBox: CropBox) => void;
   onSelectId: (id: string | null) => void;
@@ -411,6 +418,8 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
   const crownDragRef = useRef<CrownDragState | null>(null);
   const focusDragRef = useRef<FocusDragState | null>(null);
   const onUpdateAnnotationRef = useRef(onUpdateAnnotation);
+  const onFitScaleCalculatedRef = useRef(onFitScaleCalculated);
+  onFitScaleCalculatedRef.current = onFitScaleCalculated;
   const isShiftPressedRef = useRef(false);
   const isAltPressedRef = useRef(false);
   const isDrawingRef = useRef(false);
@@ -469,18 +478,38 @@ export const CanvasEditor: React.FC<CanvasEditorProps> = ({
 
   useEffect(() => {
     if (!imageBase64) return;
-    const img = new window.Image();
-    img.src = imageBase64;
-    img.onload = () => {
+    // O cancelamento descarta o onload de uma imagem já substituída (troca rápida na galeria).
+    return loadImage(imageBase64, (img) => {
       setBgImage(img);
       if (containerRef.current) {
         const vw = containerRef.current.clientWidth;
         const vh = containerRef.current.clientHeight;
         const scale = calculateFitToScreenScale(img.width, img.height, vw, vh, 24);
-        onFitScaleCalculated?.(scale);
+        onFitScaleCalculated?.(scale, 'load', { width: vw, height: vh });
       }
-    };
+    });
   }, [imageBase64, onFitScaleCalculated]);
+
+  // Reajusta quando a área do editor muda de tamanho (redimensionar a janela, trocar de monitor).
+  // O App decide, pelo modo, se aplica; aqui só informamos, no máximo uma vez por quadro.
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container || !bgImage || typeof ResizeObserver === 'undefined') return;
+
+    const coalescer = createFrameCoalescer(() => {
+      const vw = container.clientWidth;
+      const vh = container.clientHeight;
+      const scale = calculateFitToScreenScale(bgImage.width, bgImage.height, vw, vh, 24);
+      onFitScaleCalculatedRef.current?.(scale, 'resize', { width: vw, height: vh });
+    });
+    const observer = new ResizeObserver(() => coalescer.schedule());
+    observer.observe(container);
+
+    return () => {
+      coalescer.cancel();
+      observer.disconnect();
+    };
+  }, [bgImage]);
 
   // Listener para Ctrl + Roda do mouse e gesto de pinça (pinch) do trackpad com passive: false
   useEffect(() => {
